@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Build & Logs
+build/
+bin/
+.gradle/
+*.log
+site/
+
+# Sensitive environment variables
+.env
+.env.local
+
+# Internal planning, starter references, and evaluation guides
+internal/
