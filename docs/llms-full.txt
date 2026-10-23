@@ -1,0 +1,32 @@
+# NETRA — Comprehensive Developer & Agent Reference
+
+## Mission & Architecture
+NETRA is a high-performance LLM gateway and semantic cache designed to provide enterprise reliability, predictable token economics, and intelligent multi-provider routing for Generative AI applications.
+
+## Technical Specifications
+- **Language & Runtime:** Java 25 (LTS) on GraalVM CE / Temurin OpenJDK.
+- **Framework:** Spring Boot 4.1.1 on Virtual Threads (`spring.threads.virtual.enabled: true`).
+- **Database:** PostgreSQL 18 with `pgvector` v0.8.x extension.
+- **Distributed Cache & Admission:** Redis 8.0 with atomic Lua scripts.
+- **Inference Runtime:** In-JVM ONNX runtime executing `all-MiniLM-L6-v2` dense vector embeddings (384 dimensions).
+
+## Data Plane Contract: POST /v1/chat/completions
+- Supports standard OpenAI format: `model`, `messages`, `stream`, `temperature`, `max_tokens`.
+- Enforces multi-tenant Virtual Key authentication via `Authorization: Bearer <key>`.
+- Injects mandatory telemetry headers:
+  - `x-netra-provider`: Upstream provider and model (e.g. `alpha/alpha-small`)
+  - `x-netra-cache`: `hit` or `miss`
+  - `x-netra-fallback`: `true` if fallback chain activated, otherwise `false`
+  - `x-netra-cost-usd`: Exact cost formatted to 6 decimal places (e.g. `0.000014`)
+
+## Error Model
+Standard OpenAI JSON format:
+```json
+{
+  "error": {
+    "message": "Descriptive message",
+    "type": "authentication_error | model_not_allowed | rate_limit_exceeded | budget_exceeded | not_found_error | upstream_error",
+    "code": "error_code"
+  }
+}
+```

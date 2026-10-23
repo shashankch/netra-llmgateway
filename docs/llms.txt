@@ -1,0 +1,24 @@
+# NETRA LLM Gateway
+
+> High-throughput, ultra-low latency intelligent gateway and semantic vector caching infrastructure for production Generative AI applications.
+
+## Technical Baseline
+- Core Runtime: Java 25 LTS, Spring Boot 4.1.1, Gradle 9 Kotlin DSL on Java Virtual Threads.
+- Storage: PostgreSQL 18 with pgvector extension (384-dimension vector index), Redis 8.0 Lua JIT.
+- Semantic Engine: In-JVM ONNX transformer models (all-MiniLM-L6-v2) for sub-4ms embedding generation.
+
+## Key APIs
+- `POST /v1/chat/completions`: OpenAI-compatible endpoint supporting streaming SSE and non-streaming responses.
+- `GET /health`: Health and readiness probe.
+
+## Telemetry Response Headers
+- `x-netra-provider`: Upstream provider identifier (e.g. alpha/alpha-small)
+- `x-netra-cache`: Cache outcome (hit or miss)
+- `x-netra-fallback`: Failover flag (true or false)
+- `x-netra-cost-usd`: Precise cost in micro-USD (0.000000 USD)
+
+## Documentation Links
+- System Overview: docs/index.md
+- Architecture Decision Records: docs/ADR.md
+- Public Roadmap: docs/ROADMAP.md
+- Self-Hosting: docs/SELF-HOSTING.md

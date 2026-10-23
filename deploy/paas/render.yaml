@@ -1,0 +1,30 @@
+# Render Blueprint Specification for NETRA LLM Gateway
+services:
+  - type: web
+    name: netra-gateway
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: netra-postgres
+          property: connectionString
+      - key: SPRING_DATA_REDIS_HOST
+        fromService:
+          type: redis
+          name: netra-redis
+          property: host
+      - key: SPRING_DATA_REDIS_PORT
+        fromService:
+          type: redis
+          name: netra-redis
+          property: port
+
+databases:
+  - name: netra-postgres
+    databaseName: netra
+    user: netra
+    plan: starter
+    postgresMajorVersion: 18

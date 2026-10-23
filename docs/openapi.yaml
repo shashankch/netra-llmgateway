@@ -1,0 +1,309 @@
+openapi: 3.1.0
+info:
+  title: NETRA LLM Gateway API
+  description: |
+    **NETRA** (*Sanskrit: नेत्र — Vision / Aperture / Insight*) is a high-throughput, ultra-low latency
+    intelligent LLM Gateway and tenant-isolated Semantic Vector Cache.
+    
+    ### Core Capabilities
+    - **OpenAI-Compatible Ingress**: Direct drop-in proxy at `/v1/chat/completions`.
+    - **Telemetry Contract**: Every response strictly carries canonical `x-netra-*` headers.
+    - **Micro-USD Precision**: Exact 6-decimal cost calculation and quota accounting.
+    - **High-Throughput Streaming**: Non-blocking SSE pass-through over Java 25 Virtual Threads.
+  version: 0.1.0
+  contact:
+    name: Shashank Chandel
+    email: shashakchandel@gmail.com
+    url: https://github.com/shashankch/netra-llmgateway
+  license:
+    name: Apache-2.0
+    url: https://github.com/shashankch/netra-llmgateway/blob/main/LICENSE
+
+servers:
+  - url: http://localhost:8080
+    description: Local Gateway (Docker & Development)
+  - url: https://shashankch.github.io/netra-llmgateway
+    description: Documentation & Schema Reference (GitHub Pages)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /v1/chat/completions:
+    post:
+      summary: Create Chat Completion
+      description: |
+        Processes chat completion requests with virtual key authentication, model allowlist enforcement,
+        semantic vector cache lookup, dynamic failover, and micro-USD telemetry header injection.
+      operationId: createChatCompletion
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+            example:
+              model: "fast"
+              messages:
+                - role: "user"
+                  content: "What is an event-driven architecture?"
+              temperature: 0.7
+              max_tokens: 150
+              stream: false
+      responses:
+        '200':
+          description: Successful chat completion or streaming SSE event pump.
+          headers:
+            x-netra-provider:
+              description: Upstream provider and concrete model that served the request (e.g. `alpha/alpha-small`).
+              schema:
+                type: string
+                example: "alpha/alpha-small"
+            x-netra-cache:
+              description: Semantic vector cache lookup status (`hit` or `miss`).
+              schema:
+                type: string
+                enum: [hit, miss]
+                example: "miss"
+            x-netra-fallback:
+              description: Indicates whether secondary fallback model was invoked due to primary upstream failure.
+              schema:
+                type: string
+                enum: ["true", "false"]
+                example: "false"
+            x-netra-cost-usd:
+              description: Exact cost in USD calculated with 6 decimal places ($0.000000). Omitted on streaming requests until reconciled.
+              schema:
+                type: string
+                example: "0.000015"
+            x-netra-route-reason:
+              description: Routing policy reasoning (e.g. `alias_direct`, `auto:complexity_simple`, `fallback_retry`).
+              schema:
+                type: string
+                example: "alias_direct"
+            x-netra-retries:
+              description: Number of upstream network retries executed.
+              schema:
+                type: integer
+                example: 0
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+            text/event-stream:
+              schema:
+                type: string
+                description: Real-time Server-Sent Events (SSE) data stream ending with `data: [DONE]`.
+        '400':
+          description: Invalid request payload, malformed JSON, or empty messages array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing, invalid, or deactivated virtual API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Model not permitted for this tenant or monthly budget cap exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Requested model alias or concrete model not found in catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded (RPM or TPM token bucket exhaustion).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Upstream foundation model provider failure or network timeout.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal gateway unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Liveness & Readiness Health Probe
+      description: Returns gateway operating status, service identity, and release version.
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Gateway is healthy and accepting traffic.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - service
+                  - version
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  service:
+                    type: string
+                    example: "netra-gateway"
+                  version:
+                    type: string
+                    example: "0.1.0"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Virtual Key (`netra-sk-*`)
+      description: Provide tenant virtual API key in the `Authorization: Bearer <key>` header.
+
+  schemas:
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, function]
+          example: "user"
+        content:
+          type: string
+          example: "Explain CAP theorem in one sentence."
+
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: Target model alias (`fast`, `smart`, `auto`) or concrete provider model (`alpha-small`, `beta-large`).
+          example: "fast"
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        stream:
+          type: boolean
+          default: false
+          description: If true, emits streaming Server-Sent Events (SSE).
+        temperature:
+          type: number
+          format: float
+          default: 1.0
+          minimum: 0.0
+          maximum: 2.0
+        max_tokens:
+          type: integer
+          minimum: 1
+          description: Maximum number of tokens to generate.
+
+    UsageInfo:
+      type: object
+      required:
+        - prompt_tokens
+        - completion_tokens
+        - total_tokens
+      properties:
+        prompt_tokens:
+          type: integer
+          example: 12
+        completion_tokens:
+          type: integer
+          example: 48
+        total_tokens:
+          type: integer
+          example: 60
+
+    Choice:
+      type: object
+      required:
+        - index
+        - message
+        - finish_reason
+      properties:
+        index:
+          type: integer
+          example: 0
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        finish_reason:
+          type: string
+          enum: [stop, length, content_filter, tool_calls]
+          example: "stop"
+
+    ChatCompletionResponse:
+      type: object
+      required:
+        - id
+        - object
+        - created
+        - model
+        - choices
+        - usage
+      properties:
+        id:
+          type: string
+          example: "chatcmpl-9x1a2b3c4d5e"
+        object:
+          type: string
+          example: "chat.completion"
+        created:
+          type: integer
+          format: int64
+          example: 1729732000
+        model:
+          type: string
+          example: "alpha-small"
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Choice'
+        usage:
+          $ref: '#/components/schemas/UsageInfo'
+
+    ErrorDetail:
+      type: object
+      required:
+        - message
+        - type
+        - code
+      properties:
+        message:
+          type: string
+          example: "Virtual API key is deactivated"
+        type:
+          type: string
+          example: "authentication_error"
+        code:
+          type: string
+          example: "invalid_api_key"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'

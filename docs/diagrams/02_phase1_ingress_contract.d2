@@ -1,0 +1,116 @@
+direction: down
+
+classes: {
+  request_node: {
+    shape: rectangle
+    style: {
+      fill: "#f8fafc"
+      stroke: "#475569"
+      stroke-width: 1
+      border-radius: 8
+    }
+  }
+  gate_node: {
+    shape: rectangle
+    style: {
+      fill: "#f0f9ff"
+      stroke: "#0284c7"
+      stroke-width: 2
+      border-radius: 8
+    }
+  }
+  dispatch_node: {
+    shape: rectangle
+    style: {
+      fill: "#f5f3ff"
+      stroke: "#7c3aed"
+      stroke-width: 2
+      border-radius: 8
+    }
+  }
+  telemetry_node: {
+    shape: rectangle
+    style: {
+      fill: "#ecfdf5"
+      stroke: "#059669"
+      stroke-width: 2
+      border-radius: 8
+    }
+  }
+  error_node: {
+    shape: rectangle
+    style: {
+      fill: "#fef2f2"
+      stroke: "#dc2626"
+      stroke-width: 1
+      border-radius: 8
+    }
+  }
+}
+
+req: "1. Client HTTP Ingress\nPOST /v1/chat/completions\nAuthorization: Bearer netra-sk-*" {
+  class: request_node
+  icon: icons/terminal.svg
+}
+
+auth_gate: "2. Virtual Key Authentication\nExtract Bearer Token & Resolve Prefix" {
+  class: gate_node
+  icon: icons/shield.svg
+}
+err_401: "401 Unauthorized\ntype: authentication_error\ncode: invalid_api_key" {
+  class: error_node
+}
+
+model_gate: "3. Model Resolution & Target Mapping\nResolve 'fast' / 'smart' / Provider Model" {
+  class: gate_node
+  icon: icons/spring.svg
+}
+err_404: "404 Not Found\ntype: not_found_error\ncode: model_not_found" {
+  class: error_node
+}
+
+allowlist_gate: "4. Tenant Allowlist Enforcement\nVerify Model Allowed for Tenant Key" {
+  class: gate_node
+  icon: icons/shield.svg
+}
+err_403: "403 Forbidden\ntype: model_not_allowed\ncode: model_not_allowed" {
+  class: error_node
+}
+
+dispatch_gate: "5. Upstream Dispatch (Java 25 Virtual Threads)\nForward Unbuffered to Mock Alpha / Beta" {
+  class: dispatch_node
+  icon: icons/java.svg
+}
+err_502: "502 Bad Gateway\ntype: upstream_error\ncode: upstream_unavailable" {
+  class: error_node
+}
+
+cost_engine: "6. Micro-Cost Calculation & Accounting\nExact BigDecimal Math (Scaled to 6 Decimals)" {
+  class: telemetry_node
+  icon: icons/postgres.svg
+}
+
+telemetry_gate: "7. Canonical Telemetry Injection\nInject x-netra-* Telemetry Headers" {
+  class: telemetry_node
+  icon: icons/shield.svg
+}
+
+resp_200: "8. Client Delivery (HTTP 200 OK)\nVerbatim Response + Headers + Async DB Audit Log" {
+  class: request_node
+  icon: icons/terminal.svg
+}
+
+# Happy Path (Vertical Core Flow)
+req -> auth_gate: "Incoming Request"
+auth_gate -> model_gate: "Key Exists & Active"
+model_gate -> allowlist_gate: "Model Recognized"
+allowlist_gate -> dispatch_gate: "Model Permitted"
+dispatch_gate -> cost_engine: "Upstream 200 OK"
+cost_engine -> telemetry_gate: "Cost Computed"
+telemetry_gate -> resp_200: "Telemetry Injected"
+
+# Explicit Fast-Fail Error Rejections (Branch to Side)
+auth_gate -> err_401: "Missing / Invalid Key"
+model_gate -> err_404: "Unknown Model Alias"
+allowlist_gate -> err_403: "Model Not in Allowlist"
+dispatch_gate -> err_502: "Upstream Down / Timeout"
