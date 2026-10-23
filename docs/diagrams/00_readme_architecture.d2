@@ -1,0 +1,141 @@
+direction: right
+
+classes: {
+  node_client: {
+    shape: rectangle
+    style: {
+      fill: "#f8fafc"
+      stroke: "#64748b"
+      stroke-width: 1
+      border-radius: 8
+    }
+  }
+  node_pipe: {
+    shape: rectangle
+    style: {
+      fill: "#f0f9ff"
+      stroke: "#0284c7"
+      stroke-width: 2
+      border-radius: 8
+    }
+  }
+  node_store: {
+    shape: cylinder
+    style: {
+      fill: "#f0fdf4"
+      stroke: "#16a34a"
+      stroke-width: 1
+    }
+  }
+  node_upstream: {
+    shape: rectangle
+    style: {
+      fill: "#fffbeb"
+      stroke: "#d97706"
+      stroke-width: 1
+      border-radius: 8
+    }
+  }
+}
+
+clients: "Client Consumers" {
+  style: {
+    fill: "#f8fafc"
+    stroke: "#cbd5e1"
+    stroke-width: 1
+    border-radius: 10
+  }
+  direction: down
+
+  agent: "AI Agents & Apps\nBearer netra-sk-*" {
+    class: node_client
+    icon: icons/terminal.svg
+  }
+  console: "Ops Console\nReact 19 Dashboard" {
+    class: node_client
+    icon: icons/react.svg
+  }
+}
+
+gateway: "NETRA Core Ingress Pipeline (Java 25 Virtual Threads)" {
+  style: {
+    fill: "#ffffff"
+    stroke: "#0284c7"
+    stroke-width: 2
+    border-radius: 12
+  }
+  direction: right
+
+  auth: "1. Virtual Key\nAuth & Allowlist" {
+    class: node_pipe
+    icon: icons/shield.svg
+  }
+  ratelimit: "2. Atomic Lua\nSliding RPM" {
+    class: node_pipe
+    icon: icons/redis.svg
+  }
+  cache: "3. Semantic Cache\nIn-JVM ONNX" {
+    class: node_pipe
+    icon: icons/postgres.svg
+  }
+  router: "4. Complexity\nFast / Smart / Auto" {
+    class: node_pipe
+    icon: icons/spring.svg
+  }
+  stream: "5. Virtual Threads\nUnbuffered SSE Relay" {
+    class: node_pipe
+    icon: icons/java.svg
+  }
+
+  auth -> ratelimit: "Valid"
+  ratelimit -> cache: "Admitted"
+  cache -> router: "MISS"
+  router -> stream: "Forward"
+}
+
+stores: "Storage & Cache Tier" {
+  style: {
+    fill: "#f0fdf4"
+    stroke: "#86efac"
+    stroke-width: 1
+    border-radius: 10
+  }
+  direction: down
+
+  redis: "Redis 8.0 Cluster\nToken Bucket State" {
+    class: node_store
+    icon: icons/redis.svg
+  }
+  postgres: "PostgreSQL 18\npgvector HNSW" {
+    class: node_store
+    icon: icons/postgres.svg
+  }
+}
+
+upstreams: "Foundation Model Upstreams" {
+  style: {
+    fill: "#fffbeb"
+    stroke: "#fde68a"
+    stroke-width: 1
+    border-radius: 10
+  }
+  direction: down
+
+  alpha: "Provider Alpha (:9001)\nHigh-Capability Smart" {
+    class: node_upstream
+    icon: icons/openai.svg
+  }
+  beta: "Provider Beta (:9002)\nHigh-Throughput Fast" {
+    class: node_upstream
+    icon: icons/openai.svg
+  }
+}
+
+clients.agent -> gateway.auth: "POST /v1/chat/completions"
+clients.console -> gateway.auth: "Telemetry Query"
+
+gateway.ratelimit -> stores.redis: "Atomic EVALSHA"
+gateway.cache -> stores.postgres: "HNSW Vector Match"
+
+gateway.stream -> upstreams.alpha: "Primary Stream"
+gateway.stream -> upstreams.beta: "Fast Failover"

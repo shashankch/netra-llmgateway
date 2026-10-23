@@ -1,0 +1,86 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netra-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/netra
+      - SPRING_DATASOURCE_USERNAME=netra
+      - SPRING_DATASOURCE_PASSWORD=netra
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - ALPHA_PROVIDER_URL=http://mock-alpha:9001/v1
+      - BETA_PROVIDER_URL=http://mock-beta:9002/v1
+      - NETRA_DATA_PATH=data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock-alpha:
+        condition: service_started
+      mock-beta:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: netra-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: netra
+      POSTGRES_USER: netra
+      POSTGRES_PASSWORD: netra
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netra -d netra"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:8.0-alpine
+    container_name: netra-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mock-alpha:
+    image: python:3.11-slim
+    container_name: netra-mock-alpha
+    restart: unless-stopped
+    ports:
+      - "9001:9001"
+    volumes:
+      - ./scripts:/scripts:ro
+    command: python3 /scripts/mock_provider.py --port 9001 --name alpha
+
+  mock-beta:
+    image: python:3.11-slim
+    container_name: netra-mock-beta
+    restart: unless-stopped
+    ports:
+      - "9002:9002"
+    volumes:
+      - ./scripts:/scripts:ro
+    command: python3 /scripts/mock_provider.py --port 9002 --name beta
+
+volumes:
+  pgdata:

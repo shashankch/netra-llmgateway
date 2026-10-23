@@ -1,0 +1,163 @@
+direction: down
+
+classes: {
+  box: {
+    shape: rectangle
+    style: {
+      fill: "#ffffff"
+      stroke: "#475569"
+      stroke-width: 1
+      border-radius: 8
+    }
+  }
+  core: {
+    shape: rectangle
+    style: {
+      fill: "#f0f9ff"
+      stroke: "#0284c7"
+      stroke-width: 2
+      border-radius: 8
+    }
+  }
+  store: {
+    shape: cylinder
+    style: {
+      fill: "#f0fdf4"
+      stroke: "#16a34a"
+      stroke-width: 1
+    }
+  }
+  llm: {
+    shape: rectangle
+    style: {
+      fill: "#fffbeb"
+      stroke: "#d97706"
+      stroke-width: 1
+      border-radius: 8
+    }
+  }
+}
+
+clients: "Client Applications & Consumer Microservices" {
+  style: {
+    fill: "#f8fafc"
+    stroke: "#94a3b8"
+    stroke-width: 1
+    border-radius: 10
+  }
+  direction: right
+
+  search_app: "Search Microservice\nnetra-sk-search" {
+    class: box
+    icon: icons/terminal.svg
+  }
+  agent_app: "Deep Research Agent\nnetra-sk-research" {
+    class: box
+    icon: icons/terminal.svg
+  }
+  ops_console: "Ops Console Dashboard\nReact 19 + Vite 6" {
+    class: box
+    icon: icons/react.svg
+  }
+}
+
+gateway: "NETRA High-Performance AI Gateway (Spring Boot 4.1.1 · Java 25 Virtual Threads)" {
+  style: {
+    fill: "#ffffff"
+    stroke: "#0284c7"
+    stroke-width: 2
+    border-radius: 12
+  }
+
+  pipeline: "Sequential Request Pipeline" {
+    style: {
+      fill: "#f8fafc"
+      stroke: "#cbd5e1"
+      stroke-width: 1
+      border-radius: 8
+    }
+    direction: down
+
+    auth: "1. Virtual Key Auth\nBearer Token Check" {
+      class: core
+      icon: icons/shield.svg
+    }
+    ratelimit: "2. Atomic Admission\nSliding RPM & Budget" {
+      class: core
+      icon: icons/redis.svg
+    }
+    cache: "3. Semantic Cache\nIn-JVM ONNX + Vector" {
+      class: core
+      icon: icons/postgres.svg
+    }
+    router: "4. Complexity Router\nAuto Tier Classifier" {
+      class: core
+      icon: icons/spring.svg
+    }
+    relay: "5. SSE Stream Relay\nVirtual Threads" {
+      class: core
+      icon: icons/java.svg
+    }
+    telemetry: "6. Telemetry\nx-netra-* Injection" {
+      class: core
+      icon: icons/shield.svg
+    }
+
+    auth -> ratelimit: "Valid Key"
+    ratelimit -> cache: "Admitted"
+    cache -> router: "Cache MISS"
+    router -> relay: "Route Set"
+    relay -> telemetry: "Stream Finalized"
+  }
+}
+
+datastores: "High-Throughput Storage & Cache Tier" {
+  style: {
+    fill: "#f0fdf4"
+    stroke: "#16a34a"
+    stroke-width: 1
+    border-radius: 10
+  }
+  direction: right
+
+  redis: "Redis 8.0 Cluster\nAtomic Lua Token Bucket" {
+    class: store
+    icon: icons/redis.svg
+  }
+
+  postgres: "PostgreSQL 18 + pgvector\nHNSW Vector Index & Audit Logs" {
+    class: store
+    icon: icons/postgres.svg
+  }
+}
+
+providers: "Foundation Model Upstream Providers" {
+  style: {
+    fill: "#fffbeb"
+    stroke: "#d97706"
+    stroke-width: 1
+    border-radius: 10
+  }
+  direction: right
+
+  alpha: "Mock Alpha (:9001)\nHigh-Capability Smart Tier" {
+    class: llm
+    icon: icons/openai.svg
+  }
+
+  beta: "Mock Beta (:9002)\nHigh-Throughput Fast Tier" {
+    class: llm
+    icon: icons/openai.svg
+  }
+}
+
+clients.search_app -> gateway.pipeline.auth: "Search Ingress"
+clients.agent_app -> gateway.pipeline.auth: "Agent Ingress"
+clients.ops_console -> gateway.pipeline.auth: "Admin Ops"
+
+gateway.pipeline.ratelimit -> datastores.redis: "EVALSHA admission.lua"
+gateway.pipeline.cache -> datastores.postgres: "Cosine Distance Query"
+gateway.pipeline.telemetry -> datastores.postgres: "Async Audit Logging"
+
+gateway.pipeline.relay -> providers.alpha: "Forward Primary"
+gateway.pipeline.relay -> providers.beta: "Fast Failover"
