@@ -1,5 +1,7 @@
 package com.netra.gateway.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.netra.gateway.model.entity.ModelPricing;
 import com.netra.gateway.repository.ModelPricingRepository;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.util.Optional;
 
 @Slf4j
@@ -18,19 +21,29 @@ public class CostCalculationService {
     private static final BigDecimal ONE_MILLION = new BigDecimal("1000000");
     private final ModelPricingRepository pricingRepository;
 
+    // L1 in-memory near-cache for model pricing schedules (AUD-02 & P2)
+    private final Cache<String, Optional<ModelPricing>> pricingCache = Caffeine.newBuilder()
+            .maximumSize(100)
+            .expireAfterWrite(Duration.ofMinutes(10))
+            .build();
+
     /**
      * Calculates cost in USD using exact BigDecimal arithmetic:
      * cost = (promptTokens * inputPer1m / 1,000,000) + (completionTokens * outputPer1m / 1,000,000)
      */
     public BigDecimal calculateCost(String model, int promptTokens, int completionTokens) {
-        Optional<ModelPricing> pricingOpt = pricingRepository.findByModel(model);
-        if (pricingOpt.isEmpty()) {
+        Optional<ModelPricing> pricingOpt = pricingCache.get(model, pricingRepository::findByModel);
+        if (pricingOpt == null || pricingOpt.isEmpty()) {
             log.warn("No pricing found for model [{}], defaulting cost to 0.000000 USD", model);
             return BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP);
         }
 
         ModelPricing pricing = pricingOpt.get();
         return calculateCost(pricing.getInputPer1m(), pricing.getOutputPer1m(), promptTokens, completionTokens);
+    }
+
+    public void invalidatePricingCache() {
+        pricingCache.invalidateAll();
     }
 
     public BigDecimal calculateCost(BigDecimal inputPer1m, BigDecimal outputPer1m, int promptTokens, int completionTokens) {

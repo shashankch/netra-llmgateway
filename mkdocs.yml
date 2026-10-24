@@ -7,7 +7,7 @@ repo_name: shashankch/netra-llmgateway
 repo_url: https://github.com/shashankch/netra-llmgateway
 
 extra:
-  version: "0.1.0"
+  version: "0.2.0"
 
 theme:
   name: material

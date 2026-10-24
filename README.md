@@ -14,8 +14,13 @@
     <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring_Boot-4.1.1-0B0F19?style=flat&logo=springboot&logoColor=6DB33F&labelColor=0B0F19" alt="Spring Boot 4.1.1"/></a>
     <a href="https://github.com/pgvector/pgvector"><img src="https://img.shields.io/badge/PostgreSQL-18%20pgvector-0B0F19?style=flat&logo=postgresql&logoColor=4169E1&labelColor=0B0F19" alt="PostgreSQL 18 pgvector"/></a>
     <a href="https://redis.io"><img src="https://img.shields.io/badge/Redis-8.0%20Lua-0B0F19?style=flat&logo=redis&logoColor=DC382D&labelColor=0B0F19" alt="Redis 8.0 Lua"/></a>
-    <a href="Dockerfile"><img src="https://img.shields.io/badge/Docker-Ready-0B0F19?style=flat&logo=docker&logoColor=2496ED&labelColor=0B0F19" alt="Docker Ready"/></a>
+    <a href="docs/openapi.yaml"><img src="https://img.shields.io/badge/OpenAPI-3.1.0-0B0F19?style=flat&logo=openapiinitiative&logoColor=6BA539&labelColor=0B0F19" alt="OpenAPI 3.1.0"/></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-0B0F19?style=flat&logo=apache&logoColor=D22128&labelColor=0B0F19" alt="Apache 2.0 License"/></a>
+  </p>
+
+  <p align="center">
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Backend CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
   </p>
 
   <p align="center">
@@ -87,7 +92,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.1.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.2.0"}
 ```
 
 ### 2. Dispatch a Chat Completion

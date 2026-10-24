@@ -64,7 +64,9 @@ Every successful response from NETRA includes canonical telemetry headers:
 
 ---
 
-## 3. Operations Endpoints
+---
+
+## 3. Operations & Admin Endpoints
 
 ### `GET /health`
 
@@ -74,13 +76,126 @@ Gateway liveness and readiness probe.
 {
   "status": "ok",
   "service": "netra-gateway",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
 ```
 
 ---
 
-## 4. Machine-Readable OpenAPI 3.1 Specification
+### `GET /admin/usage`
+
+Aggregated spend and token consumption per virtual key over a date window. Reconciles exactly with client-side verification script totals.
+
+#### Query Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `key` | string | **Yes** | Virtual API key to filter usage for. |
+| `from` | string (YYYY-MM-DD) | No | Start date (defaults to 1st of current month). |
+| `to` | string (YYYY-MM-DD) | No | End date (defaults to today). |
+
+#### Request Header
+```http
+Authorization: Bearer netra-admin-demo
+```
+
+#### Response (200 OK)
+```json
+{
+  "key": "netra-sk-search-1a2b3c",
+  "from": "2026-10-01",
+  "to": "2026-10-24",
+  "requests": 412,
+  "prompt_tokens": 18734,
+  "completion_tokens": 9211,
+  "cost_usd": 0.014100,
+  "cache_hits": 96
+}
+```
+
+---
+
+### `GET /admin/logs`
+
+Chronological audit log entries, newest first, including all rejected requests (401, 403, 404, 429, 402, 502) and successful calls.
+
+#### Query Parameters
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `key` | string | No | Optional virtual API key filter. |
+| `limit` | integer | No | Maximum log records returned (default 50, max 500). |
+
+#### Request Header
+```http
+Authorization: Bearer netra-admin-demo
+```
+
+#### Response (200 OK)
+```json
+[
+  {
+    "id": "e02063df-3396-4231-9106-a13dc694e907",
+    "request_id": "req_1a2b3c4d5e6f",
+    "virtual_key": "netra-sk-search-1a2b3c",
+    "requested_model": "fast",
+    "resolved_provider": "alpha",
+    "resolved_model": "alpha-small",
+    "status": "ok",
+    "status_code": 200,
+    "prompt_tokens": 12,
+    "completion_tokens": 48,
+    "cost_usd": 0.000015,
+    "cache": "miss",
+    "fallback": false,
+    "route_reason": "alias_direct",
+    "retries": 0,
+    "latency_ms": 32,
+    "is_stream": false,
+    "error_type": null,
+    "created_at": "2026-10-24T15:00:00Z"
+  }
+]
+```
+
+---
+
+## 4. Error Response Contract
+
+Every error or rejection returned by NETRA strictly adheres to OpenAI JSON error standards:
+
+```json
+{
+  "error": {
+    "message": "Monthly budget of $5.00 exhausted for this key",
+    "type": "budget_exceeded",
+    "code": "budget_exceeded"
+  }
+}
+```
+
+| HTTP Status | Error `type` | Error `code` | Description / Trigger Case |
+|---|---|---|---|
+| `400 Bad Request` | `invalid_request_error` | `invalid_request_error` | Missing body, empty `messages` array, or malformed JSON. |
+| `401 Unauthorized` | `authentication_error` | `invalid_api_key` | Missing, unrecognized, or deactivated `netra-sk-*` virtual key. |
+| `403 Forbidden` | `model_not_allowed` | `model_not_allowed` | Requested model is not on the virtual key's allowlist. |
+| `404 Not Found` | `not_found_error` | `model_not_found` | Model alias or provider model does not exist in gateway catalog. |
+| `429 Too Many Requests` | `rate_limit_exceeded` | `rate_limit_exceeded` | Atomic sliding-window RPM limit breached in Redis 8.0 Lua engine. |
+| `402 Payment Required` | `budget_exceeded` | `budget_exceeded` | Tenant's monthly USD budget cap exhausted. |
+| `502 Bad Gateway` | `upstream_error` | `upstream_error` | All configured primary and fallback upstream providers failed. |
+| `500 Server Error` | `server_error` | `internal_error` | Sanitized unexpected gateway exception without leaking stack traces. |
+
+---
+
+## 5. Live Dynamic Forex Engine
+
+NETRA features an integrated `ForexRateService` for cross-currency accounting:
+
+- **Live Upstream**: Fetches current exchange rates via Frankfurter open forex API.
+- **Resilience L1 Cache**: Caffeine in-memory cache with configurable 6-hour TTL.
+- **Offline Safety Fallback**: Automatic fail-safe to `87.50` INR/USD if outbound network access is blocked or the upstream API experiences downtime.
+
+---
+
+## 6. Machine-Readable OpenAPI 3.1 Specification
 
 Download or inspect the complete OpenAPI contract:
 

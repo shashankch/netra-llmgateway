@@ -3,11 +3,13 @@ package com.netra.gateway.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netra.gateway.config.GatewayConfigProperties;
+import com.netra.gateway.exception.GatewayException;
 import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.entity.Tenant;
+import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.AuditLogService;
 import com.netra.gateway.service.CostCalculationService;
 import com.netra.gateway.service.TenantAuthService;
@@ -39,6 +41,7 @@ import java.util.UUID;
 public class ChatCompletionController {
 
     private final TenantAuthService authService;
+    private final AdmissionService admissionService;
     private final UpstreamClientService upstreamClientService;
     private final CostCalculationService costService;
     private final AuditLogService auditLogService;
@@ -54,32 +57,50 @@ public class ChatCompletionController {
     ) {
         long startTime = System.currentTimeMillis();
         String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        String virtualKey = extractVirtualKey(authHeader);
+        String requestedModel = request != null ? request.getModel() : null;
+        boolean isStream = request != null && Boolean.TRUE.equals(request.getStream());
 
-        // 1. Authenticate Virtual Key
-        Tenant tenant = authService.authenticate(authHeader);
+        Tenant tenant = null;
+        try {
+            // 1. Authenticate Virtual Key (Caffeine L1 + DB fallback)
+            tenant = authService.authenticate(authHeader);
+            virtualKey = tenant.getVirtualKey();
 
-        // 2. Validate Request Shape
-        if (request == null) {
-            throw new InvalidRequestException("Request body cannot be null");
-        }
-        if (request.getModel() == null || request.getModel().isBlank()) {
-            throw new InvalidRequestException("Model field is required");
-        }
-        if (request.getMessages() == null || request.getMessages().isEmpty()) {
-            throw new InvalidRequestException("Messages array cannot be empty");
-        }
+            // 2. Validate Request Shape
+            if (request == null) {
+                throw new InvalidRequestException("Request body cannot be null");
+            }
+            if (request.getModel() == null || request.getModel().isBlank()) {
+                throw new InvalidRequestException("Model field is required");
+            }
+            if (request.getMessages() == null || request.getMessages().isEmpty()) {
+                throw new InvalidRequestException("Messages array cannot be empty");
+            }
 
-        // 3. Resolve Model Target / Alias (Validates existence; returns 404 if unknown)
-        UpstreamClientService.ResolvedTarget target = upstreamClientService.resolveTarget(request.getModel());
+            // 3. Resolve Model Target / Alias (Validates existence; returns 404 if unknown)
+            UpstreamClientService.ResolvedTarget target = upstreamClientService.resolveTarget(request.getModel());
 
-        // 4. Enforce Model Allowlist (Returns 403 if not permitted for this key)
-        authService.validateModelAllowed(tenant, request.getModel());
+            // 4. Enforce Model Allowlist (Returns 403 if not permitted for this key)
+            authService.validateModelAllowed(tenant, request.getModel());
 
-        // 5. Handle Streaming vs Non-Streaming
-        if (Boolean.TRUE.equals(request.getStream())) {
-            return handleStreamingCompletion(requestId, tenant, request, target, startTime, servletResponse);
-        } else {
-            return handleNonStreamingCompletion(requestId, tenant, request, target, startTime);
+            // 5. Atomic Redis Lua Admission Check (Zero Over-Admission Guarantee)
+            admissionService.checkAdmission(tenant, requestId);
+
+            // 6. Handle Streaming vs Non-Streaming
+            if (isStream) {
+                return handleStreamingCompletion(requestId, tenant, request, target, startTime, servletResponse);
+            } else {
+                return handleNonStreamingCompletion(requestId, tenant, request, target, startTime);
+            }
+        } catch (GatewayException ex) {
+            long latencyMs = System.currentTimeMillis() - startTime;
+            recordRejectionAsync(requestId, virtualKey, requestedModel, ex.getErrorCode(), ex.getStatus().value(), latencyMs, isStream);
+            throw ex;
+        } catch (Exception ex) {
+            long latencyMs = System.currentTimeMillis() - startTime;
+            recordRejectionAsync(requestId, virtualKey, requestedModel, "internal_error", 500, latencyMs, isStream);
+            throw ex;
         }
     }
 
@@ -90,14 +111,21 @@ public class ChatCompletionController {
             UpstreamClientService.ResolvedTarget target,
             long startTime
     ) {
-        // Forward to primary upstream provider
-        UpstreamClientService.UpstreamResult result = upstreamClientService.forwardNonStreaming(request, target);
-        ChatCompletionResponse response = result.getResponse();
-        if (response == null) {
-            throw new UpstreamException("Upstream provider returned an empty or invalid response");
+        UpstreamClientService.UpstreamResult result;
+        try {
+            result = upstreamClientService.forwardNonStreaming(request, target);
+        } catch (Exception e) {
+            admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
+            throw e;
         }
-        long latencyMs = System.currentTimeMillis() - startTime;
 
+        ChatCompletionResponse response = result.getResponse();
+        if (response == null || result.getStatusCode() >= 400) {
+            admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
+            throw new UpstreamException("Upstream provider returned status " + result.getStatusCode());
+        }
+
+        long latencyMs = System.currentTimeMillis() - startTime;
         int promptTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
         int completionTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
 
@@ -165,6 +193,7 @@ public class ChatCompletionController {
 
         GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(target.providerName());
         if (providerConfig == null) {
+            admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
             throw new UpstreamException("Provider '" + target.providerName() + "' not configured");
         }
 
@@ -207,6 +236,7 @@ public class ChatCompletionController {
                     status = "upstream_error";
                     statusCode = resp.statusCode();
                     errorType = "upstream_http_" + resp.statusCode();
+                    admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
                     emitter.completeWithError(new UpstreamException("Upstream stream error HTTP " + resp.statusCode()));
                     return;
                 }
@@ -239,6 +269,7 @@ public class ChatCompletionController {
                 status = "upstream_error";
                 statusCode = 502;
                 errorType = "stream_error";
+                admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
                 emitter.completeWithError(e);
             } finally {
                 long latencyMs = System.currentTimeMillis() - startTime;
@@ -312,5 +343,41 @@ public class ChatCompletionController {
                 log.error("Failed to persist request log for [{}]: {}", requestId, e.getMessage());
             }
         });
+    }
+
+    private void recordRejectionAsync(
+            String requestId,
+            String virtualKey,
+            String requestedModel,
+            String errorType,
+            int statusCode,
+            long latencyMs,
+            boolean isStream
+    ) {
+        Thread.ofVirtual().name("rejection-log-", 0).start(() -> {
+            try {
+                auditLogService.recordRejection(
+                        requestId,
+                        virtualKey,
+                        requestedModel,
+                        errorType,
+                        statusCode,
+                        latencyMs,
+                        isStream
+                );
+            } catch (Exception e) {
+                log.warn("Failed to record rejection log for [{}]: {}", requestId, e.getMessage());
+            }
+        });
+    }
+
+    private String extractVirtualKey(String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String key = authHeader.substring(7).trim();
+            if (!key.isEmpty()) {
+                return key;
+            }
+        }
+        return "unauthenticated";
     }
 }

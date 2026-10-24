@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.netra.gateway"
-version = "0.1.0"
+version = "0.2.0"
 
 java {
     toolchain {
@@ -33,6 +33,9 @@ dependencies {
 
     // Redis
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
+    // In-Memory L1 Cache (AUD-02)
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     // Jackson JSON
     implementation("com.fasterxml.jackson.core:jackson-databind")
