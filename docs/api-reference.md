@@ -58,11 +58,28 @@ Every successful response from NETRA includes canonical telemetry headers:
 | `x-netra-provider` | `alpha/alpha-small` | Upstream provider and concrete model that served the request. |
 | `x-netra-cache` | `miss` | Indicates whether the response was served from semantic cache (`hit` or `miss`). |
 | `x-netra-fallback` | `false` | `true` if primary provider failed and failover model was invoked. |
-| `x-netra-cost-usd` | `0.000015` | Exact request cost in USD calculated to 6 decimal places ($0.000000). |
+| `x-netra-cost-usd` | `0.000015` | Exact request cost in USD calculated to 6 decimal places ($0.000000). *(Omitted on streaming responses upfront per contract)* |
 | `x-netra-route-reason` | `alias_direct` | Decision rationale applied by the dynamic model router. |
 | `x-netra-retries` | `0` | Number of upstream network retries executed. |
 
----
+#### Streaming Server-Sent Events (SSE)
+Setting `"stream": true` switches the gateway into unbuffered pass-through mode over Java 25 Virtual Threads. Response headers are sent immediately:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream;charset=UTF-8
+Cache-Control: no-cache
+Connection: keep-alive
+x-netra-provider: alpha/alpha-small
+x-netra-cache: miss
+x-netra-fallback: false
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1729891200,"model":"alpha-small","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1729891200,"model":"alpha-small","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":1,"total_tokens":6}}
+
+data: [DONE]
+```
 
 ---
 
@@ -76,7 +93,7 @@ Gateway liveness and readiness probe.
 {
   "status": "ok",
   "service": "netra-gateway",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }
 ```
 

@@ -25,4 +25,12 @@ Every successful chat completion response from `POST /v1/chat/completions` stric
 | `x-netra-provider` | Upstream provider and model that served the request | `alpha/alpha-small` |
 | `x-netra-cache` | Indicates whether the response was served from cache | `hit` or `miss` |
 | `x-netra-fallback` | Indicates if an upstream failover provider was used | `false` or `true` |
-| `x-netra-cost-usd` | Computed cost in micro-USD ($0.000000 USD) | `0.000011` |
+| `x-netra-cost-usd` | Computed cost in micro-USD ($0.000000 USD) *(omitted on streaming responses upfront)* | `0.000011` |
+
+---
+
+## High-Throughput Streaming SSE Relay
+NETRA supports token-by-token pass-through streaming over Server-Sent Events (`stream: true`) utilizing native Java 25 Virtual Threads:
+- **Zero-Delay Pass-Through**: Line-by-line streaming relay with 1KB buffers for progressive delivery (~20ms per token).
+- **Socket Reclamation**: Immediate closure of upstream sockets upon client disconnect (`Broken pipe`), preventing phantom token generation.
+- **Terminal Accounting**: Captures terminal token usage chunks and executes post-stream micro-USD cost settlement.

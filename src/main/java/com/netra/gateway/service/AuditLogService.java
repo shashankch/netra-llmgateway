@@ -73,7 +73,7 @@ public class AuditLogService {
 
         requestLogRepository.save(logEntry);
 
-        if ("ok".equals(status) && cost != null) {
+        if (("ok".equals(status) || "client_disconnected".equals(status)) && cost != null && cost.compareTo(BigDecimal.ZERO) > 0) {
             String ym = YearMonth.now().toString();
             int cacheHitInt = "hit".equalsIgnoreCase(cache) ? 1 : 0;
             monthlySpendRepository.upsertSpend(virtualKey, ym, cost, promptTokens, completionTokens, cacheHitInt);

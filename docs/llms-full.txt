@@ -17,7 +17,12 @@ NETRA is a high-performance LLM gateway and semantic cache designed to provide e
   - `x-netra-provider`: Upstream provider and model (e.g. `alpha/alpha-small`)
   - `x-netra-cache`: `hit` or `miss`
   - `x-netra-fallback`: `true` if fallback chain activated, otherwise `false`
-  - `x-netra-cost-usd`: Exact cost formatted to 6 decimal places (e.g. `0.000014`)
+  - `x-netra-cost-usd`: Exact cost formatted to 6 decimal places (e.g. `0.000014`; omitted on streaming responses upfront)
+
+## Administrative & Observability Contract
+- `GET /health`: System readiness probe returning status and version (`0.3.0`).
+- `GET /admin/usage?key=...&from=...&to=...`: Key-level token and spend reconciliation.
+- `GET /admin/logs?key=...&limit=...`: Chronological audit trail (16 audit fields).
 
 ## Error Model
 Standard OpenAI JSON format:
