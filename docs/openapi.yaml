@@ -10,7 +10,8 @@ info:
     - **Telemetry Contract**: Every response strictly carries canonical `x-netra-*` headers.
     - **Micro-USD Precision**: Exact 6-decimal cost calculation and quota accounting.
     - **High-Throughput Streaming**: Non-blocking SSE pass-through over Java 25 Virtual Threads.
-  version: 0.1.0
+    - **Atomic Redis 8.0 Admission**: Sliding-window rate limiting & zero over-admission budget accounting.
+  version: 0.2.0
   contact:
     name: Shashank Chandel
     email: shashakchandel@gmail.com
@@ -108,8 +109,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '402':
+          description: Monthly budget cap exhausted for this virtual key (`budget_exceeded`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Model not permitted for this tenant or monthly budget cap exceeded.
+          description: Model not permitted for this tenant (`model_not_allowed`).
           content:
             application/json:
               schema:
@@ -121,7 +128,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: Rate limit exceeded (RPM or TPM token bucket exhaustion).
+          description: Rate limit exceeded (sliding-window RPM exhaustion).
           content:
             application/json:
               schema:
@@ -134,6 +141,92 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal gateway unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/usage:
+    get:
+      summary: Usage Summary & Reconciliation API
+      description: |
+        Returns aggregated spend and token usage for a virtual key over a date window.
+        Guarantees exact reconciliation with client-side load test totals.
+      operationId: getUsageSummary
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: key
+          in: query
+          required: true
+          description: Virtual key to filter usage for.
+          schema:
+            type: string
+            example: "netra-sk-search-1a2b3c"
+        - name: from
+          in: query
+          required: false
+          description: Start date (YYYY-MM-DD format). Defaults to beginning of current month.
+          schema:
+            type: string
+            example: "2026-10-01"
+        - name: to
+          in: query
+          required: false
+          description: End date (YYYY-MM-DD format). Defaults to current date.
+          schema:
+            type: string
+            example: "2026-10-24"
+      responses:
+        '200':
+          description: Aggregated token counts, spend in USD, and cache hits.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageSummaryResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/logs:
+    get:
+      summary: Audit & Request Logs API
+      description: |
+        Returns chronological request log entries, newest first, filterable by virtual key.
+        Includes all rejections (401, 403, 404, 429, 402, 502) and successful calls.
+      operationId: getRequestLogs
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: key
+          in: query
+          required: false
+          description: Optional virtual key filter.
+          schema:
+            type: string
+            example: "netra-sk-search-1a2b3c"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of recent log entries to return (default 50, max 500).
+          schema:
+            type: integer
+            default: 50
+            example: 20
+      responses:
+        '200':
+          description: Array of request log entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RequestLogEntry'
+        '401':
+          description: Unauthorized admin token.
           content:
             application/json:
               schema:
@@ -165,7 +258,7 @@ paths:
                     example: "netra-gateway"
                   version:
                     type: string
-                    example: "0.1.0"
+                    example: "0.2.0"
 
 components:
   securitySchemes:
@@ -174,6 +267,11 @@ components:
       scheme: bearer
       bearerFormat: Virtual Key (`netra-sk-*`)
       description: Provide tenant virtual API key in the `Authorization: Bearer <key>` header.
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Admin Token
+      description: Provide platform admin secret in the `Authorization: Bearer <admin-token>` header.
 
   schemas:
     ChatMessage:
@@ -307,3 +405,125 @@ components:
       properties:
         error:
           $ref: '#/components/schemas/ErrorDetail'
+
+    UsageSummaryResponse:
+      type: object
+      required:
+        - key
+        - from
+        - to
+        - requests
+        - prompt_tokens
+        - completion_tokens
+        - cost_usd
+        - cache_hits
+      properties:
+        key:
+          type: string
+          example: "netra-sk-search-1a2b3c"
+        from:
+          type: string
+          example: "2026-10-01"
+        to:
+          type: string
+          example: "2026-10-24"
+        requests:
+          type: integer
+          example: 412
+        prompt_tokens:
+          type: integer
+          example: 18734
+        completion_tokens:
+          type: integer
+          example: 9211
+        cost_usd:
+          type: number
+          format: double
+          example: 0.014100
+        cache_hits:
+          type: integer
+          example: 96
+
+    RequestLogEntry:
+      type: object
+      required:
+        - id
+        - request_id
+        - virtual_key
+        - requested_model
+        - status
+        - status_code
+        - prompt_tokens
+        - completion_tokens
+        - cost_usd
+        - cache
+        - fallback
+        - retries
+        - latency_ms
+        - is_stream
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        request_id:
+          type: string
+          example: "req_1a2b3c4d5e6f"
+        virtual_key:
+          type: string
+          example: "netra-sk-search-1a2b3c"
+        requested_model:
+          type: string
+          example: "fast"
+        resolved_provider:
+          type: string
+          nullable: true
+          example: "alpha"
+        resolved_model:
+          type: string
+          nullable: true
+          example: "alpha-small"
+        status:
+          type: string
+          example: "ok"
+        status_code:
+          type: integer
+          example: 200
+        prompt_tokens:
+          type: integer
+          example: 12
+        completion_tokens:
+          type: integer
+          example: 48
+        cost_usd:
+          type: number
+          format: double
+          example: 0.000015
+        cache:
+          type: string
+          example: "miss"
+        fallback:
+          type: boolean
+          example: false
+        route_reason:
+          type: string
+          nullable: true
+          example: "alias_direct"
+        retries:
+          type: integer
+          example: 0
+        latency_ms:
+          type: integer
+          example: 32
+        is_stream:
+          type: boolean
+          example: false
+        error_type:
+          type: string
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-10-24T15:00:00Z"
+

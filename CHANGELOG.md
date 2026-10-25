@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-10-24 — Phase 2: Virtual Key Auth, Atomic Lua Admission & Request Logs
+
+### 🚀 Added
+- **Virtual Key Authentication & Caffeine L1 Near-Cache**: Implemented two-tier tenant auth (`TenantAuthService`) with in-memory Caffeine cache (10,000 entries, 60s TTL) backed by PostgreSQL. Enforces tenant active status and model allowlists (HTTP 403 `model_not_allowed`).
+- **Atomic Redis 8.0 Lua Admission Engine**: Sliding-window rate limiting script (`admission.lua`) executing atomically in Redis. Guarantees Zero Over-Admission under concurrent bursts. Supports instant slot rollback (`ZREM`) if upstream provider fails.
+- **Tenant Monthly Budget Guardrails**: Dynamic monthly spend accounting with Redis atomic counter synchronization (`netra:spend:{vkey}:{yearMonth}`) and automatic HTTP 402 `budget_exceeded` rejection.
+- **Comprehensive Audit Trail & Rejection Logging**: Flyway migration `V3__flexible_request_logs_fkey.sql` enabling comprehensive request auditing for all outcomes, including unauthenticated keys (401), allowlist violations (403), rate limits (429), and budget rejections (402).
+- **Admin Usage & Reconciliation API**: Implemented `GET /admin/usage` returning aggregated token counts, spend in USD, and cache hits, perfectly reconciling against client load test counters.
+- **Admin Request Logs API**: Implemented `GET /admin/logs` with pagination and key filtering for chronological audit inspection.
+- **Live Dynamic Forex Engine**: Added `ForexRateService` featuring live Frankfurter open forex API integration, 6-hour Caffeine caching, and offline fallback (`87.50` INR/USD).
+- **CI Status Badges**: Added GitHub Actions workflow status badges to `README.md` for Backend CI, Docs CI, and OpenAPI 3.1.0 validation.
+- **OpenAPI 3.1 Specification & Documentation Sync**: Updated `docs/openapi.yaml`, `docs/api-reference.md`, and MkDocs site with complete Phase 2 Admin schemas and error contracts.
+
+---
+
 ## [0.1.0] - 2026-10-23 — Phase 1: Foundation & Core Pass-Through
 
 ### 🚀 Added

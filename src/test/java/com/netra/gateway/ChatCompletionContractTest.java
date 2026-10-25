@@ -11,6 +11,7 @@ import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.repository.MonthlySpendRepository;
 import com.netra.gateway.repository.RequestLogRepository;
 import com.netra.gateway.repository.TenantRepository;
+import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.CostCalculationService;
 import com.netra.gateway.service.TenantAuthService;
 import com.netra.gateway.service.UpstreamClientService;
@@ -57,6 +58,9 @@ class ChatCompletionContractTest {
 
     @MockitoBean
     private CostCalculationService costService;
+
+    @MockitoBean
+    private AdmissionService admissionService;
 
     @MockitoBean
     private com.netra.gateway.service.AuditLogService auditLogService;
@@ -264,5 +268,76 @@ class ChatCompletionContractTest {
                 .andExpect(header().string("x-netra-provider", "alpha/alpha-small"))
                 .andExpect(header().string("x-netra-cache", "miss"))
                 .andExpect(header().string("x-netra-fallback", "false"));
+    }
+
+    @Test
+    @DisplayName("Rate limit exceeded returns HTTP 429 with rate_limit_exceeded")
+    void testRateLimitExceededReturns429() throws Exception {
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "burst message")))
+                .build();
+
+        UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
+        when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
+
+        org.mockito.Mockito.doThrow(new com.netra.gateway.exception.RateLimitException(10))
+                .when(admissionService).checkAdmission(any(), any());
+
+        mockMvc.perform(post("/v1/chat/completions")
+                        .header("Authorization", "Bearer netra-sk-search-1a2b3c")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.type").value("rate_limit_exceeded"))
+                .andExpect(jsonPath("$.error.code").value("rate_limit_exceeded"))
+                .andExpect(jsonPath("$.error.message").value("Rate limit exceeded (10 requests/minute limit)"));
+    }
+
+    @Test
+    @DisplayName("Budget exceeded returns HTTP 402 with budget_exceeded")
+    void testBudgetExceededReturns402() throws Exception {
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "expensive message")))
+                .build();
+
+        UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
+        when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
+
+        org.mockito.Mockito.doThrow(new com.netra.gateway.exception.BudgetExceededException(new BigDecimal("5.00")))
+                .when(admissionService).checkAdmission(any(), any());
+
+        mockMvc.perform(post("/v1/chat/completions")
+                        .header("Authorization", "Bearer netra-sk-search-1a2b3c")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isPaymentRequired())
+                .andExpect(jsonPath("$.error.type").value("budget_exceeded"))
+                .andExpect(jsonPath("$.error.code").value("budget_exceeded"))
+                .andExpect(jsonPath("$.error.message").value("Monthly budget of $5.00 exhausted for this key"));
+    }
+
+    @Test
+    @DisplayName("Upstream failure triggers automatic admission slot rollback")
+    void testUpstreamFailureRollsBackAdmission() throws Exception {
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "retry prompt")))
+                .build();
+
+        UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
+        when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
+        when(upstreamClientService.forwardNonStreaming(any(), eq(target)))
+                .thenThrow(new com.netra.gateway.exception.UpstreamException("Alpha provider is down"));
+
+        mockMvc.perform(post("/v1/chat/completions")
+                        .header("Authorization", "Bearer netra-sk-search-1a2b3c")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.error.type").value("upstream_error"));
+
+        org.mockito.Mockito.verify(admissionService).rollbackAdmission(eq("netra-sk-search-1a2b3c"), anyString());
     }
 }

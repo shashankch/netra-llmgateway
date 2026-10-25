@@ -14,6 +14,7 @@ import java.util.Map;
 public class GatewayConfigProperties {
 
     private String dataPath = "data";
+    private String adminToken = "netra-admin-demo";
     private CurrencyConfig currency = new CurrencyConfig();
     private List<ProviderConfig> providers = new ArrayList<>();
     private Map<String, ModelAliasConfig> modelAliases = new HashMap<>();
