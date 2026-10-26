@@ -1,8 +1,5 @@
 package com.netra.gateway.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netra.gateway.config.GatewayConfigProperties;
 import com.netra.gateway.exception.GatewayException;
 import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.exception.UpstreamException;
@@ -12,6 +9,7 @@ import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.AuditLogService;
 import com.netra.gateway.service.CostCalculationService;
+import com.netra.gateway.service.StreamingRelayService;
 import com.netra.gateway.service.TenantAuthService;
 import com.netra.gateway.service.UpstreamClientService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,15 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.UUID;
 
 @Slf4j
@@ -45,9 +35,7 @@ public class ChatCompletionController {
     private final UpstreamClientService upstreamClientService;
     private final CostCalculationService costService;
     private final AuditLogService auditLogService;
-    private final GatewayConfigProperties configProperties;
-    private final ObjectMapper objectMapper;
-    private final HttpClient streamingHttpClient;
+    private final StreamingRelayService streamingRelayService;
 
     @PostMapping(value = "/chat/completions", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_EVENT_STREAM_VALUE})
     public Object createChatCompletion(
@@ -89,7 +77,7 @@ public class ChatCompletionController {
 
             // 6. Handle Streaming vs Non-Streaming
             if (isStream) {
-                return handleStreamingCompletion(requestId, tenant, request, target, startTime, servletResponse);
+                return streamingRelayService.streamChatCompletion(requestId, tenant, request, target, startTime, servletResponse);
             } else {
                 return handleNonStreamingCompletion(requestId, tenant, request, target, startTime);
             }
@@ -169,135 +157,6 @@ public class ChatCompletionController {
                 .body(response);
     }
 
-    private ResponseBodyEmitter handleStreamingCompletion(
-            String requestId,
-            Tenant tenant,
-            ChatCompletionRequest request,
-            UpstreamClientService.ResolvedTarget target,
-            long startTime,
-            HttpServletResponse servletResponse
-    ) {
-        String providerHeader = target.providerName() + "/" + target.modelName();
-
-        // Set response headers upfront
-        servletResponse.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
-        servletResponse.setCharacterEncoding("UTF-8");
-        servletResponse.setHeader("Cache-Control", "no-cache");
-        servletResponse.setHeader("Connection", "keep-alive");
-
-        servletResponse.setHeader("x-netra-provider", providerHeader);
-        servletResponse.setHeader("x-netra-cache", "miss");
-        servletResponse.setHeader("x-netra-fallback", "false");
-
-        ResponseBodyEmitter emitter = new ResponseBodyEmitter(60000L);
-
-        GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(target.providerName());
-        if (providerConfig == null) {
-            admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
-            throw new UpstreamException("Provider '" + target.providerName() + "' not configured");
-        }
-
-        String targetUrl = providerConfig.getBaseUrl().replaceAll("/+$", "") + "/chat/completions";
-
-        ChatCompletionRequest upstreamPayload = ChatCompletionRequest.builder()
-                .model(target.modelName())
-                .messages(request.getMessages())
-                .stream(true)
-                .temperature(request.getTemperature())
-                .maxTokens(request.getMaxTokens())
-                .build();
-
-        // Run unbuffered SSE pump on Virtual Thread
-        Thread.ofVirtual().name("sse-relay-", 0).start(() -> {
-            int promptTokens = 0;
-            int completionTokens = 0;
-            String status = "ok";
-            int statusCode = 200;
-            String errorType = null;
-
-            try {
-                String jsonBody = objectMapper.writeValueAsString(upstreamPayload);
-                HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
-                        .uri(URI.create(targetUrl))
-                        .header("Content-Type", "application/json")
-                        .timeout(Duration.ofSeconds(30))
-                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
-
-                if (providerConfig.getApiKey() != null && !providerConfig.getApiKey().isBlank()) {
-                    reqBuilder.header("Authorization", "Bearer " + providerConfig.getApiKey());
-                }
-
-                HttpResponse<java.io.InputStream> resp = streamingHttpClient.send(
-                        reqBuilder.build(),
-                        HttpResponse.BodyHandlers.ofInputStream()
-                );
-
-                if (resp.statusCode() >= 400) {
-                    status = "upstream_error";
-                    statusCode = resp.statusCode();
-                    errorType = "upstream_http_" + resp.statusCode();
-                    admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
-                    emitter.completeWithError(new UpstreamException("Upstream stream error HTTP " + resp.statusCode()));
-                    return;
-                }
-
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body(), StandardCharsets.UTF_8))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        emitter.send(line + "\n\n");
-
-                        if (line.startsWith("data: ") && !line.equals("data: [DONE]")) {
-                            try {
-                                JsonNode chunkNode = objectMapper.readTree(line.substring(6).trim());
-                                if (chunkNode.has("usage") && !chunkNode.get("usage").isNull()) {
-                                    JsonNode usageNode = chunkNode.get("usage");
-                                    if (usageNode.has("prompt_tokens")) {
-                                        promptTokens = usageNode.get("prompt_tokens").asInt();
-                                    }
-                                    if (usageNode.has("completion_tokens")) {
-                                        completionTokens = usageNode.get("completion_tokens").asInt();
-                                    }
-                                }
-                            } catch (Exception ignored) {
-                            }
-                        }
-                    }
-                }
-                emitter.complete();
-            } catch (Exception e) {
-                log.error("Streaming error for request [{}]: {}", requestId, e.getMessage());
-                status = "upstream_error";
-                statusCode = 502;
-                errorType = "stream_error";
-                admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
-                emitter.completeWithError(e);
-            } finally {
-                long latencyMs = System.currentTimeMillis() - startTime;
-                BigDecimal cost = costService.calculateCost(target.modelName(), promptTokens, completionTokens);
-                recordAuditAndSpend(
-                        requestId,
-                        tenant.getVirtualKey(),
-                        request.getModel(),
-                        target.providerName(),
-                        target.modelName(),
-                        status,
-                        statusCode,
-                        promptTokens,
-                        completionTokens,
-                        cost,
-                        "miss",
-                        false,
-                        null,
-                        0,
-                        latencyMs,
-                        true,
-                        errorType
-                );
-            }
-        });
-
-        return emitter;
-    }
 
     private void recordAuditAndSpend(
             String requestId,

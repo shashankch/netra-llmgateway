@@ -81,7 +81,8 @@ public class UpstreamClientService {
             throw new UpstreamException("Provider '" + target.providerName() + "' is not configured in gateway registry");
         }
 
-        String targetUrl = providerConfig.getBaseUrl().replaceAll("/+$", "") + "/chat/completions";
+        String base = providerConfig.getBaseUrl().replaceAll("/+$", "");
+        String targetUrl = base.endsWith("/v1") ? base + "/chat/completions" : base + "/v1/chat/completions";
 
         // Create upstream request payload with resolved model name
         ChatCompletionRequest upstreamPayload = ChatCompletionRequest.builder()

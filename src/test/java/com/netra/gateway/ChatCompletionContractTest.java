@@ -13,8 +13,11 @@ import com.netra.gateway.repository.RequestLogRepository;
 import com.netra.gateway.repository.TenantRepository;
 import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.CostCalculationService;
+import com.netra.gateway.service.StreamingRelayService;
 import com.netra.gateway.service.TenantAuthService;
 import com.netra.gateway.service.UpstreamClientService;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,6 +67,9 @@ class ChatCompletionContractTest {
 
     @MockitoBean
     private com.netra.gateway.service.AuditLogService auditLogService;
+
+    @MockitoBean
+    private StreamingRelayService streamingRelayService;
 
     private Tenant searchTenant;
 
@@ -258,6 +264,17 @@ class ChatCompletionContractTest {
 
         UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
+
+        ResponseBodyEmitter mockEmitter = new ResponseBodyEmitter();
+        when(streamingRelayService.streamChatCompletion(any(), any(), any(), eq(target), anyLong(), any()))
+                .thenAnswer(invocation -> {
+                    HttpServletResponse resp = invocation.getArgument(5);
+                    resp.setContentType("text/event-stream;charset=UTF-8");
+                    resp.setHeader("x-netra-provider", "alpha/alpha-small");
+                    resp.setHeader("x-netra-cache", "miss");
+                    resp.setHeader("x-netra-fallback", "false");
+                    return mockEmitter;
+                });
 
         mockMvc.perform(post("/v1/chat/completions")
                         .header("Authorization", "Bearer netra-sk-search-1a2b3c")

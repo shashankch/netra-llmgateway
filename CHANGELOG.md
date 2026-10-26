@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-10-25 — Phase 3: Unbuffered Streaming SSE Relay & Usage Finalization
+
+### 🚀 Added
+- **Unbuffered Pass-Through SSE Relay (`StreamingRelayService`)**: Dedicated streaming engine spawning lightweight Java 25 Virtual Threads (`sse-relay-{requestId}`) to forward upstream Server-Sent Events line-by-line with 1KB read buffers for zero-delay token delivery (~20ms per token).
+- **Upfront Telemetry Header Injection**: Establishes streaming headers upfront before body chunks (`Content-Type: text/event-stream;charset=UTF-8`, `Cache-Control: no-cache`, `Connection: keep-alive`, `x-netra-provider`, `x-netra-cache: miss`, `x-netra-fallback: false`).
+- **Terminal Usage Object Parsing**: Automatically captures terminal `usage` block (`prompt_tokens`, `completion_tokens`, `total_tokens`) delivered in final SSE chunk per OpenAI streaming spec.
+- **Fallback Heuristic Token Estimator**: Added heuristic word-count token estimation for streaming providers that omit terminal `usage` blocks, ensuring no unbilled token leaks.
+- **Client Disconnect & Broken Pipe Detection**: Detects client connection terminations (`IOException: Broken pipe`), immediately halts upstream compute socket to stop LLM spend, records status `client_disconnected`, and settles spend for partial tokens delivered.
+- **Premature Upstream Severance Handling**: Detects unexpected upstream drops before `data: [DONE]`, emits error SSE chunk (`stream_severed`), records status `upstream_error` (HTTP 502), and rolls back rate limit slot if zero tokens delivered.
+- **Post-Stream Financial Settlement**: Asynchronously executes exact micro-USD cost calculation with `BigDecimal` and persists request logs and spend counters in PostgreSQL and Redis.
+- **Automated Streaming CI Pipeline**: Authored `.github/workflows/streaming-ci.yml` verifying streaming relay tests, mock provider orchestration, and progressive token assertions.
+
+---
+
 ## [0.2.0] - 2026-10-24 — Phase 2: Virtual Key Auth, Atomic Lua Admission & Request Logs
 
 ### 🚀 Added

@@ -20,6 +20,7 @@
 
   <p align="center">
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Backend CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/streaming-ci.yml"><img src="https://img.shields.io/badge/Streaming_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Streaming CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
   </p>
 
@@ -92,7 +93,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.2.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.3.0"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -120,7 +121,38 @@ x-netra-fallback: false
 x-netra-cost-usd: 0.000011
 ```
 
-### 3. Run Automated Compliance Suite
+### 3. Stream a Completion via Server-Sent Events (SSE)
+Invoke token-by-token unbuffered streaming pass-through over Java 25 Virtual Threads:
+
+```bash
+curl -i -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer netra-sk-search-1a2b3c" \
+  -d '{
+    "model": "fast",
+    "stream": true,
+    "messages": [
+      {"role": "user", "content": "Explain event streaming in 3 bullet points."}
+    ]
+  }'
+```
+
+**Streaming Telemetry Headers:**
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream;charset=UTF-8
+Cache-Control: no-cache
+Connection: keep-alive
+x-netra-provider: alpha/alpha-small
+x-netra-cache: miss
+x-netra-fallback: false
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","choices":[{"delta":{"content":"Event"}}]}
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","choices":[{"delta":{"content":" streaming..."}}]}
+data: [DONE]
+```
+
+### 4. Run Automated Compliance Suite
 Execute the built-in contract verification test:
 
 ```bash

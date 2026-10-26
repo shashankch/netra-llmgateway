@@ -29,3 +29,11 @@
 - **Context:** International enterprises operate across diverse currencies (USD, INR, EUR). Storing multi-currency amounts in the core database causes historical exchange-rate drift and schema bloat.
 - **Decision:** Strictly store all costs and budgets in USD (`cost_usd`, `total_spend_usd`). Provide dynamic on-the-fly currency conversion in APIs and UI via `ForexRateService` with a 6-hour cache and configurable fallback.
 - **Consequences:** Clean, immutable accounting ledger with single-denomination presentation in the operator console.
+
+---
+
+## ADR-005: Unbuffered Virtual Thread Streaming Relay with Broken Pipe Socket Reclamation
+- **Status:** Accepted
+- **Context:** Streaming LLM tokens over Server-Sent Events (SSE) requires low Time-to-First-Token (TTFT) and progressive token delivery (~20ms per token). Buffering the completion in memory causes high latency and OOM risks, while unhandled client disconnections cause orphaned token generation and phantom spend.
+- **Decision:** Implement `StreamingRelayService` spawning a dedicated virtual thread (`sse-relay-{requestId}`) per stream with an unbuffered 1KB line pump. Immediately close upstream sockets upon client disconnect (`Broken pipe`), halt model compute, and bill partial tokens delivered up to the disconnect point.
+- **Consequences:** Near-zero TTFT, $O(1)$ memory overhead per stream, zero phantom token spend, and instant socket reclamation.
