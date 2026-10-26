@@ -2,6 +2,7 @@ package com.netra.gateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netra.gateway.config.GatewayConfigProperties;
+import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatMessage;
 import com.netra.gateway.model.entity.Tenant;
@@ -317,13 +318,16 @@ class StreamingRelayServiceTest {
                 .build();
 
         MockHttpServletResponse servletResponse = new MockHttpServletResponse();
-        streamingRelayService.streamChatCompletion(
-                "req-test-500",
-                testTenant,
-                request,
-                testTarget,
-                System.currentTimeMillis(),
-                servletResponse
+        org.junit.jupiter.api.Assertions.assertThrows(
+                UpstreamException.class,
+                () -> streamingRelayService.streamChatCompletion(
+                        "req-test-500",
+                        testTenant,
+                        request,
+                        testTarget,
+                        System.currentTimeMillis(),
+                        servletResponse
+                )
         );
 
         // Verify admission rollback is triggered

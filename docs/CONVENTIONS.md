@@ -34,6 +34,8 @@ NETRA maintains strict decoupling across core pipeline stages:
   - `x-netra-cache`: Cache status (`hit` or `miss`).
   - `x-netra-fallback`: Failover indicator (`true` or `false`).
   - `x-netra-cost-usd`: Micro-USD cost scaled to 6 decimals (e.g. `0.000011`).
+  - `x-netra-route-reason`: Rationale for model selection (alias, direct model, or classifier score).
+  - `x-netra-retries`: Total retry attempts absorbed prior to successful response (0, 1, 2, 3).
 
 ---
 

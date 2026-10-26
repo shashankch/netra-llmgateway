@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -83,6 +84,11 @@ class ChatCompletionContractTest {
                 .build();
 
         when(tenantRepository.findByVirtualKey("netra-sk-search-1a2b3c")).thenReturn(Optional.of(searchTenant));
+
+        UpstreamClientService.ResolvedTarget defaultTarget = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false, "alias_fast");
+        UpstreamClientService.CandidateChain defaultChain = new UpstreamClientService.CandidateChain("fast", "fast", "alias_fast", List.of(defaultTarget));
+        lenient().when(upstreamClientService.resolveCandidateChain(eq("fast"), any())).thenReturn(defaultChain);
+        lenient().when(upstreamClientService.resolveTarget("fast")).thenReturn(defaultTarget);
     }
 
     @Test
@@ -110,6 +116,8 @@ class ChatCompletionContractTest {
                 .messages(List.of(new ChatMessage("user", "hello")))
                 .build();
 
+        when(upstreamClientService.resolveCandidateChain(eq("no-such-model-xyz"), any()))
+                .thenThrow(new com.netra.gateway.exception.ModelNotFoundException("no-such-model-xyz"));
         when(upstreamClientService.resolveTarget("no-such-model-xyz"))
                 .thenThrow(new com.netra.gateway.exception.ModelNotFoundException("no-such-model-xyz"));
 
@@ -130,7 +138,9 @@ class ChatCompletionContractTest {
                 .messages(List.of(new ChatMessage("user", "hello")))
                 .build();
 
-        UpstreamClientService.ResolvedTarget smartTarget = new UpstreamClientService.ResolvedTarget("alpha", "alpha-large", false);
+        UpstreamClientService.ResolvedTarget smartTarget = new UpstreamClientService.ResolvedTarget("alpha", "alpha-large", false, "alias_smart");
+        UpstreamClientService.CandidateChain smartChain = new UpstreamClientService.CandidateChain("smart", "smart", "alias_smart", List.of(smartTarget));
+        when(upstreamClientService.resolveCandidateChain(eq("smart"), any())).thenReturn(smartChain);
         when(upstreamClientService.resolveTarget("smart")).thenReturn(smartTarget);
 
         mockMvc.perform(post("/v1/chat/completions")
@@ -190,6 +200,7 @@ class ChatCompletionContractTest {
 
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
         when(upstreamClientService.forwardNonStreaming(any(), eq(target))).thenReturn(result);
+        when(upstreamClientService.forwardWithFailover(any(), any())).thenReturn(result);
         when(costService.calculateCost("alpha-small", 5, 17)).thenReturn(new BigDecimal("0.000011"));
         when(costService.formatCostHeader(new BigDecimal("0.000011"))).thenReturn("0.000011");
 
@@ -240,6 +251,8 @@ class ChatCompletionContractTest {
                 .messages(List.of(new ChatMessage("user", "ping")))
                 .build();
 
+        when(upstreamClientService.resolveCandidateChain(eq("fast"), any()))
+                .thenThrow(new RuntimeException("FATAL: Sensitive database connection string jdbc:postgresql://internal:5432 leaked!"));
         when(upstreamClientService.resolveTarget("fast"))
                 .thenThrow(new RuntimeException("FATAL: Sensitive database connection string jdbc:postgresql://internal:5432 leaked!"));
 
@@ -266,6 +279,15 @@ class ChatCompletionContractTest {
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
 
         ResponseBodyEmitter mockEmitter = new ResponseBodyEmitter();
+        when(streamingRelayService.streamChatCompletion(any(), any(), any(), any(UpstreamClientService.CandidateChain.class), anyLong(), any()))
+                .thenAnswer(invocation -> {
+                    HttpServletResponse resp = invocation.getArgument(5);
+                    resp.setContentType("text/event-stream;charset=UTF-8");
+                    resp.setHeader("x-netra-provider", "alpha/alpha-small");
+                    resp.setHeader("x-netra-cache", "miss");
+                    resp.setHeader("x-netra-fallback", "false");
+                    return mockEmitter;
+                });
         when(streamingRelayService.streamChatCompletion(any(), any(), any(), eq(target), anyLong(), any()))
                 .thenAnswer(invocation -> {
                     HttpServletResponse resp = invocation.getArgument(5);
@@ -346,6 +368,8 @@ class ChatCompletionContractTest {
         UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
         when(upstreamClientService.forwardNonStreaming(any(), eq(target)))
+                .thenThrow(new com.netra.gateway.exception.UpstreamException("Alpha provider is down"));
+        when(upstreamClientService.forwardWithFailover(any(), any()))
                 .thenThrow(new com.netra.gateway.exception.UpstreamException("Alpha provider is down"));
 
         mockMvc.perform(post("/v1/chat/completions")

@@ -73,6 +73,8 @@ Connection: keep-alive
 x-netra-provider: alpha/alpha-small
 x-netra-cache: miss
 x-netra-fallback: false
+x-netra-route-reason: alias_fast
+x-netra-retries: 0
 
 data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1729891200,"model":"alpha-small","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
 
@@ -93,7 +95,7 @@ Gateway liveness and readiness probe.
 {
   "status": "ok",
   "service": "netra-gateway",
-  "version": "0.3.0"
+  "version": "0.4.0"
 }
 ```
 

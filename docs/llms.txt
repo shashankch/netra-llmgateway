@@ -8,8 +8,8 @@
 - Semantic Engine: In-JVM ONNX transformer models (all-MiniLM-L6-v2) for sub-4ms embedding generation.
 
 ## Key APIs
-- `POST /v1/chat/completions`: OpenAI-compatible endpoint supporting unbuffered streaming SSE and non-streaming responses.
-- `GET /health`: Health and readiness probe returning service status and version (0.3.0).
+- `POST /v1/chat/completions`: OpenAI-compatible endpoint supporting unbuffered streaming SSE, non-streaming responses, multi-provider failover, and intelligent routing.
+- `GET /health`: Health and readiness probe returning service status and version (0.4.0).
 - `GET /admin/usage`: Aggregated token counts, spend in USD, and cache hits.
 - `GET /admin/logs`: Chronological audit logs for requests and rejections.
 
@@ -18,6 +18,8 @@
 - `x-netra-cache`: Cache outcome (hit or miss)
 - `x-netra-fallback`: Failover flag (true or false)
 - `x-netra-cost-usd`: Precise cost in micro-USD (0.000000 USD; omitted on streaming responses upfront)
+- `x-netra-route-reason`: Rationale for model selection (alias, direct model, or classifier score)
+- `x-netra-retries`: Upstream retry attempts executed before success (0, 1, 2, 3)
 
 ## Documentation Links
 - System Overview: docs/index.md

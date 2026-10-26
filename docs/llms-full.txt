@@ -18,9 +18,11 @@ NETRA is a high-performance LLM gateway and semantic cache designed to provide e
   - `x-netra-cache`: `hit` or `miss`
   - `x-netra-fallback`: `true` if fallback chain activated, otherwise `false`
   - `x-netra-cost-usd`: Exact cost formatted to 6 decimal places (e.g. `0.000014`; omitted on streaming responses upfront)
+  - `x-netra-route-reason`: Rationale for model selection (e.g. `alias_fast`, `auto -> smart (score +3.5): +3.5 proof`, `direct_model`)
+  - `x-netra-retries`: Upstream network retries executed before success (0, 1, 2, 3)
 
 ## Administrative & Observability Contract
-- `GET /health`: System readiness probe returning status and version (`0.3.0`).
+- `GET /health`: System readiness probe returning status and version (`0.4.0`).
 - `GET /admin/usage?key=...&from=...&to=...`: Key-level token and spend reconciliation.
 - `GET /admin/logs?key=...&limit=...`: Chronological audit trail (16 audit fields).
 

@@ -11,6 +11,7 @@ help:
 	@echo "  make logs        - Tail live container logs across all services"
 	@echo "  make test        - Execute test suite via Gradle (Java 25)"
 	@echo "  make smoke       - Run automated smoke test suite against running gateway"
+	@echo "  make routing-eval - Run benchmark prompt difficulty routing eval"
 	@echo "  make load        - Run burst concurrency load test"
 	@echo "  make docs-serve  - Serve live-reloading MkDocs developer documentation"
 	@echo "  make docs-build  - Build strict production documentation artifacts"
@@ -45,6 +46,9 @@ clean:
 
 smoke:
 	python3 scripts/smoke_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --model fast
+
+routing-eval:
+	python3 scripts/run_routing_eval.py --url http://localhost:8080 --key netra-sk-research-4d5e6f
 
 load:
 	python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i --model fast --requests 30 --concurrency 10 --rpm-limit 10
