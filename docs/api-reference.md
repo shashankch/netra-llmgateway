@@ -95,7 +95,7 @@ Gateway liveness and readiness probe.
 {
   "status": "ok",
   "service": "netra-gateway",
-  "version": "0.4.0"
+  "version": "0.5.0"
 }
 ```
 

@@ -6,7 +6,7 @@ NETRA is an open-source project licensed under [Apache 2.0](https://github.com/s
 
 ## Active Development & Cloud Testbeds
 
-- **Status:** NETRA is in active pre-production development (`v0.4.x`). Fixes are applied directly to `main`.
+- **Status:** NETRA is in active pre-production development (`v0.5.x`). Fixes are applied directly to `main`.
 - **Cloud Dev/Test Sandboxes:** Hosted instances on **OCI** and **AWS** operate strictly as **experimental development, testing, and benchmarking sandboxes** using synthetic mock data. Do not transmit real production credentials or sensitive PII.
 - **Testing Rules:** Validate exploits locally (`make dev` / `docker compose up`). Do not run volumetric DoS/DDoS attacks, resource exhaustion scripts, or brute-force floods against hosted OCI or AWS infrastructure.
 

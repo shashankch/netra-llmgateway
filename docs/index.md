@@ -45,3 +45,15 @@ NETRA supports token-by-token pass-through streaming over Server-Sent Events (`s
 - **Zero-Delay Pass-Through**: Line-by-line streaming relay with 1KB buffers for progressive delivery (~20ms per token).
 - **Socket Reclamation**: Immediate closure of upstream sockets upon client disconnect (`Broken pipe`), preventing phantom token generation.
 - **Terminal Accounting**: Captures terminal token usage chunks and executes post-stream micro-USD cost settlement.
+
+---
+
+## Tenant-Isolated Semantic Vector Cache
+NETRA features an in-JVM vector embedding engine and PostgreSQL 18 `pgvector` HNSW nearest-neighbor retrieval cache:
+- **In-JVM ONNX Transformer**: Generates 384-dimensional dense vectors using quantized `all-MiniLM-L6-v2` in ~5ms without external sidecars or network hops.
+- **pgvector HNSW Cosine Indexing**: Evaluates cosine distance using the pgvector `<=>` operator (`1 - (embedding <=> :queryVector)`), accelerated by HNSW indexing (`m=16, ef_construction=64`).
+- **Cryptographic Tenant Isolation**: Enforces query-level tenant boundaries (`WHERE virtual_key = :virtualKey AND model_alias = :modelAlias`), mathematically preventing cross-tenant data leakage.
+- **Paraphrase Recognition & Near-Miss Rejection**: Successfully resolves semantically equivalent prompts above tenant similarity thresholds (e.g., 0.92 for search tenant) while rejecting near-miss prompts and unrelated queries.
+- **Upstream Safety Refusal Suppression**: Automatically intercepts and suppresses safety guardrail refusals, preventing permanent cache poisoning.
+- **Streaming Cache Replay**: Seamlessly replays cached completions as Server-Sent Events (SSE) with `x-netra-cache: hit`, `x-netra-cost-usd: 0.000000`, and `x-netra-route-reason: semantic_cache_hit`.
+- **Cache Observability API**: Exposes global cache hit rates, entry counts, and per-tenant breakdowns at `GET /admin/cache/stats`.
