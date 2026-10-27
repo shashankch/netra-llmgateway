@@ -429,6 +429,8 @@ class ChatCompletionContractTest {
                 .andExpect(header().string("x-netra-fallback", "false"))
                 .andExpect(header().string("x-netra-route-reason", "semantic_cache_hit"))
                 .andExpect(header().string("x-netra-provider", "alpha/alpha-small"))
+                .andExpect(jsonPath("$.id").value(org.hamcrest.Matchers.startsWith("chatcmpl-")))
+                .andExpect(jsonPath("$.created").isNumber())
                 .andExpect(jsonPath("$.choices[0].message.content").value("cached answer"));
     }
 }

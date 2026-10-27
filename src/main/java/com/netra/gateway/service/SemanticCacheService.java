@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Tenant-Isolated Semantic Vector Cache Service.
@@ -221,7 +222,16 @@ public class SemanticCacheService {
             return false;
         }
         String text = msg.getContent().toString().toLowerCase();
-        return text.contains("i'm sorry, but i can't") || text.contains("i cannot help with that");
+        return text.contains("i'm sorry, but i can't")
+                || text.contains("i'm sorry, but i cannot")
+                || text.contains("i cannot help with that")
+                || text.contains("i cannot assist with that")
+                || text.contains("i am unable to help")
+                || text.contains("i am unable to assist")
+                || text.contains("i apologize, but i cannot")
+                || text.contains("as an ai language model, i cannot")
+                || text.contains("violates safety guidelines")
+                || text.contains("violates our policy");
     }
 
     private Optional<CacheHitResult> lookupInMemory(Tenant tenant, String model, String prompt, float[] queryVec, double threshold) {
@@ -262,7 +272,7 @@ public class SemanticCacheService {
     }
 
     private void storeInMemory(String vkey, String model, String prompt, String resolvedProvider, float[] vector, String responseJson) {
-        inMemoryFallback.computeIfAbsent(vkey, k -> new ArrayList<>())
+        inMemoryFallback.computeIfAbsent(vkey, k -> new CopyOnWriteArrayList<>())
                 .add(new InMemoryCacheEntry(UUID.randomUUID(), vkey, model, prompt, resolvedProvider, vector, responseJson));
     }
 }

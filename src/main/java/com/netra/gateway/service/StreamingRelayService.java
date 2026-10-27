@@ -124,19 +124,42 @@ public class StreamingRelayService {
                 String chunkId = "chatcmpl-" + requestId;
                 String model = resp.getModel() != null ? resp.getModel() : request.getModel();
 
-                // 1. Content delta chunk
-                Map<String, Object> deltaChunk = Map.of(
-                        "id", chunkId,
-                        "object", "chat.completion.chunk",
-                        "created", System.currentTimeMillis() / 1000,
-                        "model", model,
-                        "choices", List.of(Map.of(
-                                "index", 0,
-                                "delta", Map.of("content", content),
-                                "finish_reason", "null"
-                        ))
-                );
-                emitter.send("data: " + objectMapper.writeValueAsString(deltaChunk) + "\n\n");
+                // 1. Content delta chunks
+                if (content != null && !content.isEmpty()) {
+                    String[] tokens = content.split("(?<=\\s+)");
+                    if (tokens.length == 0) {
+                        tokens = new String[]{content};
+                    }
+                    for (String token : tokens) {
+                        Map<String, Object> deltaChoice = new HashMap<>();
+                        deltaChoice.put("index", 0);
+                        deltaChoice.put("delta", Map.of("content", token));
+                        deltaChoice.put("finish_reason", null);
+
+                        Map<String, Object> deltaChunk = new HashMap<>();
+                        deltaChunk.put("id", chunkId);
+                        deltaChunk.put("object", "chat.completion.chunk");
+                        deltaChunk.put("created", System.currentTimeMillis() / 1000);
+                        deltaChunk.put("model", model);
+                        deltaChunk.put("choices", List.of(deltaChoice));
+
+                        emitter.send("data: " + objectMapper.writeValueAsString(deltaChunk) + "\n\n");
+                    }
+                } else {
+                    Map<String, Object> deltaChoice = new HashMap<>();
+                    deltaChoice.put("index", 0);
+                    deltaChoice.put("delta", Map.of());
+                    deltaChoice.put("finish_reason", null);
+
+                    Map<String, Object> deltaChunk = new HashMap<>();
+                    deltaChunk.put("id", chunkId);
+                    deltaChunk.put("object", "chat.completion.chunk");
+                    deltaChunk.put("created", System.currentTimeMillis() / 1000);
+                    deltaChunk.put("model", model);
+                    deltaChunk.put("choices", List.of(deltaChoice));
+
+                    emitter.send("data: " + objectMapper.writeValueAsString(deltaChunk) + "\n\n");
+                }
 
                 // 2. Terminal usage chunk
                 int promptTokens = resp.getUsage() != null ? resp.getUsage().getPromptTokens() : 0;

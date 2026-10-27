@@ -187,8 +187,12 @@ public class ChatCompletionController {
     ) {
         long latencyMs = System.currentTimeMillis() - startTime;
         ChatCompletionResponse response = cacheHit.response();
-        int promptTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
-        int completionTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+        if (response != null) {
+            response.setId("chatcmpl-" + requestId.replace("req_", ""));
+            response.setCreated(System.currentTimeMillis() / 1000);
+        }
+        int promptTokens = response != null && response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
+        int completionTokens = response != null && response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
 
         String providerHeader = cacheHit.resolvedProvider() != null ? cacheHit.resolvedProvider() : "mock/" + request.getModel();
         HttpHeaders headers = new HttpHeaders();
