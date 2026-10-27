@@ -26,6 +26,17 @@ Every successful chat completion response from `POST /v1/chat/completions` stric
 | `x-netra-cache` | Indicates whether the response was served from cache | `hit` or `miss` |
 | `x-netra-fallback` | Indicates if an upstream failover provider was used | `false` or `true` |
 | `x-netra-cost-usd` | Computed cost in micro-USD ($0.000000 USD) *(omitted on streaming responses upfront)* | `0.000011` |
+| `x-netra-route-reason` | Decision rationale applied by the dynamic model router | `auto -> smart (score +3.5): +3.5 proof` |
+| `x-netra-retries` | Number of upstream network retries executed before success | `0` (or `1`, `2`, `3`) |
+
+---
+
+## Multi-Provider Routing & Intelligent Auto Classifier
+NETRA implements high-availability provider resilience and machine-assisted model steering:
+- **Ordered Fallback Chains**: Aliases (`fast`, `smart`) and direct models resolve to candidate chains (e.g. `alpha/alpha-small` -> `beta/beta-small`).
+- **Bounded Exponential Retries**: Transient HTTP 5xx, 429, and timeouts are absorbed across 3 attempts (`initial_backoff_ms: 200`, `multiplier: 2.0`).
+- **Synchronous Upstream Failover**: Streaming SSE connects upstream synchronously before emitting headers, ensuring zero-glitch provider failover.
+- **Two-Stage Prompt Difficulty Classifier**: For the `auto` alias, task instructions are decoupled from wrapped data payloads (`extractInstruction()`) to evaluate grammatical complexity signals, achieving 100% accuracy on benchmark evaluations.
 
 ---
 

@@ -22,6 +22,7 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
 5. **Evaluation Verification:** Ensure all benchmark suites pass:
    ```bash
    make smoke
+   make routing-eval
    make load
    ```
 6. **Submitting Pull Requests:** Push your branch and open a PR against `main`. Provide a clear summary of changes, rationale, and test results.

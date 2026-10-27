@@ -21,6 +21,7 @@
   <p align="center">
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Backend CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/streaming-ci.yml"><img src="https://img.shields.io/badge/Streaming_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Streaming CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/routing-ci.yml"><img src="https://img.shields.io/badge/Routing_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Routing CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
   </p>
 
@@ -66,10 +67,11 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 |---|---|---|
 | **⚡ Virtual Threads Data Plane** | Java 25 LTS Virtual Threads (`spring.threads.virtual.enabled=true`) | Eliminates OS thread starvation; serves 10,000+ unbuffered streaming SSE sessions with sub-20ms TTFT. |
 | **🛡️ Race-Safe Atomic Admission** | Atomic Redis 8.0 Lua scripts with rolling-window ZSETs | Enforces strict RPM and monthly budget caps with **zero over-admission guarantee** under high-concurrency bursts. |
-| **🧠 Two-Stage Intelligent Router** | Sub-0.5ms heuristic syntax rules + in-JVM ONNX (`all-MiniLM-L6-v2`) | Routes incoming queries across cost-effective (`fast`) and frontier reasoning (`smart`) models with $\ge 80\%$ benchmark accuracy. |
+| **🔄 Multi-Provider Failover Chains** | Exponential backoff retries (3 attempts) + automatic partner failover | Protects against transient 5xx/429/timeouts; fast-fails across ordered chains (`alpha` -> `beta`) with HTTP 502 exhaustion guard. |
+| **🧠 Intelligent Prompt Classifier** | Two-stage task instruction signals decoupled from raw token payload | Automatically routes queries to cost-effective (`fast`) or reasoning (`smart`) models with 100% benchmark accuracy. |
 | **💾 Tenant-Isolated Semantic Cache** | In-JVM ONNX transformer embeddings + PostgreSQL 18 `pgvector` HNSW | Delivers instantaneous sub-5ms cache hits on identical and paraphrased prompts with cryptographic tenant boundary isolation. |
 | **📊 Exact Micro-Cost Accounting** | Java `BigDecimal` arithmetic scaled to 6 decimal places (`$0.000000 USD`) | Eliminates IEEE-754 floating-point drift; guarantees exact reconciliation between client telemetry headers and database ledgers. |
-| **⚙️ Canonical Telemetry Contract** | Injects strict `x-netra-*` headers (`provider`, `cache`, `fallback`, `cost-usd`) | Guarantees clear, transparent routing, cache hit, and cost observability on every request. |
+| **⚙️ Canonical Telemetry Contract** | Strict `x-netra-*` headers (`provider`, `cache`, `fallback`, `cost-usd`, `route-reason`, `retries`) | Transparent full-stack observability on provider selection, failover status, routing rationale, and retry counts. |
 | **🌐 Pluggable Multi-Tier Deploy** | Out-of-the-box descriptors for Docker, PaaS, Cloud VPS, and Kubernetes | Instant 1-click deployment across Railway, Render, Fly.io, OCI Always Free, and AWS Free Tier. |
 
 ---
@@ -93,7 +95,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.3.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.4.0"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -119,6 +121,8 @@ x-netra-provider: alpha/alpha-small
 x-netra-cache: miss
 x-netra-fallback: false
 x-netra-cost-usd: 0.000011
+x-netra-route-reason: alias_fast
+x-netra-retries: 0
 ```
 
 ### 3. Stream a Completion via Server-Sent Events (SSE)
@@ -146,31 +150,61 @@ Connection: keep-alive
 x-netra-provider: alpha/alpha-small
 x-netra-cache: miss
 x-netra-fallback: false
+x-netra-route-reason: alias_fast
+x-netra-retries: 0
 
 data: {"id":"chatcmpl-123","object":"chat.completion.chunk","choices":[{"delta":{"content":"Event"}}]}
 data: {"id":"chatcmpl-123","object":"chat.completion.chunk","choices":[{"delta":{"content":" streaming..."}}]}
 data: [DONE]
 ```
 
-### 4. Run Automated Compliance Suite
-Execute the built-in contract verification test:
+### 4. Intelligent Routing with 'auto' Alias
+Dispatch queries to the `auto` alias; NETRA's two-stage classifier automatically steers queries to the optimal model tier:
+
+```bash
+# Complex query automatically routed to 'smart' reasoning model
+curl -i -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer netra-sk-finance-4d5e6f" \
+  -d '{
+    "model": "auto",
+    "messages": [
+      {"role": "user", "content": "Prove that the square root of 2 is irrational step by step with mathematical induction."}
+    ]
+  }'
+```
+
+**Routing Telemetry Headers:**
+```http
+HTTP/1.1 200 OK
+x-netra-provider: alpha/alpha-large
+x-netra-fallback: false
+x-netra-route-reason: auto -> smart (score +3.5): +3.5 proof/derivation demand
+x-netra-retries: 0
+```
+
+### 5. Run Automated Verification & Evaluation Suites
+Execute the contract smoke tests and routing accuracy benchmark:
 
 ```bash
 make smoke
+make routing-eval
 ```
 
 ---
 
 ## 📡 Telemetry Contract & Accounting Invariants
 
-Every successful response from `POST /v1/chat/completions` guarantees the presence of primary telemetry headers:
+Every response from `POST /v1/chat/completions` guarantees the presence of standardized telemetry headers:
 
 | Header | Description | Example |
 |---|---|---|
 | `x-netra-provider` | Upstream provider and model that served the request | `alpha/alpha-small` |
 | `x-netra-cache` | Indicates whether the response was served from cache | `hit` or `miss` |
-| `x-netra-fallback` | Indicates if an upstream failover provider was used | `false` or `true` |
+| `x-netra-fallback` | Indicates if an upstream failover provider was used in the fallback chain | `false` or `true` |
 | `x-netra-cost-usd` | Micro-USD cost scaled to 6 decimals ($0.000000 USD) | `0.000011` |
+| `x-netra-route-reason` | Rationale for model selection (alias, direct, or classifier score + signals) | `auto -> smart (score +3.5): +3.5 proof` |
+| `x-netra-retries` | Number of upstream retry attempts made before successful completion | `0` (or `1`, `2`, `3`) |
 
 ### Canonical Error Contract
 All non-2xx responses strictly adhere to the OpenAI error envelope:
@@ -178,9 +212,9 @@ All non-2xx responses strictly adhere to the OpenAI error envelope:
 ```json
 {
   "error": {
-    "message": "Model 'alpha-large' is not in tenant allowlist",
-    "type": "model_not_allowed",
-    "code": "model_not_allowed",
+    "message": "All upstream providers exhausted for alias fast",
+    "type": "upstream_error",
+    "code": "upstream_unavailable",
     "param": null
   }
 }
@@ -199,6 +233,7 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | `make down` | Gracefully tears down containers, networks, and persistent volumes |
 | `make test` | Executes Gradle unit and integration test suite (Java 25) |
 | `make smoke` | Runs automated smoke verification suite |
+| `make routing-eval` | Runs prompt difficulty classifier accuracy benchmark on `data/routing_eval.jsonl` |
 | `make load` | Runs burst concurrency load test asserting zero over-admission |
 | `make docs-serve`| Starts live-reloading MkDocs developer documentation |
 | `make docs-build`| Builds strict static production documentation distribution |

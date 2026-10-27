@@ -11,7 +11,7 @@ info:
     - **Micro-USD Precision**: Exact 6-decimal cost calculation and quota accounting.
     - **High-Throughput Streaming**: Non-blocking SSE pass-through over Java 25 Virtual Threads.
     - **Atomic Redis 8.0 Admission**: Sliding-window rate limiting & zero over-admission budget accounting.
-  version: 0.3.0
+  version: 0.4.0
   contact:
     name: Shashank Chandel
     email: shashakchandel@gmail.com

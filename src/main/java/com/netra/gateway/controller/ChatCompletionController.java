@@ -66,8 +66,8 @@ public class ChatCompletionController {
                 throw new InvalidRequestException("Messages array cannot be empty");
             }
 
-            // 3. Resolve Model Target / Alias (Validates existence; returns 404 if unknown)
-            UpstreamClientService.ResolvedTarget target = upstreamClientService.resolveTarget(request.getModel());
+            // 3. Resolve Candidate Chain (Primary + Fallbacks; runs Prompt Difficulty Classifier for 'auto')
+            UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain(request.getModel(), request.getMessages());
 
             // 4. Enforce Model Allowlist (Returns 403 if not permitted for this key)
             authService.validateModelAllowed(tenant, request.getModel());
@@ -77,9 +77,9 @@ public class ChatCompletionController {
 
             // 6. Handle Streaming vs Non-Streaming
             if (isStream) {
-                return streamingRelayService.streamChatCompletion(requestId, tenant, request, target, startTime, servletResponse);
+                return streamingRelayService.streamChatCompletion(requestId, tenant, request, chain, startTime, servletResponse);
             } else {
-                return handleNonStreamingCompletion(requestId, tenant, request, target, startTime);
+                return handleNonStreamingCompletion(requestId, tenant, request, chain, startTime);
             }
         } catch (GatewayException ex) {
             long latencyMs = System.currentTimeMillis() - startTime;
@@ -96,12 +96,12 @@ public class ChatCompletionController {
             String requestId,
             Tenant tenant,
             ChatCompletionRequest request,
-            UpstreamClientService.ResolvedTarget target,
+            UpstreamClientService.CandidateChain chain,
             long startTime
     ) {
         UpstreamClientService.UpstreamResult result;
         try {
-            result = upstreamClientService.forwardNonStreaming(request, target);
+            result = upstreamClientService.forwardWithFailover(request, chain);
         } catch (Exception e) {
             admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
             throw e;
@@ -130,6 +130,10 @@ public class ChatCompletionController {
         headers.set("x-netra-cache", cacheHeader);
         headers.set("x-netra-fallback", fallbackHeader);
         headers.set("x-netra-cost-usd", costFormatted);
+        if (result.getRouteReason() != null) {
+            headers.set("x-netra-route-reason", result.getRouteReason());
+        }
+        headers.set("x-netra-retries", String.valueOf(result.getRetries()));
 
         // Async audit log & monthly spend update
         recordAuditAndSpend(
@@ -145,8 +149,8 @@ public class ChatCompletionController {
                 cost,
                 cacheHeader,
                 result.isFallback(),
-                null,
-                0,
+                result.getRouteReason(),
+                result.getRetries(),
                 latencyMs,
                 false,
                 null

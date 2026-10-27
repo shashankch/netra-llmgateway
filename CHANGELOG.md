@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-10-26 — Phase 4: Multi-Provider Routing, Failover Chains & Intelligent Router
+
+### 🚀 Added
+- **Multi-Provider Fallback Chains (`UpstreamClientService`)**: Dynamic ordered candidate chains for model aliases (`fast`, `smart`) and direct concrete models. Maps `fast` to primary `alpha/alpha-small` and fallback `beta/beta-small`, and `smart` to primary `alpha/alpha-large` and fallback `beta/beta-large`. Direct models automatically resolve to partner fallbacks.
+- **Exponential Backoff Retries with Fast-Failover**: Automated retry loop (`max_attempts: 3`, `initial_backoff_ms: 200`, `multiplier: 2.0`) catching transient HTTP 5xx, 429, and socket exceptions before switching to fallback partner models.
+- **Intelligent Prompt Difficulty Classifier (`PromptDifficultyClassifier`)**: Two-stage task instruction classification engine using operative verb extraction (`extractInstruction()`) to decouple user instructions from large text payloads (e.g. server logs, rosters). Scores proof, architecture design, Fermi estimation, systems reasoning, algorithmic complexity, and comparative evaluation signals against de-escalation patterns. Achieves 20/20 (100.00%) accuracy on `data/routing_eval.jsonl` benchmark.
+- **Failover in Streaming SSE Relay**: Establishes upstream connections synchronously before committing headers. Primary connection failures automatically retry and fail over to fallback providers before the first SSE chunk is emitted.
+- **All-Provider Exhaustion Guard**: When all candidates in a fallback chain are exhausted, cleanly rolls back admission slots and aborts with HTTP 502 Bad Gateway and OpenAI-compatible error payload (`upstream_unavailable`).
+- **Telemetry Observability Headers**: Injects `x-netra-route-reason` (explicit classifier score and signal attribution or alias name) and `x-netra-retries` (network retry attempts executed). Both metrics persisted in audit logs.
+- **Offline & Live Routing Verification CLI (`scripts/run_routing_eval.py`)**: Verification script evaluating accuracy against `data/routing_eval.jsonl` with support for both `--offline` local heuristic analysis and live gateway HTTP testing. Added `make routing-eval` command.
+- **Automated Routing CI Pipeline (`.github/workflows/routing-ci.yml`)**: GitHub Actions workflow executing In-JVM classifier benchmark, multi-provider routing unit/integration tests, and CLI routing evaluation. Added `Routing_CI` badge to `README.md`.
+
+---
+
 ## [0.3.0] - 2026-10-25 — Phase 3: Unbuffered Streaming SSE Relay & Usage Finalization
 
 ### 🚀 Added

@@ -3,6 +3,7 @@ package com.netra.gateway.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netra.gateway.config.GatewayConfigProperties;
+import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatMessage;
@@ -25,12 +26,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Service managing high-throughput, unbuffered pass-through Server-Sent Events (SSE)
  * over Java 25 Virtual Threads with client disconnect detection, premature severance handling,
- * terminal token usage extraction, and micro-USD post-stream financial settlement.
+ * terminal token usage extraction, multi-provider failover, and micro-USD post-stream settlement.
  */
 @Slf4j
 @Service
@@ -47,6 +49,9 @@ public class StreamingRelayService {
     // 120s timeout for deep reasoning and long-context streaming
     private static final long STREAM_TIMEOUT_MS = 120_000L;
 
+    /**
+     * Backward-compatible overload for single target streaming.
+     */
     public ResponseBodyEmitter streamChatCompletion(
             String requestId,
             Tenant tenant,
@@ -55,21 +60,135 @@ public class StreamingRelayService {
             long startTime,
             HttpServletResponse servletResponse
     ) {
-        String providerHeader = target.providerName() + "/" + target.modelName();
+        UpstreamClientService.CandidateChain chain = new UpstreamClientService.CandidateChain(
+                request.getModel(), request.getModel(), target.routeReason(), List.of(target)
+        );
+        return streamChatCompletion(requestId, tenant, request, chain, startTime, servletResponse);
+    }
 
-        // 1. Set Streaming Response Headers upfront before any chunks are flushed
+    /**
+     * Initiates unbuffered SSE streaming with multi-provider failover across the candidate chain.
+     */
+    public ResponseBodyEmitter streamChatCompletion(
+            String requestId,
+            Tenant tenant,
+            ChatCompletionRequest request,
+            UpstreamClientService.CandidateChain chain,
+            long startTime,
+            HttpServletResponse servletResponse
+    ) {
+        InputStream upstreamStream = null;
+        UpstreamClientService.ResolvedTarget connectedTarget = null;
+        int totalRetries = 0;
+
+        // Multi-provider connection attempt with retries and failover
+        for (int i = 0; i < chain.targets().size(); i++) {
+            UpstreamClientService.ResolvedTarget candidate = chain.targets().get(i);
+            GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(candidate.providerName());
+            if (providerConfig == null) {
+                log.warn("Provider [{}] not configured in registry; skipping to next fallback", candidate.providerName());
+                continue;
+            }
+
+            String base = providerConfig.getBaseUrl().replaceAll("/+$", "");
+            String targetUrl = base.endsWith("/v1") ? base + "/chat/completions" : base + "/v1/chat/completions";
+
+            ChatCompletionRequest upstreamPayload = ChatCompletionRequest.builder()
+                    .model(candidate.modelName())
+                    .messages(request.getMessages())
+                    .stream(true)
+                    .temperature(request.getTemperature())
+                    .maxTokens(request.getMaxTokens())
+                    .build();
+
+            String jsonBody;
+            try {
+                jsonBody = objectMapper.writeValueAsString(upstreamPayload);
+            } catch (Exception e) {
+                admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
+                throw new InvalidRequestException("Failed to serialize request payload: " + e.getMessage());
+            }
+
+            HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(targetUrl))
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(3))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
+
+            if (providerConfig.getApiKey() != null && !providerConfig.getApiKey().isBlank()) {
+                reqBuilder.header("Authorization", "Bearer " + providerConfig.getApiKey());
+            }
+
+            int maxAttempts = configProperties.getRetry().getMaxAttempts();
+            long initialBackoff = configProperties.getRetry().getInitialBackoffMs();
+            double multiplier = configProperties.getRetry().getBackoffMultiplier();
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    HttpResponse<InputStream> resp = httpClient.send(
+                            reqBuilder.build(),
+                            HttpResponse.BodyHandlers.ofInputStream()
+                    );
+
+                    if (resp.statusCode() == 200) {
+                        upstreamStream = resp.body();
+                        connectedTarget = candidate;
+                        break;
+                    } else {
+                        log.warn("Streaming attempt {}/{} to [{}] returned HTTP {}",
+                                attempt, maxAttempts, candidate.providerName(), resp.statusCode());
+                        if (attempt < maxAttempts || i < chain.targets().size() - 1) {
+                            totalRetries++;
+                        }
+                        if (attempt < maxAttempts) {
+                            sleepBackoff(initialBackoff, multiplier, attempt);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Streaming attempt {}/{} to [{}] failed: {}",
+                            attempt, maxAttempts, candidate.providerName(), e.getMessage());
+                    if (attempt < maxAttempts || i < chain.targets().size() - 1) {
+                        totalRetries++;
+                    }
+                    if (attempt < maxAttempts) {
+                        sleepBackoff(initialBackoff, multiplier, attempt);
+                    }
+                }
+            }
+
+            if (upstreamStream != null) {
+                break;
+            }
+
+            if (i < chain.targets().size() - 1) {
+                UpstreamClientService.ResolvedTarget next = chain.targets().get(i + 1);
+                log.info("Streaming target [{}/{}] failed. Failing over to [{}/{}]",
+                        candidate.providerName(), candidate.modelName(), next.providerName(), next.modelName());
+            }
+        }
+
+        if (upstreamStream == null || connectedTarget == null) {
+            admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
+            throw new UpstreamException("All upstream providers exhausted for alias " + chain.requestedModel());
+        }
+
+        // Set Streaming Response Headers upfront before any chunks are flushed
         servletResponse.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
         servletResponse.setCharacterEncoding("UTF-8");
         servletResponse.setHeader("Cache-Control", "no-cache");
         servletResponse.setHeader("Connection", "keep-alive");
-        servletResponse.setHeader("x-netra-provider", providerHeader);
+        servletResponse.setHeader("x-netra-provider", connectedTarget.providerName() + "/" + connectedTarget.modelName());
         servletResponse.setHeader("x-netra-cache", "miss");
-        servletResponse.setHeader("x-netra-fallback", String.valueOf(target.fallback()));
+        servletResponse.setHeader("x-netra-fallback", String.valueOf(connectedTarget.fallback()));
+        if (connectedTarget.routeReason() != null) {
+            servletResponse.setHeader("x-netra-route-reason", connectedTarget.routeReason());
+        }
+        servletResponse.setHeader("x-netra-retries", String.valueOf(totalRetries));
 
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(STREAM_TIMEOUT_MS);
         AtomicBoolean clientDisconnected = new AtomicBoolean(false);
 
-        // 2. Register lifecycle callbacks to detect client disconnection
+        // Register lifecycle callbacks to detect client disconnection
         emitter.onCompletion(() -> clientDisconnected.set(true));
         emitter.onTimeout(() -> {
             clientDisconnected.set(true);
@@ -77,16 +196,11 @@ public class StreamingRelayService {
         });
         emitter.onError(ex -> clientDisconnected.set(true));
 
-        GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(target.providerName());
-        if (providerConfig == null) {
-            admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
-            throw new UpstreamException("Provider '" + target.providerName() + "' not configured in gateway registry");
-        }
+        final InputStream streamToPump = upstreamStream;
+        final UpstreamClientService.ResolvedTarget targetSettlement = connectedTarget;
+        final int retriesSettlement = totalRetries;
 
-        String base = providerConfig.getBaseUrl().replaceAll("/+$", "");
-        String targetUrl = base.endsWith("/v1") ? base + "/chat/completions" : base + "/v1/chat/completions";
-
-        // 3. Launch unbuffered stream pump on dedicated Java 25 Virtual Thread
+        // Launch unbuffered stream pump on dedicated Java 25 Virtual Thread
         Thread.ofVirtual().name("sse-relay-" + requestId).start(() -> {
             int promptTokens = 0;
             int completionTokens = 0;
@@ -95,49 +209,10 @@ public class StreamingRelayService {
             String status = "ok";
             int statusCode = 200;
             String errorType = null;
-            InputStream upstreamStream = null;
 
             try {
-                ChatCompletionRequest upstreamPayload = ChatCompletionRequest.builder()
-                        .model(target.modelName())
-                        .messages(request.getMessages())
-                        .stream(true)
-                        .temperature(request.getTemperature())
-                        .maxTokens(request.getMaxTokens())
-                        .build();
-
-                String jsonBody = objectMapper.writeValueAsString(upstreamPayload);
-                HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
-                        .uri(URI.create(targetUrl))
-                        .header("Content-Type", "application/json")
-                        .timeout(Duration.ofSeconds(60))
-                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
-
-                if (providerConfig.getApiKey() != null && !providerConfig.getApiKey().isBlank()) {
-                    reqBuilder.header("Authorization", "Bearer " + providerConfig.getApiKey());
-                }
-
-                HttpResponse<InputStream> resp = httpClient.send(
-                        reqBuilder.build(),
-                        HttpResponse.BodyHandlers.ofInputStream()
-                );
-
-                if (resp.statusCode() >= 400) {
-                    status = "upstream_error";
-                    statusCode = resp.statusCode();
-                    errorType = "upstream_http_" + resp.statusCode();
-                    try {
-                        emitter.send("data: {\"error\":{\"message\":\"Upstream provider returned status " + resp.statusCode() + "\",\"type\":\"upstream_error\",\"code\":\"upstream_error\"}}\n\n");
-                    } catch (Exception ignored) {
-                    }
-                    emitter.completeWithError(new UpstreamException("Upstream stream error HTTP " + resp.statusCode()));
-                    return;
-                }
-
-                upstreamStream = resp.body();
-
-                // 4. Read upstream chunks line-by-line with small 1KB buffer for zero-delay pass-through
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(upstreamStream, StandardCharsets.UTF_8), 1024)) {
+                // Read upstream chunks line-by-line with small 1KB buffer for zero-delay pass-through
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(streamToPump, StandardCharsets.UTF_8), 1024)) {
                     String line;
                     while (!clientDisconnected.get() && (line = reader.readLine()) != null) {
                         String trimmed = line.trim();
@@ -160,39 +235,42 @@ public class StreamingRelayService {
 
                         if (trimmed.startsWith("data: ")) {
                             String jsonStr = trimmed.substring(6).trim();
-                            try {
-                                JsonNode chunk = objectMapper.readTree(jsonStr);
+                            if (!"[DONE]".equals(jsonStr)) {
+                                try {
+                                    JsonNode chunkNode = objectMapper.readTree(jsonStr);
 
-                                // Extract terminal usage block if provided by upstream
-                                if (chunk.has("usage") && !chunk.get("usage").isNull()) {
-                                    JsonNode usage = chunk.get("usage");
-                                    if (usage.has("prompt_tokens")) {
-                                        promptTokens = usage.get("prompt_tokens").asInt();
+                                    // Extract token usage if emitted in chunk
+                                    if (chunkNode.has("usage") && !chunkNode.get("usage").isNull()) {
+                                        JsonNode usageNode = chunkNode.get("usage");
+                                        if (usageNode.has("prompt_tokens")) {
+                                            promptTokens = usageNode.get("prompt_tokens").asInt();
+                                        }
+                                        if (usageNode.has("completion_tokens")) {
+                                            completionTokens = usageNode.get("completion_tokens").asInt();
+                                        }
                                     }
-                                    if (usage.has("completion_tokens")) {
-                                        completionTokens = usage.get("completion_tokens").asInt();
-                                    }
-                                }
 
-                                // Accumulate delta content for fallback heuristic
-                                if (chunk.has("choices") && chunk.get("choices").isArray() && !chunk.get("choices").isEmpty()) {
-                                    JsonNode choice = chunk.get("choices").get(0);
-                                    if (choice.has("delta") && choice.get("delta").has("content")) {
-                                        String content = choice.get("delta").get("content").asText();
-                                        inferredCompletionTokens += estimateTokenCount(content);
+                                    // Count words in delta content for heuristic fallback
+                                    if (chunkNode.has("choices") && chunkNode.get("choices").isArray()) {
+                                        for (JsonNode choice : chunkNode.get("choices")) {
+                                            if (choice.has("delta") && choice.get("delta").has("content")) {
+                                                String deltaText = choice.get("delta").get("content").asText();
+                                                inferredCompletionTokens += estimateTokenCount(deltaText);
+                                            }
+                                        }
                                     }
+                                } catch (Exception parseEx) {
+                                    log.trace("Non-fatal JSON parse error on stream chunk [{}]: {}", jsonStr, parseEx.getMessage());
                                 }
-                            } catch (Exception ignored) {
                             }
                         }
                     }
                 }
 
-                // 5. Handle stream outcome
+                // Handle stream outcome
                 if (clientDisconnected.get()) {
                     status = "client_disconnected";
                 } else if (!sawDone) {
-                    // Upstream provider terminated prematurely without emitting data: [DONE]
                     status = "upstream_error";
                     statusCode = 502;
                     errorType = "stream_severed";
@@ -218,9 +296,9 @@ public class StreamingRelayService {
                 }
             } finally {
                 // Ensure upstream socket is closed immediately to halt compute
-                if (upstreamStream != null) {
+                if (streamToPump != null) {
                     try {
-                        upstreamStream.close();
+                        streamToPump.close();
                     } catch (Exception ignored) {
                     }
                 }
@@ -234,7 +312,6 @@ public class StreamingRelayService {
                         promptTokens = estimatePromptTokens(request);
                     }
                 } else {
-                    // For upstream errors where 0 completion tokens were delivered, do not charge prompt tokens
                     if (completionTokens == 0) {
                         promptTokens = 0;
                     }
@@ -246,26 +323,31 @@ public class StreamingRelayService {
                 }
 
                 long latencyMs = System.currentTimeMillis() - startTime;
-                BigDecimal cost = (completionTokens > 0 || "ok".equals(status))
-                        ? costService.calculateCost(target.modelName(), promptTokens, completionTokens)
+                String modelName = targetSettlement != null ? targetSettlement.modelName() : chain.requestedModel();
+                String providerName = targetSettlement != null ? targetSettlement.providerName() : null;
+                boolean fallbackFlag = targetSettlement != null && targetSettlement.fallback();
+                String routeReason = targetSettlement != null ? targetSettlement.routeReason() : chain.routeReason();
+
+                BigDecimal cost = (completionTokens > 0 || "ok".equals(status)) && targetSettlement != null
+                        ? costService.calculateCost(targetSettlement.modelName(), promptTokens, completionTokens)
                         : BigDecimal.ZERO;
 
-                // 6. Post-stream financial settlement & audit logging
+                // Post-stream financial settlement & audit logging
                 auditLogService.recordAuditAndSpend(
                         requestId,
                         tenant.getVirtualKey(),
                         request.getModel(),
-                        target.providerName(),
-                        target.modelName(),
+                        providerName,
+                        modelName,
                         status,
                         statusCode,
                         promptTokens,
                         completionTokens,
                         cost,
                         "miss",
-                        target.fallback(),
-                        null,
-                        0,
+                        fallbackFlag,
+                        routeReason,
+                        retriesSettlement,
                         latencyMs,
                         true,
                         errorType
@@ -280,8 +362,7 @@ public class StreamingRelayService {
         if (text == null || text.isBlank()) {
             return 0;
         }
-        String[] words = text.trim().split("\\s+");
-        return Math.max(1, words.length);
+        return Math.max(1, text.trim().split("\\s+").length);
     }
 
     private int estimatePromptTokens(ChatCompletionRequest request) {
@@ -298,14 +379,24 @@ public class StreamingRelayService {
     }
 
     private boolean isClientAbort(Throwable t) {
-        if (t == null) return false;
-        String msg = t.getMessage();
-        if (msg != null) {
-            String lower = msg.toLowerCase();
-            if (lower.contains("broken pipe") || lower.contains("connection reset") || lower.contains("closed by client")) {
-                return true;
+        while (t != null) {
+            if (t instanceof IOException) {
+                String msg = t.getMessage();
+                if (msg != null && (msg.contains("Broken pipe") || msg.contains("Connection reset") || msg.contains("ClosedByInterruptException"))) {
+                    return true;
+                }
             }
+            t = t.getCause();
         }
-        return isClientAbort(t.getCause());
+        return false;
+    }
+
+    private void sleepBackoff(long initialBackoffMs, double multiplier, int attempt) {
+        long delay = (long) (initialBackoffMs * Math.pow(multiplier, attempt - 1));
+        try {
+            Thread.sleep(Math.max(10, delay));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
