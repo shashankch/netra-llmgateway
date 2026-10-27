@@ -44,6 +44,9 @@ class AdminControllerContractTest {
     @MockitoBean
     private RequestLogRepository requestLogRepository;
 
+    @MockitoBean
+    private com.netra.gateway.service.SemanticCacheService semanticCacheService;
+
     @Test
     @DisplayName("GET /admin/usage returns 200 with reconciled metrics")
     void testGetUsageSummary() throws Exception {
@@ -154,5 +157,34 @@ class AdminControllerContractTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.type").value("invalid_request_error"))
                 .andExpect(jsonPath("$.error.message").value("Invalid date format for 'from': not-a-valid-date. Expected YYYY-MM-DD"));
+    }
+
+    @Test
+    @DisplayName("GET /admin/cache/stats returns 200 with cache metrics and per-key breakdown")
+    void testGetCacheStats() throws Exception {
+        com.netra.gateway.model.dto.CacheStatsResponse mockStats = com.netra.gateway.model.dto.CacheStatsResponse.builder()
+                .totalEntries(150L)
+                .totalHits(120L)
+                .totalMisses(30L)
+                .hitRate(0.80)
+                .keys(java.util.Map.of("netra-sk-search-1a2b3c", com.netra.gateway.model.dto.CacheStatsResponse.KeyCacheStats.builder()
+                        .entries(150L)
+                        .hits(120L)
+                        .misses(30L)
+                        .hitRate(0.80)
+                        .build()))
+                .build();
+
+        when(semanticCacheService.getCacheStats()).thenReturn(mockStats);
+
+        mockMvc.perform(get("/admin/cache/stats")
+                        .header("Authorization", "Bearer netra-admin-demo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total_entries").value(150))
+                .andExpect(jsonPath("$.total_hits").value(120))
+                .andExpect(jsonPath("$.total_misses").value(30))
+                .andExpect(jsonPath("$.hit_rate").value(0.80))
+                .andExpect(jsonPath("$.keys.['netra-sk-search-1a2b3c'].entries").value(150))
+                .andExpect(jsonPath("$.keys.['netra-sk-search-1a2b3c'].hits").value(120));
     }
 }

@@ -11,7 +11,8 @@ info:
     - **Micro-USD Precision**: Exact 6-decimal cost calculation and quota accounting.
     - **High-Throughput Streaming**: Non-blocking SSE pass-through over Java 25 Virtual Threads.
     - **Atomic Redis 8.0 Admission**: Sliding-window rate limiting & zero over-admission budget accounting.
-  version: 0.4.0
+    - **Semantic Vector Cache**: In-JVM dense embeddings (384-dim) with pgvector HNSW indexing and per-tenant isolation.
+  version: 0.5.0
   contact:
     name: Shashank Chandel
     email: shashakchandel@gmail.com
@@ -225,6 +226,27 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RequestLogEntry'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/cache/stats:
+    get:
+      summary: Semantic Vector Cache Statistics
+      description: Returns aggregate cache hit rates, entry counts, and per-tenant cryptographic isolation breakdowns.
+      operationId: getCacheStats
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: Aggregate cache statistics and per-key breakdown.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheStatsResponse'
         '401':
           description: Unauthorized admin token.
           content:
@@ -526,4 +548,50 @@ components:
           type: string
           format: date-time
           example: "2026-10-24T15:00:00Z"
+
+    CacheStatsResponse:
+      type: object
+      required:
+        - total_entries
+        - total_hits
+        - total_misses
+        - hit_rate
+        - keys
+      properties:
+        total_entries:
+          type: integer
+          example: 150
+        total_hits:
+          type: integer
+          example: 120
+        total_misses:
+          type: integer
+          example: 30
+        hit_rate:
+          type: number
+          format: double
+          example: 0.80
+        keys:
+          type: object
+          additionalProperties:
+            type: object
+            required:
+              - entries
+              - hits
+              - misses
+              - hit_rate
+            properties:
+              entries:
+                type: integer
+                example: 150
+              hits:
+                type: integer
+                example: 120
+              misses:
+                type: integer
+                example: 30
+              hit_rate:
+                type: number
+                format: double
+                example: 0.80
 

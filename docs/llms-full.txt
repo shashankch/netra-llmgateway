@@ -22,9 +22,10 @@ NETRA is a high-performance LLM gateway and semantic cache designed to provide e
   - `x-netra-retries`: Upstream network retries executed before success (0, 1, 2, 3)
 
 ## Administrative & Observability Contract
-- `GET /health`: System readiness probe returning status and version (`0.4.0`).
+- `GET /health`: System readiness probe returning status and version (`0.5.0`).
 - `GET /admin/usage?key=...&from=...&to=...`: Key-level token and spend reconciliation.
 - `GET /admin/logs?key=...&limit=...`: Chronological audit trail (16 audit fields).
+- `GET /admin/cache/stats`: Aggregate cache hit rate, total vector entries, and per-tenant cryptographic isolation breakdown.
 
 ## Error Model
 Standard OpenAI JSON format:

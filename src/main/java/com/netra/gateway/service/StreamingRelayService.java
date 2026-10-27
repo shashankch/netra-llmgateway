@@ -6,7 +6,9 @@ import com.netra.gateway.config.GatewayConfigProperties;
 import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
+import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.dto.ChatMessage;
+import com.netra.gateway.model.dto.UsageInfo;
 import com.netra.gateway.model.entity.Tenant;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -20,13 +22,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -45,9 +50,22 @@ public class StreamingRelayService {
     private final CostCalculationService costService;
     private final AdmissionService admissionService;
     private final AuditLogService auditLogService;
+    @org.springframework.context.annotation.Lazy
+    private final SemanticCacheService semanticCacheService;
 
     // 120s timeout for deep reasoning and long-context streaming
     private static final long STREAM_TIMEOUT_MS = 120_000L;
+
+    public StreamingRelayService(
+            HttpClient httpClient,
+            ObjectMapper objectMapper,
+            GatewayConfigProperties configProperties,
+            CostCalculationService costService,
+            AdmissionService admissionService,
+            AuditLogService auditLogService
+    ) {
+        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, null);
+    }
 
     /**
      * Backward-compatible overload for single target streaming.
@@ -64,6 +82,115 @@ public class StreamingRelayService {
                 request.getModel(), request.getModel(), target.routeReason(), List.of(target)
         );
         return streamChatCompletion(requestId, tenant, request, chain, startTime, servletResponse);
+    }
+
+    /**
+     * Replays a cached completion response as Server-Sent Events (SSE).
+     */
+    public ResponseBodyEmitter replayCachedStream(
+            String requestId,
+            Tenant tenant,
+            ChatCompletionRequest request,
+            SemanticCacheService.CacheHitResult cacheHit,
+            long startTime,
+            HttpServletResponse servletResponse
+    ) {
+        String providerHeader = cacheHit.resolvedProvider() != null ? cacheHit.resolvedProvider() : "alpha/alpha-small";
+
+        servletResponse.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+        servletResponse.setCharacterEncoding("UTF-8");
+        servletResponse.setHeader("Cache-Control", "no-cache");
+        servletResponse.setHeader("Connection", "keep-alive");
+        servletResponse.setHeader("x-netra-provider", providerHeader);
+        servletResponse.setHeader("x-netra-cache", "hit");
+        servletResponse.setHeader("x-netra-fallback", "false");
+        servletResponse.setHeader("x-netra-cost-usd", "0.000000");
+        servletResponse.setHeader("x-netra-route-reason", "semantic_cache_hit");
+        servletResponse.setHeader("x-netra-retries", "0");
+
+        ResponseBodyEmitter emitter = new ResponseBodyEmitter(60_000L);
+
+        Thread.ofVirtual().name("sse-cache-replay-" + requestId).start(() -> {
+            try {
+                ChatCompletionResponse resp = cacheHit.response();
+                String content = "";
+                if (resp.getChoices() != null && !resp.getChoices().isEmpty()) {
+                    ChatMessage msg = resp.getChoices().get(0).getMessage();
+                    if (msg != null && msg.getContent() != null) {
+                        content = msg.getContent().toString();
+                    }
+                }
+
+                String chunkId = "chatcmpl-" + requestId;
+                String model = resp.getModel() != null ? resp.getModel() : request.getModel();
+
+                // 1. Content delta chunk
+                Map<String, Object> deltaChunk = Map.of(
+                        "id", chunkId,
+                        "object", "chat.completion.chunk",
+                        "created", System.currentTimeMillis() / 1000,
+                        "model", model,
+                        "choices", List.of(Map.of(
+                                "index", 0,
+                                "delta", Map.of("content", content),
+                                "finish_reason", "null"
+                        ))
+                );
+                emitter.send("data: " + objectMapper.writeValueAsString(deltaChunk) + "\n\n");
+
+                // 2. Terminal usage chunk
+                int promptTokens = resp.getUsage() != null ? resp.getUsage().getPromptTokens() : 0;
+                int completionTokens = resp.getUsage() != null ? resp.getUsage().getCompletionTokens() : 0;
+                int totalTokens = resp.getUsage() != null ? resp.getUsage().getTotalTokens() : promptTokens + completionTokens;
+
+                Map<String, Object> terminalChunk = new HashMap<>();
+                terminalChunk.put("id", chunkId);
+                terminalChunk.put("object", "chat.completion.chunk");
+                terminalChunk.put("created", System.currentTimeMillis() / 1000);
+                terminalChunk.put("model", model);
+                terminalChunk.put("choices", List.of(Map.of(
+                        "index", 0,
+                        "delta", Map.of(),
+                        "finish_reason", "stop"
+                )));
+                terminalChunk.put("usage", Map.of(
+                        "prompt_tokens", promptTokens,
+                        "completion_tokens", completionTokens,
+                        "total_tokens", totalTokens
+                ));
+                emitter.send("data: " + objectMapper.writeValueAsString(terminalChunk) + "\n\n");
+
+                // 3. Sentinel [DONE]
+                emitter.send("data: [DONE]\n\n");
+                emitter.complete();
+
+                long latencyMs = System.currentTimeMillis() - startTime;
+                auditLogService.recordAuditAndSpend(
+                        requestId,
+                        tenant.getVirtualKey(),
+                        request.getModel(),
+                        providerHeader.contains("/") ? providerHeader.split("/")[0] : providerHeader,
+                        model,
+                        "cache_hit",
+                        200,
+                        promptTokens,
+                        completionTokens,
+                        BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP),
+                        "hit",
+                        false,
+                        "semantic_cache_hit",
+                        0,
+                        latencyMs,
+                        true,
+                        null
+                );
+            } catch (Exception e) {
+                log.warn("Error during SSE cache replay: {}", e.getMessage());
+                emitter.completeWithError(e);
+            }
+        });
+
+        return emitter;
     }
 
     /**
@@ -205,6 +332,7 @@ public class StreamingRelayService {
             int promptTokens = 0;
             int completionTokens = 0;
             int inferredCompletionTokens = 0;
+            StringBuilder fullContent = new StringBuilder();
             boolean sawDone = false;
             String status = "ok";
             int statusCode = 200;
@@ -255,6 +383,7 @@ public class StreamingRelayService {
                                         for (JsonNode choice : chunkNode.get("choices")) {
                                             if (choice.has("delta") && choice.get("delta").has("content")) {
                                                 String deltaText = choice.get("delta").get("content").asText();
+                                                fullContent.append(deltaText);
                                                 inferredCompletionTokens += estimateTokenCount(deltaText);
                                             }
                                         }
@@ -352,6 +481,35 @@ public class StreamingRelayService {
                         true,
                         errorType
                 );
+
+                // Store successful stream response in semantic cache
+                if (sawDone && "ok".equals(status) && fullContent.length() > 0 && semanticCacheService != null) {
+                    try {
+                        ChatCompletionResponse cachedResp = ChatCompletionResponse.builder()
+                                .id("chatcmpl-" + requestId)
+                                .object("chat.completion")
+                                .created(System.currentTimeMillis() / 1000)
+                                .model(modelName)
+                                .choices(List.of(ChatCompletionResponse.Choice.builder()
+                                        .index(0)
+                                        .message(ChatMessage.builder()
+                                                .role("assistant")
+                                                .content(fullContent.toString())
+                                                .build())
+                                        .finishReason("stop")
+                                        .build()))
+                                .usage(UsageInfo.builder()
+                                        .promptTokens(promptTokens)
+                                        .completionTokens(completionTokens)
+                                        .totalTokens(promptTokens + completionTokens)
+                                        .build())
+                                .build();
+                        String cachedProviderHeader = (providerName != null ? providerName : "mock") + "/" + modelName;
+                        semanticCacheService.store(tenant, request.getModel(), request.getMessages(), cachedResp, cachedProviderHeader);
+                    } catch (Exception ex) {
+                        log.warn("Failed to store stream completion in semantic cache: {}", ex.getMessage());
+                    }
+                }
             }
         });
 

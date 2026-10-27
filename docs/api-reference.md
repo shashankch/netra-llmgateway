@@ -175,6 +175,33 @@ Authorization: Bearer netra-admin-demo
 ]
 ```
 
+### `GET /admin/cache/stats`
+
+Returns aggregate semantic vector cache hit rates, entry counts, and per-tenant cryptographic isolation breakdowns.
+
+#### Request Headers
+| Header | Type | Required | Description |
+|---|---|---|---|
+| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+
+#### Response (200 OK)
+```json
+{
+  "total_entries": 150,
+  "total_hits": 120,
+  "total_misses": 30,
+  "hit_rate": 0.80,
+  "keys": {
+    "netra-sk-search-1a2b3c": {
+      "entries": 150,
+      "hits": 120,
+      "misses": 30,
+      "hit_rate": 0.80
+    }
+  }
+}
+```
+
 ---
 
 ## 4. Error Response Contract
