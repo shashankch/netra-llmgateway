@@ -17,6 +17,10 @@ bin/
 .gradle/
 *.log
 site/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
 
 # Sensitive environment variables
 .env

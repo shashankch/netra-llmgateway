@@ -20,9 +20,11 @@
 
   <p align="center">
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Backend CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Frontend CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/streaming-ci.yml"><img src="https://img.shields.io/badge/Streaming_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Streaming CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/routing-ci.yml"><img src="https://img.shields.io/badge/Routing_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Routing CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/cache-ci.yml"><img src="https://img.shields.io/badge/Cache_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Cache CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/e2e-drill.yml"><img src="https://img.shields.io/badge/E2E_Drill-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="E2E Drill CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
   </p>
 
@@ -32,6 +34,7 @@
     <a href="#-key-architectural-capabilities">Capabilities</a> •
     <a href="#-telemetry-contract--accounting-invariants">Telemetry Contract</a> •
     <a href="https://shashankch.github.io/netra-llmgateway/">Documentation</a> •
+    <a href="docs/verification-report.md">Verification Report</a> •
     <a href="docs/openapi.yaml">OpenAPI Spec</a> •
     <a href="docs/ROADMAP.md">Roadmap</a> •
     <a href="docs/ADR.md">ADRs</a>
@@ -73,6 +76,7 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 | **💾 Tenant-Isolated Semantic Cache** | In-JVM ONNX transformer embeddings + PostgreSQL 18 `pgvector` HNSW | Delivers instantaneous sub-5ms cache hits on identical and paraphrased prompts with cryptographic tenant boundary isolation. |
 | **📊 Exact Micro-Cost Accounting** | Java `BigDecimal` arithmetic scaled to 6 decimal places (`$0.000000 USD`) | Eliminates IEEE-754 floating-point drift; guarantees exact reconciliation between client telemetry headers and database ledgers. |
 | **⚙️ Canonical Telemetry Contract** | Strict `x-netra-*` headers (`provider`, `cache`, `fallback`, `cost-usd`, `route-reason`, `retries`) | Transparent full-stack observability on provider selection, failover status, routing rationale, and retry counts. |
+| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`dashboard/`) with dark/light themes | OpenRouter-grade analytics, live SSE request stream, virtual key manager, and 1-click prompt evaluation sandbox. |
 | **🌐 Pluggable Multi-Tier Deploy** | Out-of-the-box descriptors for Docker, PaaS, Cloud VPS, and Kubernetes | Instant 1-click deployment across Railway, Render, Fly.io, OCI Always Free, and AWS Free Tier. |
 
 ---

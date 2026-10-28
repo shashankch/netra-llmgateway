@@ -7,7 +7,7 @@ repo_name: shashankch/netra-llmgateway
 repo_url: https://github.com/shashankch/netra-llmgateway
 
 extra:
-  version: "0.5.0"
+  version: "0.6.0"
 
 theme:
   name: material
@@ -61,6 +61,8 @@ nav:
       - Conventions: CONVENTIONS.md
   - Operations & Deployment:
       - Self-Hosting Guide: SELF-HOSTING.md
+      - Ops Console & UI (Phase 6): phases/phase-6.md
+      - Verification Report: verification-report.md
       - Roadmap: ROADMAP.md
   - Community:
       - Security Policy: SECURITY.md

@@ -19,6 +19,7 @@ public class AuditLogService {
     private final RequestLogRepository requestLogRepository;
     private final MonthlySpendRepository monthlySpendRepository;
     private final AdmissionService admissionService;
+    private final LogStreamBroadcaster logStreamBroadcaster;
 
     // Concurrency throttle to prevent HikariCP connection starvation under high bursts (AUD-01)
     private final java.util.concurrent.Semaphore dbPermits = new java.util.concurrent.Semaphore(14);
@@ -72,6 +73,7 @@ public class AuditLogService {
                 .build();
 
         requestLogRepository.save(logEntry);
+        logStreamBroadcaster.broadcast(logEntry);
 
         if (("ok".equals(status) || "client_disconnected".equals(status)) && cost != null && cost.compareTo(BigDecimal.ZERO) > 0) {
             String ym = YearMonth.now().toString();

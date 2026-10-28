@@ -22,10 +22,20 @@ NETRA is a high-performance LLM gateway and semantic cache designed to provide e
   - `x-netra-retries`: Upstream network retries executed before success (0, 1, 2, 3)
 
 ## Administrative & Observability Contract
-- `GET /health`: System readiness probe returning status and version (`0.5.0`).
-- `GET /admin/usage?key=...&from=...&to=...`: Key-level token and spend reconciliation.
+- `GET /health`: System readiness probe returning status and version (`0.6.0`).
+- `GET /admin/usage?key=...&from=...&to=...`: Key-level token and spend reconciliation (supports `key=all`).
 - `GET /admin/logs?key=...&limit=...`: Chronological audit trail (16 audit fields).
+- `GET /admin/logs/stream`: Real-time Server-Sent Events stream of incoming audit logs.
+- `GET /admin/keys`: Virtual key management, quota tracking, and active status.
+- `GET /admin/currency/rate`: Active live USD/INR exchange rate.
 - `GET /admin/cache/stats`: Aggregate cache hit rate, total vector entries, and per-tenant cryptographic isolation breakdown.
+
+## Operations Console UI (`dashboard/`)
+- Built on React 19, Vite 6, and Lucide React.
+- OpenRouter-grade analytics: Total Spend, Request Volume, Token Volume Distribution, Semantic Cache Hit Rate %, Average Latency / TTFT.
+- Seamless Dark & Light theme engine with OS preference auto-detection.
+- Single-denomination USD/INR toggle with dynamic live forex conversion.
+- Evaluator Sandbox with 1-click presets for rapid evaluation drills.
 
 ## Error Model
 Standard OpenAI JSON format:

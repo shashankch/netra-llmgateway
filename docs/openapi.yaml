@@ -12,7 +12,8 @@ info:
     - **High-Throughput Streaming**: Non-blocking SSE pass-through over Java 25 Virtual Threads.
     - **Atomic Redis 8.0 Admission**: Sliding-window rate limiting & zero over-admission budget accounting.
     - **Semantic Vector Cache**: In-JVM dense embeddings (384-dim) with pgvector HNSW indexing and per-tenant isolation.
-  version: 0.5.0
+    - **React 19 / Vite 6 Ops Console**: Real-time OpenRouter-grade analytics, prompt playground, and virtual keys management.
+  version: 0.6.0
   contact:
     name: Shashank Chandel
     email: shashakchandel@gmail.com
@@ -253,6 +254,145 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys:
+    get:
+      summary: List Virtual API Keys
+      description: Returns all provisioned virtual keys with live RPM quotas, monthly budget caps, spend, and status.
+      operationId: listVirtualKeys
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: List of all provisioned virtual keys.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TenantAdminResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Provision Virtual API Key
+      description: Creates a new virtual API key with sliding RPM limit, budget cap, model allowlist, and similarity threshold.
+      operationId: createVirtualKey
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Virtual key successfully provisioned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAdminResponse'
+        '400':
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys/{id}:
+    put:
+      summary: Update Virtual API Key
+      description: Updates virtual key rate limits, budget caps, allowlists, or active status.
+      operationId: updateVirtualKey
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Virtual key updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAdminResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Revoke Virtual API Key
+      description: Deactivates virtual API key; subsequent requests return HTTP 401.
+      operationId: revokeVirtualKey
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Virtual key revoked successfully.
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/logs/stream:
+    get:
+      summary: Live SSE Request Logs Stream
+      description: Real-time Server-Sent Events stream of incoming request audit logs and rejections.
+      operationId: streamRequestLogs
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: SSE stream of incoming audit logs.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /admin/currency/rate:
+    get:
+      summary: Live Forex Rate
+      description: Returns active USD to INR exchange rate with dynamic fallback.
+      operationId: getCurrencyRate
+      security: []
+      responses:
+        '200':
+          description: Current exchange rate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrencyRateResponse'
 
   /health:
     get:
@@ -594,4 +734,147 @@ components:
                 type: number
                 format: double
                 example: 0.80
+
+    TenantAdminResponse:
+      type: object
+      required:
+        - id
+        - virtual_key
+        - team
+        - monthly_budget_usd
+        - current_spend_usd
+        - rpm_limit
+        - model_allowlist
+        - semantic_cache_enabled
+        - similarity_threshold
+        - is_active
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        virtual_key:
+          type: string
+          example: "netra-sk-search-1a2b3c"
+        team:
+          type: string
+          example: "Search Team"
+        monthly_budget_usd:
+          type: number
+          format: double
+          example: 100.0
+        current_spend_usd:
+          type: number
+          format: double
+          example: 14.25
+        rpm_limit:
+          type: integer
+          example: 60
+        tpm_limit:
+          type: integer
+          nullable: true
+          example: 100000
+        model_allowlist:
+          type: array
+          items:
+            type: string
+          example: ["fast", "smart", "auto"]
+        semantic_cache_enabled:
+          type: boolean
+          example: true
+        similarity_threshold:
+          type: number
+          format: double
+          example: 0.92
+        is_active:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [ACTIVE, EXHAUSTED, REVOKED]
+          example: "ACTIVE"
+        created_at:
+          type: string
+          format: date-time
+
+    CreateTenantRequest:
+      type: object
+      required:
+        - team
+      properties:
+        virtual_key:
+          type: string
+          nullable: true
+          example: "netra-sk-custom-key"
+        team:
+          type: string
+          example: "Search Core"
+        monthly_budget_usd:
+          type: number
+          format: double
+          example: 100.0
+        rpm_limit:
+          type: integer
+          example: 60
+        tpm_limit:
+          type: integer
+          example: 100000
+        model_allowlist:
+          type: array
+          items:
+            type: string
+          example: ["fast", "smart", "auto"]
+        semantic_cache_enabled:
+          type: boolean
+          example: true
+        similarity_threshold:
+          type: number
+          format: double
+          example: 0.85
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        team:
+          type: string
+          example: "Search Core"
+        monthly_budget_usd:
+          type: number
+          format: double
+          example: 250.0
+        rpm_limit:
+          type: integer
+          example: 120
+        tpm_limit:
+          type: integer
+          example: 200000
+        model_allowlist:
+          type: array
+          items:
+            type: string
+        semantic_cache_enabled:
+          type: boolean
+        similarity_threshold:
+          type: number
+          format: double
+        is_active:
+          type: boolean
+
+    CurrencyRateResponse:
+      type: object
+      required:
+        - base
+        - target
+        - rate
+      properties:
+        base:
+          type: string
+          example: "USD"
+        target:
+          type: string
+          example: "INR"
+        rate:
+          type: number
+          format: double
+          example: 87.50
 

@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-10-28 — Phase 6: Modern Ops Console UI, Multi-Tier PaaS & Verification Drills
+
+### 🚀 Added
+- **Modern React 19 / Vite 6 Operations Console (`dashboard/`)**: High-performance, zero-flicker developer dashboard providing OpenRouter-grade analytics, live request logging, virtual keys management, and interactive prompt testing.
+- **OpenRouter-Grade Analytics Suite**:
+  - 5 Headline KPI Cards: Total Spend (rendered in active currency), Total Request Count, Token Volume Distribution (Prompt, Completion, Total), Semantic Cache Hit Rate %, and Average Latency / Time-To-First-Token (TTFT).
+  - 4 Interactive SVG Visualizations: Model Spend & Volume Trends (stacked hourly/daily bars), Smart Router Arbitrage Efficiency (donut chart with complexity signal flows and net ~72.4% cost arbitrage savings), Semantic Cache Waterfall & Cumulative Savings (direct vs $0 instant vector hits), and Latency Percentiles (p50, p90, p99 TTFT and response durations).
+  - Tenant Virtual Key Leaderboard: Real-time table displaying tenant name, organization, active RPM gauge, monthly budget burn-down bar, and status badge (`ACTIVE`, `EXHAUSTED`, `REVOKED`).
+- **Seamless Dark & Light Theme System**:
+  - Native dual-theme engine detecting system `prefers-color-scheme` automatically and persisting choice in `localStorage` (`netra-theme`).
+  - Dark Theme default: Obsidian/slate palette (`#090d16` canvas, `#0f172a` cards, `#1e293b` borders, glowing neon accents).
+  - Light Theme: Crisp enterprise white/slate palette (`#ffffff` canvas, `#f8fafc` cards, `#e2e8f0` borders, slate typography).
+  - Zero-flicker Sun ☀️ / Moon 🌙 toggle in the top navbar.
+- **Single-Denomination Currency Engine (USD $ | INR ₹)**:
+  - Global navbar switcher converting all monetary figures dynamically via real-time Forex service (`ForexRateService`) with offline fallback (`87.50`).
+  - Strict database invariant: pure USD ledger persistence in PostgreSQL (`DECIMAL(12, 6)`), eliminating currency drift or schema duplication.
+- **Interactive Evaluator Sandbox & Prompt Playground (`/playground`)**:
+  - 1-Click Evaluation presets pre-seeded for Search Team (`netra-sk-search`), Research Team (`netra-sk-research`), Free Tier (`netra-sk-free`), and Budget Demo (`netra-sk-budget-demo`).
+  - Interactive chat form supporting model selection (`fast`, `smart`, `auto`), SSE streaming toggle, system prompt, and prompt templates (Paraphrase Pair A/B, Near-miss, Complex reasoning).
+  - Unbuffered SSE typewriter streaming token display with live chunk counter.
+  - Telemetry Badges Bar displaying `x-netra-provider`, `x-netra-cache` (green HIT / slate MISS), `x-netra-fallback`, `x-netra-cost-usd`, `x-netra-route-reason`, `x-netra-retries`, and latency (ms).
+- **Virtual Keys Manager (`/keys`)**:
+  - Provision and edit virtual keys with sliding RPM limits, monthly budget caps in USD/INR, model allowlists, semantic cache toggles, and similarity threshold sliders (0.75 - 0.99).
+  - Instantaneous L1 in-memory near-cache invalidation upon updates or revocation.
+- **Live Request Logs Inspector (`/logs`)**:
+  - Real-time audit log stream from `GET /admin/logs/stream` with pause/resume controls.
+  - Search and filter by virtual key, HTTP status codes (200, 429, 402, 401, 502), and request attributes.
+  - Expandable rows detailing full JSON payload, token counts, route reasons, and error types.
+- **Semantic Vector Cache Inspector (`/cache`)**:
+  - Aggregate metrics for total entries, hits, misses, and hit rate %.
+  - Per-tenant cryptographic isolation table showing threshold metadata, entries, and zero cross-tenant data bleed.
+- **Multi-Tier Turnkey Deployment Blueprints**:
+  - 1-Click PaaS templates: `deploy/paas/railway.toml`, `deploy/paas/render.yaml`, `deploy/paas/fly.toml`, and `deploy/paas/vercel.json`.
+  - Cloud VPS zero-touch bootstrap script: `deploy/cloud-vps/setup-vps.sh` for OCI Always Free & AWS Free Tier (EC2 `t4g.small`).
+  - Containerized multi-service stack: updated `docker-compose.yml` incorporating `dashboard` service container on port 3000 with reverse proxying.
+- **Comprehensive E2E Verification Report (`docs/verification-report.md`)**:
+  - Formal report covering all 6 verification sections: smoke test (17/17 passed, 1 warning), concurrency load test (zero over-admission), 100% exact financial ledger reconciliation, routing accuracy (20/20 cases), semantic cache evaluation, and added gateway latency SLO analysis.
+
+---
+
 ## [0.5.0] - 2026-10-27 — Phase 5: Tenant-Isolated Semantic Vector Cache & pgvector Integration
 
 ### 🚀 Added

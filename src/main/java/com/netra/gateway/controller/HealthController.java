@@ -14,7 +14,7 @@ public class HealthController {
         return ResponseEntity.ok(Map.of(
                 "status", "ok",
                 "service", "netra-gateway",
-                "version", "0.5.0"
+                "version", "0.6.0"
         ));
     }
 }

@@ -204,6 +204,98 @@ Returns aggregate semantic vector cache hit rates, entry counts, and per-tenant 
 
 ---
 
+### `GET /admin/keys`
+
+Returns all configured virtual keys, active RPM quotas, monthly budget caps, current monthly spend, allowlists, and real-time status (`ACTIVE`, `EXHAUSTED`, `REVOKED`).
+
+#### Request Headers
+| Header | Type | Required | Description |
+|---|---|---|---|
+| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+
+#### Response (200 OK)
+```json
+[
+  {
+    "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    "virtual_key": "netra-sk-search-1a2b3c",
+    "team": "Search Team",
+    "monthly_budget_usd": 100.000000,
+    "current_spend_usd": 14.250000,
+    "rpm_limit": 60,
+    "tpm_limit": 100000,
+    "model_allowlist": ["fast", "smart", "auto"],
+    "semantic_cache_enabled": true,
+    "similarity_threshold": 0.920,
+    "is_active": true,
+    "status": "ACTIVE",
+    "created_at": "2026-10-24T12:00:00Z"
+  }
+]
+```
+
+---
+
+### `POST /admin/keys`
+
+Provisions a new virtual API key for a tenant or application with automated near-cache seeding.
+
+#### Request Headers
+| Header | Type | Required | Description |
+|---|---|---|---|
+| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Content-Type` | string | **Yes** | `application/json` |
+
+#### Request Body
+```json
+{
+  "virtual_key": "netra-sk-finance-demo",
+  "team": "Finance Core",
+  "rpm_limit": 60,
+  "monthly_budget_usd": 250.00,
+  "model_allowlist": ["fast", "smart", "auto"],
+  "semantic_cache_enabled": true,
+  "similarity_threshold": 0.880
+}
+```
+
+---
+
+### `GET /admin/logs/stream`
+
+Real-time Server-Sent Events (SSE) stream broadcasting newly recorded audit log entries and rejections as they occur.
+
+#### Request Headers
+| Header | Type | Required | Description |
+|---|---|---|---|
+| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+
+#### Stream Event Output (`text/event-stream`)
+```http
+event: connected
+data: connected to NETRA live log stream
+
+event: log
+data: {"request_id":"req_1a2b3c","virtual_key":"netra-sk-search","requested_model":"fast","status_code":200,"latency_ms":32,"cost_usd":0.000014}
+```
+
+---
+
+### `GET /admin/currency/rate`
+
+Returns the active live USD to INR exchange rate with dynamic fallback.
+
+#### Response (200 OK)
+```json
+{
+  "base": "USD",
+  "target": "INR",
+  "rate": 87.50
+}
+```
+
+---
+
 ## 4. Error Response Contract
 
 Every error or rejection returned by NETRA strictly adheres to OpenAI JSON error standards:

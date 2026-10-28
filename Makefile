@@ -1,11 +1,11 @@
 # NETRA LLM Gateway - Developer Automation Makefile
 
-.PHONY: all help dev up down restart logs ps smoke routing-eval cache-eval load test build clean docs-serve docs-build
+.PHONY: all help dev up down restart logs ps smoke routing-eval cache-eval load test build clean docs-serve docs-build dashboard-dev dashboard-build
 
 help:
 	@echo "NETRA Developer CLI Commands:"
 	@echo "  make dev         - Launch backing services in Docker and run gateway locally"
-	@echo "  make up          - Build and start full containerized stack (gateway + backing)"
+	@echo "  make up          - Build and start full containerized stack (gateway + backing + dashboard)"
 	@echo "  make down        - Tear down all containers, networks, and persistent volumes"
 	@echo "  make ps          - View status of all running services"
 	@echo "  make logs        - Tail live container logs across all services"
@@ -14,6 +14,8 @@ help:
 	@echo "  make routing-eval - Run benchmark prompt difficulty routing eval"
 	@echo "  make cache-eval  - Run semantic vector cache hit and isolation eval"
 	@echo "  make load        - Run burst concurrency load test"
+	@echo "  make dashboard-dev - Run React 19 Ops Console in Vite hot-reload dev mode"
+	@echo "  make dashboard-build - Build production React 19 Ops Console distribution bundle"
 	@echo "  make docs-serve  - Serve live-reloading MkDocs developer documentation"
 	@echo "  make docs-build  - Build strict production documentation artifacts"
 
@@ -56,6 +58,12 @@ cache-eval:
 
 load:
 	python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i --model fast --requests 30 --concurrency 10 --rpm-limit 10
+
+dashboard-dev:
+	cd dashboard && npm run dev
+
+dashboard-build:
+	cd dashboard && npm run build
 
 docs-serve:
 	python3 -m mkdocs serve

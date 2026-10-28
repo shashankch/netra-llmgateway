@@ -82,5 +82,17 @@ services:
       - ./scripts:/scripts:ro
     command: python3 /scripts/mock_provider.py --port 9002 --name beta
 
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: netra-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
 volumes:
   pgdata:

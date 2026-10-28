@@ -57,3 +57,15 @@ NETRA features an in-JVM vector embedding engine and PostgreSQL 18 `pgvector` HN
 - **Upstream Safety Refusal Suppression**: Automatically intercepts and suppresses safety guardrail refusals, preventing permanent cache poisoning.
 - **Streaming Cache Replay**: Seamlessly replays cached completions as Server-Sent Events (SSE) with `x-netra-cache: hit`, `x-netra-cost-usd: 0.000000`, and `x-netra-route-reason: semantic_cache_hit`.
 - **Cache Observability API**: Exposes global cache hit rates, entry counts, and per-tenant breakdowns at `GET /admin/cache/stats`.
+
+---
+
+## React 19 Ops Console & Evaluator Sandbox (`dashboard/`)
+NETRA delivers an OpenRouter-grade developer operations console and evaluator sandbox built on React 19 and Vite 6:
+- **Real-Time Telemetry Analytics**: Headline KPI cards for Total Spend, Total Request Count, Token Volume Distribution, Semantic Cache Hit Rate %, and Average Latency / TTFT.
+- **Interactive SVG Visualizations**: Model spend & volume trends, smart router arbitrage efficiency donut, semantic cache savings waterfall, and p50/p90/p99 latency percentiles.
+- **Single-Denomination Currency Engine**: Dynamic real-time Forex service (`ForexRateService`) with a top navbar toggle (`[ USD $ | INR ₹ ]`) seamlessly switching all figures across the application.
+- **Seamless Dark & Light Theme Engine**: Zero-flicker obsidian/slate (`#090d16`) and enterprise light (`#ffffff`) themes with automatic OS `prefers-color-scheme` detection.
+- **Interactive Evaluator Sandbox**: 1-click presets for Search Team, Research Team, Free Tier, and Budget Demo with real-time SSE typewriter token streaming and telemetry badge inspectability.
+- **Virtual Keys Manager**: Real-time tenant leaderboard, sliding RPM quota gauges, monthly budget burn-down bars, model allowlists, and similarity threshold controls.
+- **Live Request Logs Inspector**: Streaming audit logs with SSE live mode, status code filtering, and full payload JSON inspector.

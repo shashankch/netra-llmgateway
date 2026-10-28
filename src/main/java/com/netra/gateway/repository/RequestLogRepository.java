@@ -33,4 +33,17 @@ public interface RequestLogRepository extends JpaRepository<RequestLog, UUID> {
             @Param("virtualKey") String virtualKey,
             @Param("fromTime") Instant fromTime,
             @Param("toTime") Instant toTime);
+
+    @Query("SELECT COUNT(r) AS requestCount, " +
+            "COALESCE(SUM(r.promptTokens), 0) AS totalPromptTokens, " +
+            "COALESCE(SUM(r.completionTokens), 0) AS totalCompletionTokens, " +
+            "COALESCE(SUM(r.costUsd), 0.0) AS totalCostUsd, " +
+            "COALESCE(SUM(CASE WHEN r.cache = 'hit' THEN 1L ELSE 0L END), 0L) AS cacheHits " +
+            "FROM RequestLog r " +
+            "WHERE r.statusCode = 200 " +
+            "AND (:fromTime IS NULL OR r.createdAt >= :fromTime) " +
+            "AND (:toTime IS NULL OR r.createdAt <= :toTime)")
+    UsageSummaryProjection aggregateAllUsage(
+            @Param("fromTime") Instant fromTime,
+            @Param("toTime") Instant toTime);
 }

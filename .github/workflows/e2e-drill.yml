@@ -1,0 +1,58 @@
+name: NETRA E2E Verification Drills
+
+on:
+  push:
+    branches: [ main, feat/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    name: Full Stack E2E Drills & Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Boot Stack via Docker Compose
+        run: |
+          docker compose up -d --build postgres redis mock-alpha mock-beta gateway
+          echo "Waiting for services to become healthy..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health > /dev/null; then
+              echo "Gateway is healthy!"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Verify Health Endpoint
+        run: |
+          curl -f http://localhost:8080/health
+
+      - name: Run Smoke Test Drill (17/17 Target)
+        run: |
+          python3 scripts/smoke_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --model fast
+
+      - name: Run Routing Accuracy Eval (100% Target)
+        run: |
+          python3 scripts/run_routing_eval.py --url http://localhost:8080 --key netra-sk-research-4d5e6f
+
+      - name: Run Semantic Vector Cache Eval
+        run: |
+          python3 scripts/run_cache_eval.py --url http://localhost:8080 --key netra-sk-search-1a2b3c
+
+      - name: Run Concurrency Load Test (Zero Over-Admission)
+        run: |
+          python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i --model fast --requests 30 --concurrency 10 --rpm-limit 10
+
+      - name: Teardown Stack
+        if: always()
+        run: |
+          docker compose down -v

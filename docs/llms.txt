@@ -9,21 +9,23 @@
 
 ## Key APIs
 - `POST /v1/chat/completions`: OpenAI-compatible endpoint supporting unbuffered streaming SSE, non-streaming responses, multi-provider failover, and intelligent routing.
-- `GET /health`: Health and readiness probe returning service status and version (0.5.0).
+- `GET /health`: Health and readiness probe returning service status and version (0.6.0).
 - `GET /admin/usage`: Aggregated token counts, spend in USD, and cache hits.
 - `GET /admin/logs`: Chronological audit logs for requests and rejections.
+- `GET /admin/logs/stream`: Real-time Server-Sent Events stream of incoming audit logs.
+- `GET /admin/keys`: Virtual key management and tenant quota status.
+- `GET /admin/currency/rate`: Dynamic live USD to INR exchange rate.
 - `GET /admin/cache/stats`: Aggregate cache hit rate, total vector entries, and per-tenant breakdown.
 
-## Telemetry Response Headers
-- `x-netra-provider`: Upstream provider identifier (e.g. alpha/alpha-small)
-- `x-netra-cache`: Cache outcome (hit or miss)
-- `x-netra-fallback`: Failover flag (true or false)
-- `x-netra-cost-usd`: Precise cost in micro-USD (0.000000 USD; omitted on streaming responses upfront)
-- `x-netra-route-reason`: Rationale for model selection (alias, direct model, or classifier score)
-- `x-netra-retries`: Upstream retry attempts executed before success (0, 1, 2, 3)
+## Operations Console (`dashboard/`)
+- Modern React 19 / Vite 6 dashboard with OpenRouter-grade analytics suite.
+- 5 Headline KPI cards, 4 interactive SVG charts, single-denomination USD/INR toggle, dark/light theme engine.
+- Evaluator Sandbox with 1-click presets for Search, Research, Free Tier, and Budget demo.
 
 ## Documentation Links
 - System Overview: docs/index.md
+- Phase 6 Ops Console & UI: docs/phases/phase-6.md
+- Verification & Benchmark Report: docs/verification-report.md
 - Architecture Decision Records: docs/ADR.md
 - Public Roadmap: docs/ROADMAP.md
 - Self-Hosting: docs/SELF-HOSTING.md
