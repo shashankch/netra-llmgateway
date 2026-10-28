@@ -95,7 +95,7 @@ Gateway liveness and readiness probe.
 {
   "status": "ok",
   "service": "netra-gateway",
-  "version": "0.4.0"
+  "version": "0.5.0"
 }
 ```
 
@@ -173,6 +173,33 @@ Authorization: Bearer netra-admin-demo
     "created_at": "2026-10-24T15:00:00Z"
   }
 ]
+```
+
+### `GET /admin/cache/stats`
+
+Returns aggregate semantic vector cache hit rates, entry counts, and per-tenant cryptographic isolation breakdowns.
+
+#### Request Headers
+| Header | Type | Required | Description |
+|---|---|---|---|
+| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+
+#### Response (200 OK)
+```json
+{
+  "total_entries": 150,
+  "total_hits": 120,
+  "total_misses": 30,
+  "hit_rate": 0.80,
+  "keys": {
+    "netra-sk-search-1a2b3c": {
+      "entries": 150,
+      "hits": 120,
+      "misses": 30,
+      "hit_rate": 0.80
+    }
+  }
+}
 ```
 
 ---

@@ -9,9 +9,10 @@
 
 ## Key APIs
 - `POST /v1/chat/completions`: OpenAI-compatible endpoint supporting unbuffered streaming SSE, non-streaming responses, multi-provider failover, and intelligent routing.
-- `GET /health`: Health and readiness probe returning service status and version (0.4.0).
+- `GET /health`: Health and readiness probe returning service status and version (0.5.0).
 - `GET /admin/usage`: Aggregated token counts, spend in USD, and cache hits.
 - `GET /admin/logs`: Chronological audit logs for requests and rejections.
+- `GET /admin/cache/stats`: Aggregate cache hit rate, total vector entries, and per-tenant breakdown.
 
 ## Telemetry Response Headers
 - `x-netra-provider`: Upstream provider identifier (e.g. alpha/alpha-small)

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.netra.gateway"
-version = "0.4.0"
+version = "0.5.0"
 
 java {
     toolchain {
@@ -33,6 +33,9 @@ dependencies {
 
     // Redis
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
+    // In-JVM ONNX Embeddings (all-MiniLM-L6-v2)
+    implementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2-q:0.36.2")
 
     // In-Memory L1 Cache (AUD-02)
     implementation("com.github.ben-manes.caffeine:caffeine")

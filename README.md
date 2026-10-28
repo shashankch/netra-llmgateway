@@ -22,6 +22,7 @@
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Backend CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/streaming-ci.yml"><img src="https://img.shields.io/badge/Streaming_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Streaming CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/routing-ci.yml"><img src="https://img.shields.io/badge/Routing_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Routing CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/cache-ci.yml"><img src="https://img.shields.io/badge/Cache_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Cache CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
   </p>
 
@@ -95,7 +96,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.4.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.5.0"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -183,12 +184,46 @@ x-netra-route-reason: auto -> smart (score +3.5): +3.5 proof/derivation demand
 x-netra-retries: 0
 ```
 
-### 5. Run Automated Verification & Evaluation Suites
-Execute the contract smoke tests and routing accuracy benchmark:
+### 5. Semantic Vector Cache & $0 Cost Deduplication
+Repeat identical or semantically paraphrased prompts; NETRA serves them from the in-JVM ONNX + pgvector HNSW cache with sub-10ms response time and $0.000000 cost:
+
+```bash
+# Paraphrased query hits tenant cache above similarity threshold (e.g. 0.92)
+curl -i -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer netra-sk-search-1a2b3c" \
+  -d '{
+    "model": "fast",
+    "messages": [
+      {"role": "user", "content": "How does a message queue function?"}
+    ]
+  }'
+```
+
+**Cache Hit Telemetry Headers:**
+```http
+HTTP/1.1 200 OK
+x-netra-provider: alpha/alpha-small
+x-netra-cache: hit
+x-netra-fallback: false
+x-netra-cost-usd: 0.000000
+x-netra-route-reason: semantic_cache_hit
+x-netra-retries: 0
+```
+
+Inspect cache statistics and hit rates:
+```bash
+curl -i http://localhost:8080/admin/cache/stats \
+  -H "Authorization: Bearer netra-admin-demo"
+```
+
+### 6. Run Automated Verification & Evaluation Suites
+Execute the contract smoke tests, routing accuracy benchmark, and semantic cache evaluation:
 
 ```bash
 make smoke
 make routing-eval
+make cache-eval
 ```
 
 ---
@@ -234,6 +269,7 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | `make test` | Executes Gradle unit and integration test suite (Java 25) |
 | `make smoke` | Runs automated smoke verification suite |
 | `make routing-eval` | Runs prompt difficulty classifier accuracy benchmark on `data/routing_eval.jsonl` |
+| `make cache-eval` | Runs semantic vector cache hit and tenant isolation benchmark |
 | `make load` | Runs burst concurrency load test asserting zero over-admission |
 | `make docs-serve`| Starts live-reloading MkDocs developer documentation |
 | `make docs-build`| Builds strict static production documentation distribution |

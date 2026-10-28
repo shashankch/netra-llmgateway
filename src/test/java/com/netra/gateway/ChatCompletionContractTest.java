@@ -72,6 +72,9 @@ class ChatCompletionContractTest {
     @MockitoBean
     private StreamingRelayService streamingRelayService;
 
+    @MockitoBean
+    private com.netra.gateway.service.SemanticCacheService semanticCacheService;
+
     private Tenant searchTenant;
 
     @BeforeEach
@@ -89,6 +92,7 @@ class ChatCompletionContractTest {
         UpstreamClientService.CandidateChain defaultChain = new UpstreamClientService.CandidateChain("fast", "fast", "alias_fast", List.of(defaultTarget));
         lenient().when(upstreamClientService.resolveCandidateChain(eq("fast"), any())).thenReturn(defaultChain);
         lenient().when(upstreamClientService.resolveTarget("fast")).thenReturn(defaultTarget);
+        lenient().when(semanticCacheService.lookup(any(), any(), any())).thenReturn(Optional.empty());
     }
 
     @Test
@@ -380,5 +384,53 @@ class ChatCompletionContractTest {
                 .andExpect(jsonPath("$.error.type").value("upstream_error"));
 
         org.mockito.Mockito.verify(admissionService).rollbackAdmission(eq("netra-sk-search-1a2b3c"), anyString());
+    }
+
+    @Test
+    @DisplayName("Semantic cache hit returns 200 with x-netra-cache: hit and $0 cost header")
+    void testCacheHitReturnsTelemetryHeaders() throws Exception {
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "cached prompt")))
+                .build();
+
+        ChatCompletionResponse cachedResponse = ChatCompletionResponse.builder()
+                .id("chatcmpl-cached-1")
+                .object("chat.completion")
+                .created(1730000000L)
+                .model("gpt-4o-mini")
+                .choices(List.of(ChatCompletionResponse.Choice.builder()
+                        .index(0)
+                        .message(ChatMessage.builder().role("assistant").content("cached answer").build())
+                        .finishReason("stop")
+                        .build()))
+                .usage(UsageInfo.builder().promptTokens(10).completionTokens(10).totalTokens(20).build())
+                .build();
+
+        com.netra.gateway.service.SemanticCacheService.CacheHitResult hit =
+                new com.netra.gateway.service.SemanticCacheService.CacheHitResult(
+                        java.util.UUID.randomUUID(),
+                        "netra-sk-search-1a2b3c",
+                        "fast",
+                        "alpha/alpha-small",
+                        cachedResponse,
+                        0.98
+                );
+
+        when(semanticCacheService.lookup(any(), eq("fast"), any())).thenReturn(Optional.of(hit));
+
+        mockMvc.perform(post("/v1/chat/completions")
+                        .header("Authorization", "Bearer netra-sk-search-1a2b3c")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("x-netra-cache", "hit"))
+                .andExpect(header().string("x-netra-cost-usd", "0.000000"))
+                .andExpect(header().string("x-netra-fallback", "false"))
+                .andExpect(header().string("x-netra-route-reason", "semantic_cache_hit"))
+                .andExpect(header().string("x-netra-provider", "alpha/alpha-small"))
+                .andExpect(jsonPath("$.id").value(org.hamcrest.Matchers.startsWith("chatcmpl-")))
+                .andExpect(jsonPath("$.created").isNumber())
+                .andExpect(jsonPath("$.choices[0].message.content").value("cached answer"));
     }
 }

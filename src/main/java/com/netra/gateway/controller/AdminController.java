@@ -28,6 +28,19 @@ public class AdminController {
 
     private final RequestLogRepository requestLogRepository;
     private final GatewayConfigProperties configProperties;
+    private final com.netra.gateway.service.SemanticCacheService semanticCacheService;
+
+    /**
+     * Cache statistics API per API_CONTRACT.md.
+     * Reports total entries, hits, misses, global hit rate, and per-key breakdown.
+     */
+    @GetMapping("/cache/stats")
+    public ResponseEntity<com.netra.gateway.model.dto.CacheStatsResponse> getCacheStats(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateAdminAuth(authHeader);
+        return ResponseEntity.ok(semanticCacheService.getCacheStats());
+    }
 
     /**
      * Usage summary API per API_CONTRACT.md.

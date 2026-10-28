@@ -36,6 +36,7 @@ public class ChatCompletionController {
     private final CostCalculationService costService;
     private final AuditLogService auditLogService;
     private final StreamingRelayService streamingRelayService;
+    private final com.netra.gateway.service.SemanticCacheService semanticCacheService;
 
     @PostMapping(value = "/chat/completions", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_EVENT_STREAM_VALUE})
     public Object createChatCompletion(
@@ -75,7 +76,20 @@ public class ChatCompletionController {
             // 5. Atomic Redis Lua Admission Check (Zero Over-Admission Guarantee)
             admissionService.checkAdmission(tenant, requestId);
 
-            // 6. Handle Streaming vs Non-Streaming
+            // 6. Semantic Vector Cache Lookup (Tenant-Isolated Nearest-Neighbor)
+            java.util.Optional<com.netra.gateway.service.SemanticCacheService.CacheHitResult> cacheHitOpt =
+                    semanticCacheService.lookup(tenant, request.getModel(), request.getMessages());
+
+            if (cacheHitOpt.isPresent()) {
+                com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit = cacheHitOpt.get();
+                if (isStream) {
+                    return streamingRelayService.replayCachedStream(requestId, tenant, request, cacheHit, startTime, servletResponse);
+                } else {
+                    return handleCachedNonStreamingCompletion(requestId, tenant, request, cacheHit, startTime);
+                }
+            }
+
+            // 7. Handle Streaming vs Non-Streaming Forwarding
             if (isStream) {
                 return streamingRelayService.streamChatCompletion(requestId, tenant, request, chain, startTime, servletResponse);
             } else {
@@ -151,6 +165,62 @@ public class ChatCompletionController {
                 result.isFallback(),
                 result.getRouteReason(),
                 result.getRetries(),
+                latencyMs,
+                false,
+                null
+        );
+
+        // Store non-refusal response into semantic cache
+        semanticCacheService.store(tenant, request.getModel(), request.getMessages(), response, providerHeader);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(response);
+    }
+
+    private ResponseEntity<ChatCompletionResponse> handleCachedNonStreamingCompletion(
+            String requestId,
+            Tenant tenant,
+            ChatCompletionRequest request,
+            com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit,
+            long startTime
+    ) {
+        long latencyMs = System.currentTimeMillis() - startTime;
+        ChatCompletionResponse response = cacheHit.response();
+        if (response != null) {
+            response.setId("chatcmpl-" + requestId.replace("req_", ""));
+            response.setCreated(System.currentTimeMillis() / 1000);
+        }
+        int promptTokens = response != null && response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
+        int completionTokens = response != null && response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+
+        String providerHeader = cacheHit.resolvedProvider() != null ? cacheHit.resolvedProvider() : "mock/" + request.getModel();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-netra-provider", providerHeader);
+        headers.set("x-netra-cache", "hit");
+        headers.set("x-netra-fallback", "false");
+        headers.set("x-netra-cost-usd", "0.000000");
+        headers.set("x-netra-route-reason", "semantic_cache_hit");
+        headers.set("x-netra-retries", "0");
+
+        String resolvedProvider = providerHeader.contains("/") ? providerHeader.split("/")[0] : providerHeader;
+        String resolvedModel = response.getModel() != null ? response.getModel() : request.getModel();
+
+        recordAuditAndSpend(
+                requestId,
+                tenant.getVirtualKey(),
+                request.getModel(),
+                resolvedProvider,
+                resolvedModel,
+                "ok",
+                200,
+                promptTokens,
+                completionTokens,
+                BigDecimal.ZERO.setScale(6, java.math.RoundingMode.HALF_UP),
+                "hit",
+                false,
+                "semantic_cache_hit",
+                0,
                 latencyMs,
                 false,
                 null

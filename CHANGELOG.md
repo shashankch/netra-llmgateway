@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-10-27 — Phase 5: Tenant-Isolated Semantic Vector Cache & pgvector Integration
+
+### 🚀 Added
+- **In-JVM Dense Vector Embeddings (`EmbeddingService`)**: Embedded quantized `all-MiniLM-L6-v2` model (384 dimensions) running directly in JVM memory via ONNX Runtime (`langchain4j-embeddings-all-minilm-l6-v2-q:0.36.2`). Generates normalized dense vector embeddings in ~5ms with zero external network hops or sidecar API costs.
+- **PostgreSQL 18 `pgvector` HNSW Nearest-Neighbor Retrieval (`CacheEntryRepository`)**: Leverages native pgvector cosine distance operator `<=>` with cosine similarity projection `1 - (c.embedding <=> cast(:queryVector as vector))` accelerated by HNSW cosine indexing (`m=16, ef_construction=64`).
+- **Cryptographic Per-Tenant Vector Isolation**: Enforces tenant-isolated querying at the database layer (`WHERE virtual_key = :virtualKey AND model_alias = :modelAlias`), guaranteeing mathematical zero cross-tenant completion leakage or cache bleeding.
+- **Tenant-Specific Cache Policies**: Respects tenant settings `semantic_cache.enabled` (e.g. disabled for `research` and `budget-demo`) and per-tenant `similarity_threshold` (0.92 for `search`, 0.85 for `free-tier`).
+- **Paraphrase Matching & Near-Miss Rejection**: Successfully matches semantically equivalent paraphrase pairs (0.9632 cosine similarity vs 0.92 threshold) while rejecting near-miss prompts (0.7983 < 0.92) and unrelated queries (<0.10).
+- **Upstream Safety Refusal Suppression**: Automatically detects safety refusals (e.g. *"I'm sorry, but I can't assist with that request"*) and prevents temporary refusals from being persisted into the vector cache.
+- **Multi-Turn Conversation Context Keying**: For single-turn requests, keys on user prompt; for multi-turn conversations, canonicalizes complete message history across all roles and contents.
+- **Streaming Cache SSE Replay (`StreamingRelayService.replayCachedStream`)**: Emits instant Server-Sent Events containing delta chunks, terminal usage block, and sentinel `[DONE]` with full `x-netra-*` telemetry headers and `$0.000000` cost.
+- **Admin Cache Statistics API (`GET /admin/cache/stats`)**: Reports total entries, hits, misses, global hit rate, and per-key breakdown with tenant status and threshold metadata.
+- **Telemetry Observability Contract**: Injects canonical headers: `x-netra-cache: hit`, `x-netra-cost-usd: 0.000000`, `x-netra-provider`, `x-netra-fallback: false`, `x-netra-route-reason: semantic_cache_hit`, and `x-netra-retries: 0`.
+- **Cache Benchmark Evaluation CLI (`scripts/run_cache_eval.py`)**: Added `make cache-eval` CLI automation command and automated CI pipeline `.github/workflows/cache-ci.yml`.
+
+---
+
 ## [0.4.0] - 2026-10-26 — Phase 4: Multi-Provider Routing, Failover Chains & Intelligent Router
 
 ### 🚀 Added

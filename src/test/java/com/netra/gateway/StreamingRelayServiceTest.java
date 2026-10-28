@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netra.gateway.config.GatewayConfigProperties;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
+import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.dto.ChatMessage;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.service.AdmissionService;
@@ -379,6 +380,80 @@ class StreamingRelayServiceTest {
                 anyLong(),
                 eq(true),
                 eq("stream_severed")
+        );
+    }
+
+    @Test
+    @DisplayName("replayCachedStream emits tokenized SSE chunks, null finish_reason, terminal stop chunk, and records zero cost")
+    void testReplayCachedStream() throws Exception {
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "What is Netra?")))
+                .stream(true)
+                .build();
+
+        ChatCompletionResponse cachedResponse = ChatCompletionResponse.builder()
+                .id("chatcmpl-cached-abc")
+                .object("chat.completion")
+                .created(1700000000L)
+                .model("gpt-4o-mini")
+                .choices(List.of(ChatCompletionResponse.Choice.builder()
+                        .index(0)
+                        .message(ChatMessage.builder().role("assistant").content("Netra is a gateway").build())
+                        .finishReason("stop")
+                        .build()))
+                .usage(com.netra.gateway.model.dto.UsageInfo.builder()
+                        .promptTokens(10)
+                        .completionTokens(8)
+                        .totalTokens(18)
+                        .build())
+                .build();
+
+        com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit =
+                new com.netra.gateway.service.SemanticCacheService.CacheHitResult(
+                        java.util.UUID.randomUUID(),
+                        testTenant.getVirtualKey(),
+                        "fast",
+                        "alpha/alpha-small",
+                        cachedResponse,
+                        0.98
+                );
+
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+        ResponseBodyEmitter emitter = streamingRelayService.replayCachedStream(
+                "req-test-cache-stream",
+                testTenant,
+                request,
+                cacheHit,
+                System.currentTimeMillis(),
+                servletResponse
+        );
+
+        assertThat(emitter).isNotNull();
+        assertThat(servletResponse.getContentType()).contains("text/event-stream");
+        assertThat(servletResponse.getHeader("x-netra-cache")).isEqualTo("hit");
+        assertThat(servletResponse.getHeader("x-netra-cost-usd")).isEqualTo("0.000000");
+        assertThat(servletResponse.getHeader("x-netra-provider")).isEqualTo("alpha/alpha-small");
+
+        // Verify zero cost audit log recorded
+        verify(auditLogService, timeout(2000)).recordAuditAndSpend(
+                eq("req-test-cache-stream"),
+                eq("netra-sk-search-1a2b3c"),
+                eq("fast"),
+                eq("alpha"),
+                eq("gpt-4o-mini"),
+                eq("cache_hit"),
+                eq(200),
+                eq(10),
+                eq(8),
+                eq(BigDecimal.ZERO.setScale(6, java.math.RoundingMode.HALF_UP)),
+                eq("hit"),
+                eq(false),
+                eq("semantic_cache_hit"),
+                eq(0),
+                anyLong(),
+                eq(true),
+                isNull()
         );
     }
 }
