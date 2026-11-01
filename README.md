@@ -1,9 +1,7 @@
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/netra-banner.png">
-    <img src="docs/assets/netra-banner.png" alt="NETRA Enterprise AI Gateway Banner" width="900">
-  </picture>
-  <br/><br/>
+<p align="center">
+  <img src="docs/assets/netra-banner.svg" alt="NETRA Enterprise AI Gateway Banner" width="100%">
+</p>
+<br/>
 
   <p align="center">
     <strong>High-throughput, ultra-low latency intelligent gateway and semantic caching infrastructure for production Generative AI applications.</strong>
@@ -19,12 +17,9 @@
   </p>
 
   <p align="center">
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Backend CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Frontend CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/streaming-ci.yml"><img src="https://img.shields.io/badge/Streaming_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Streaming CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/routing-ci.yml"><img src="https://img.shields.io/badge/Routing_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Routing CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/cache-ci.yml"><img src="https://img.shields.io/badge/Cache_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Cache CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/e2e-drill.yml"><img src="https://img.shields.io/badge/E2E_Drill-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="E2E Drill CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-ci.yml"><img src="https://img.shields.io/badge/Gateway_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Gateway CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/dashboard-ci.yml"><img src="https://img.shields.io/badge/Dashboard_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Dashboard CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-verification.yml"><img src="https://img.shields.io/badge/Verification_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Gateway Verification CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
   </p>
 
@@ -39,7 +34,6 @@
     <a href="docs/ROADMAP.md">Roadmap</a> •
     <a href="docs/ADR.md">ADRs</a>
   </p>
-</div>
 
 ---
 
@@ -56,11 +50,13 @@ Built natively on **Java 25 LTS Virtual Threads** and **Spring Boot 4.1.1**, NET
 NETRA acts as a non-blocking reverse proxy sitting directly in the critical path between application clients and downstream foundation model providers:
 
 <p align="center">
-  <a href="docs/diagrams/00_readme_architecture.svg">
-    <img src="docs/diagrams/00_readme_architecture.png" alt="NETRA System Architecture Diagram" width="100%">
-  </a>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/00_readme_architecture_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/diagrams/00_readme_architecture_light.svg">
+    <img src="docs/diagrams/00_readme_architecture_dark.svg" alt="NETRA System Architecture Diagram" width="100%">
+  </picture>
   <br>
-  <em>Figure 1: NETRA End-to-End Request Pipeline &amp; Storage Topology (<a href="docs/diagrams/00_readme_architecture.svg">Vector SVG</a> · <a href="docs/diagrams/00_readme_architecture.d2">D2 Source</a>)</em>
+  <em>Figure 1: NETRA End-to-End Request Pipeline &amp; Storage Topology (<a href="docs/diagrams/00_readme_architecture_dark.svg">Dark Theme</a> · <a href="docs/diagrams/00_readme_architecture_light.svg">Light Theme</a> · <a href="docs/diagrams/00_readme_architecture.d2">D2 Source</a>)</em>
 </p>
 
 ---
@@ -84,23 +80,25 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 ## 🚀 Quickstart in 60 Seconds
 
 ### Prerequisites
+
 - Docker Engine & Docker Compose (v2.20+)
 - Python 3.9+ (for evaluation & smoke verification scripts)
 - Java 25 & Gradle 9 (optional for direct native execution)
 
 ### 1. Launch Backing Services & Gateway
-Launch the complete NETRA stack alongside PostgreSQL 18, Redis 8.0, and upstream mock providers:
+Launch the complete NETRA stack alongside PostgreSQL 18, Redis 8.0, and upstream providers:
 
 ```bash
 git clone https://github.com/shashankch/netra-llmgateway.git
 cd netra-llmgateway
+cp .env.example .env    # Configure upstream keys (OpenRouter / OpenAI) or run with local defaults
 make up
 ```
 
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.5.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.6.0"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -275,7 +273,7 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | `make routing-eval` | Runs prompt difficulty classifier accuracy benchmark on `data/routing_eval.jsonl` |
 | `make cache-eval` | Runs semantic vector cache hit and tenant isolation benchmark |
 | `make load` | Runs burst concurrency load test asserting zero over-admission |
-| `make docs-serve`| Starts live-reloading MkDocs developer documentation |
+| `make docs-serve`| Starts live-reloading Zensical developer documentation |
 | `make docs-build`| Builds strict static production documentation distribution |
 
 ---

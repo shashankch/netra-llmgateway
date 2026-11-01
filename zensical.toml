@@ -1,0 +1,97 @@
+[project]
+site_name = "NETRA Documentation"
+site_description = "Production-Grade AI-First LLM Gateway & Semantic Vector Cache"
+site_author = "Shashank Chandel"
+site_url = "https://shashankch.github.io/netra-llmgateway/"
+
+repo_url = "https://github.com/shashankch/netra-llmgateway"
+repo_name = "shashankch/netra-llmgateway"
+extra_css = ["stylesheets/extra.css"]
+extra_javascript = ["javascripts/zoom.js"]
+
+nav = [
+  { "Overview" = "index.md" },
+  { "Architecture & Design" = [
+    { "System Architecture" = "architecture.md" },
+    { "Gateway Comparison" = "comparison.md" },
+    { "Architectural Decisions (ADR)" = "ADR.md" },
+    { "Conventions" = "CONVENTIONS.md" },
+  ]},
+  { "API Reference" = "api-reference.md" },
+  { "Operations & Deployment" = [
+    { "Self-Hosting & Deployment" = "SELF-HOSTING.md" },
+    { "Verification & Benchmarks" = "verification-report.md" },
+    { "Roadmap" = "ROADMAP.md" },
+  ]},
+  { "Community" = [
+    { "Security Policy" = "SECURITY.md" },
+    { "Contributing" = "CONTRIBUTING.md" },
+  ]},
+]
+
+[project.theme]
+variant = "modern"
+language = "en"
+logo = "assets/netra-logo.svg"
+favicon = "assets/netra-logo.svg"
+features = [
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.footnote.tooltips",
+  "content.tabs.link",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.arithmatex.generic = true
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tilde = {}
+

@@ -29,13 +29,15 @@ NETRA maintains strict decoupling across core pipeline stages:
     }
   }
   ```
+
 - **Telemetry Headers**: Successful chat completions inject canonical telemetry:
-  - `x-netra-provider`: Upstream provider identifier (e.g. `alpha/alpha-small`).
-  - `x-netra-cache`: Cache status (`hit` or `miss`).
-  - `x-netra-fallback`: Failover indicator (`true` or `false`).
-  - `x-netra-cost-usd`: Micro-USD cost scaled to 6 decimals (e.g. `0.000011`).
-  - `x-netra-route-reason`: Rationale for model selection (alias, direct model, or classifier score).
-  - `x-netra-retries`: Total retry attempts absorbed prior to successful response (0, 1, 2, 3).
+
+    * `x-netra-provider`: Upstream provider identifier (e.g. `alpha/alpha-small`).
+    * `x-netra-cache`: Cache status (`hit` or `miss`).
+    * `x-netra-fallback`: Failover indicator (`true` or `false`).
+    * `x-netra-cost-usd`: Micro-USD cost scaled to 6 decimals (e.g. `0.000011`).
+    * `x-netra-route-reason`: Rationale for model selection (alias, direct model, or classifier score).
+    * `x-netra-retries`: Total retry attempts absorbed prior to successful response (0, 1, 2, 3).
 
 ---
 
@@ -61,3 +63,22 @@ NETRA maintains strict decoupling across core pipeline stages:
 - **Branch Naming**: `feat/<scope>`, `fix/<scope>`, `refactor/<scope>`, `perf/<scope>`, `chore/<scope>`.
 - **Conventional Commits**: Format commits as `<type>(<scope>): <subject>` (e.g., `feat(ingress): implement virtual key filter`).
 - **Zero-Leak Invariant**: Automated pre-commit and CI gates enforce that no internal metadata or non-public terminology leaks into commit messages, PR titles, code comments, or documentation.
+
+---
+
+## 6. Brand Asset Governance & Visual Identity Standards
+
+To prevent visual drift and maintain high enterprise design integrity across all documentation, repository headers, and ops consoles:
+
+- **Canonical Brand Assets (Single Source of Truth):**
+  - **Master Banner:** `docs/assets/netra-banner.svg`
+  - **Master Logo:** `docs/assets/netra-logo.svg` (adaptive light/dark CSS switching)
+  - **Ops Console Logo Component:** `dashboard/src/components/NetraLogo.jsx`
+  - **Web Favicon:** `dashboard/public/netra-logo.svg`
+  - **Tech Stack Icons:** `docs/assets/icons/*.svg`
+- **Strict Anti-Drift Rule:** **DO NOT MODIFY**, re-palette, redesign, or substitute the NETRA banner or logo assets unless explicitly instructed by the product owner.
+- **Color Invariants:** The brand identity uses strictly defined tokens:
+  - **Electric Lime / Chartreuse:** `#D2F823` (Active accents, dark mode glyph/glow)
+  - **Deep Obsidian / Midnight:** `#06070A` / `#0A0D14` (Dark mode backgrounds)
+  - **Pure Slate:** `#09090B` / `#FAFAFA` (Light mode contrast elements)
+- **Size & Scaling Derivatives:** When exporting or using size variants (e.g. 16px favicon, 32px navbar badge, 64px hero mark, or 1200x630 OpenGraph social previews), maintain exact proportional scaling of the vector SVG geometry without altering stroke weight ratios or aperture angles.

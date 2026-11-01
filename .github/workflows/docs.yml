@@ -9,7 +9,7 @@ on:
       - main
     paths:
       - 'docs/**'
-      - 'mkdocs.yml'
+      - 'zensical.toml'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -37,14 +37,14 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'docs/requirements.txt'
 
-      - name: Install MkDocs Dependencies
+      - name: Install Zensical Documentation Engine
         run: |
           python -m pip install --upgrade pip
           pip install -r docs/requirements.txt
 
-      - name: Build Documentation Site
+      - name: Build Documentation Site via Zensical
         run: |
-          python3 -m mkdocs build --strict
+          zensical build --clean --strict
 
       - name: Upload GitHub Pages Artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

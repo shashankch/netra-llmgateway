@@ -1,0 +1,111 @@
+<svg width="980" height="460" viewBox="0 0 980 460" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748B"/>
+    </marker>
+    <marker id="arr-lime" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D2F823"/>
+    </marker>
+    <marker id="arr-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38BDF8"/>
+    </marker>
+    <filter id="glow-dark" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="980" height="460" rx="14" fill="#06070A"/>
+  <rect x="0.5" y="0.5" width="979" height="459" rx="13.5" stroke="#18202F" stroke-width="1"/>
+
+  <!-- Eyebrow & Title -->
+  <text x="40" y="40" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" letter-spacing="1.5px">HYBRID TOPOLOGY · ENTERPRISE CONTROL PLANE</text>
+  <text x="40" y="64" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="17" font-weight="800" letter-spacing="-0.5px">Using OpenRouter Behind NETRA Enterprise Gateway</text>
+
+  <!-- ZONE 1: CLIENT APPS (LEFT) -->
+  <g transform="translate(40, 100)">
+    <rect width="180" height="320" rx="10" fill="#0A0D14" stroke="#18202F" stroke-dasharray="4,4"/>
+    <rect x="12" y="-7" width="115" height="14" rx="3" fill="#06070A"/>
+    <text x="69" y="3" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">INTERNAL CLIENTS</text>
+
+    <!-- Node 1: AI Agents & Apps -->
+    <rect x="15" y="30" width="150" height="74" rx="8" fill="#0D111A" stroke="#253046" filter="url(#glow-dark)"/>
+    <text x="25" y="54" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">App Workloads</text>
+    <text x="25" y="70" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="9">Bearer netra-sk-*</text>
+    <text x="25" y="86" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Per-Team Virtual Key</text>
+
+    <!-- Node 2: LangChain / SDKs -->
+    <rect x="15" y="130" width="150" height="74" rx="8" fill="#0D111A" stroke="#253046" filter="url(#glow-dark)"/>
+    <text x="25" y="154" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">OpenAI SDKs</text>
+    <text x="25" y="170" fill="#94A3B8" font-family="'JetBrains Mono', monospace" font-size="9">base_url: netra:8080</text>
+    <text x="25" y="186" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Zero Code Changes</text>
+  </g>
+
+  <!-- ZONE 2: NETRA GATEWAY IN-VPC (CENTER) -->
+  <g transform="translate(260, 100)">
+    <rect width="360" height="320" rx="10" fill="#0A0D14" stroke="#0284C7" stroke-width="1.5"/>
+    <rect x="16" y="-7" width="180" height="14" rx="3" fill="#06070A"/>
+    <text x="106" y="3" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">NETRA GATEWAY (PRIVATE VPC)</text>
+
+    <!-- Step 1: Admission & Rate Limiter -->
+    <rect x="20" y="25" width="320" height="60" rx="8" fill="#0D111A" stroke="#253046" filter="url(#glow-dark)"/>
+    <text x="35" y="48" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">1. Atomic Admission &amp; Quotas</text>
+    <text x="35" y="66" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="9">Redis 8.0 Lua · 0.00% Over-Admission · Sliding RPM</text>
+
+    <!-- Step 2: Semantic Cache (Focal Node) -->
+    <rect x="20" y="105" width="320" height="85" rx="8" fill="#0D111A" stroke="#D2F823" stroke-width="1.5" filter="url(#glow-dark)"/>
+    <text x="35" y="128" fill="#D2F823" font-family="Inter, sans-serif" font-size="13" font-weight="800">2. In-VPC Semantic Cache</text>
+    <text x="35" y="146" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">&lt; 5ms Response · $0 Upstream Token Cost</text>
+    <text x="35" y="166" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">pgvector Cosine Search · Tenant-Isolated Partitioning</text>
+
+    <!-- Step 3: Centralized Egress Gateway -->
+    <rect x="20" y="210" width="320" height="65" rx="8" fill="#0D111A" stroke="#253046" filter="url(#glow-dark)"/>
+    <text x="35" y="233" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">3. Secure Master Egress</text>
+    <text x="35" y="251" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="9">Single Managed OPENROUTER_API_KEY · Zero Dev Leak</text>
+  </g>
+
+  <!-- ZONE 3: OPENROUTER & UPSTREAM LABS (RIGHT) -->
+  <g transform="translate(660, 100)">
+    <rect width="280" height="320" rx="10" fill="#0A0D14" stroke="#18202F" stroke-dasharray="4,4"/>
+    <rect x="16" y="-7" width="160" height="14" rx="3" fill="#06070A"/>
+    <text x="96" y="3" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">UPSTREAM AI ECOSYSTEM</text>
+
+    <!-- OpenRouter Edge Proxy -->
+    <rect x="20" y="25" width="240" height="60" rx="8" fill="#0D111A" stroke="#38BDF8" stroke-width="1.2" filter="url(#glow-dark)"/>
+    <text x="35" y="48" fill="#38BDF8" font-family="Inter, sans-serif" font-size="12" font-weight="800">OpenRouter Edge API</text>
+    <text x="35" y="66" fill="#94A3B8" font-family="'JetBrains Mono', monospace" font-size="9">https://openrouter.ai/api/v1</text>
+
+    <!-- Downstream Providers -->
+    <rect x="20" y="105" width="240" height="48" rx="6" fill="#0D111A" stroke="#253046"/>
+    <text x="35" y="126" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11" font-weight="600">OpenAI</text>
+    <text x="35" y="141" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8">gpt-4o · o1 · o3-mini</text>
+
+    <rect x="20" y="165" width="240" height="48" rx="6" fill="#0D111A" stroke="#253046"/>
+    <text x="35" y="186" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11" font-weight="600">Anthropic</text>
+    <text x="35" y="201" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8">claude-3-5-sonnet · haiku</text>
+
+    <rect x="20" y="225" width="240" height="48" rx="6" fill="#0D111A" stroke="#253046"/>
+    <text x="35" y="246" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11" font-weight="600">Open-Weights &amp; Self-Hosted</text>
+    <text x="35" y="261" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8">meta-llama · deepseek · qwen</text>
+  </g>
+
+  <!-- CONNECTORS -->
+  <!-- Client to Netra Admission -->
+  <path d="M 205 167 H 275" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-dark)"/>
+
+  <!-- Netra Cache Hit Loopback -->
+  <path d="M 280 245 H 230 V 205 H 205" stroke="#D2F823" stroke-width="1.5" fill="none" marker-end="url(#arr-lime)"/>
+  <rect x="215" y="215" width="45" height="15" rx="3" fill="#06070A"/>
+  <text x="237" y="226" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="7" font-weight="700" text-anchor="middle">&lt;5ms HIT</text>
+
+  <!-- Cache Miss to OpenRouter -->
+  <path d="M 600 342 H 635 V 155 H 675" stroke="#38BDF8" stroke-width="1.5" fill="none" marker-end="url(#arr-cyan)"/>
+  <rect x="615" y="240" width="40" height="15" rx="3" fill="#06070A"/>
+  <text x="635" y="251" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="7" font-weight="700" text-anchor="middle">MISS</text>
+
+  <!-- OpenRouter to Providers -->
+  <path d="M 780 185 V 205" stroke="#64748B" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <path d="M 780 213 V 225" stroke="#64748B" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <path d="M 780 273 V 320" stroke="#64748B" stroke-width="1.2" stroke-dasharray="2,2"/>
+
+</svg>

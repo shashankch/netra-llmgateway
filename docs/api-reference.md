@@ -95,7 +95,7 @@ Gateway liveness and readiness probe.
 {
   "status": "ok",
   "service": "netra-gateway",
-  "version": "0.5.0"
+  "version": "0.6.0"
 }
 ```
 
@@ -290,7 +290,7 @@ Returns the active live USD to INR exchange rate with dynamic fallback.
 {
   "base": "USD",
   "target": "INR",
-  "rate": 87.50
+  "rate": 85.00
 }
 ```
 
@@ -329,7 +329,7 @@ NETRA features an integrated `ForexRateService` for cross-currency accounting:
 
 - **Live Upstream**: Fetches current exchange rates via Frankfurter open forex API.
 - **Resilience L1 Cache**: Caffeine in-memory cache with configurable 6-hour TTL.
-- **Offline Safety Fallback**: Automatic fail-safe to `87.50` INR/USD if outbound network access is blocked or the upstream API experiences downtime.
+- **Offline Safety Fallback**: Automatic fail-safe to `85.00` INR/USD if outbound network access is blocked or the upstream API experiences downtime.
 
 ---
 

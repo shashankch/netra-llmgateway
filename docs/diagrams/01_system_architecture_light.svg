@@ -1,0 +1,161 @@
+<svg width="1080" height="520" viewBox="0 0 1080 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Arrowhead markers -->
+    <marker id="arrow-light" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748B"/>
+    </marker>
+    <marker id="arrow-emerald-light" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#059669"/>
+    </marker>
+    <marker id="arrow-cyan-light" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0284C7"/>
+    </marker>
+
+    <!-- Subtle Drop Shadow Filter for Light Paper -->
+    <filter id="shadow-light" x="-8%" y="-8%" width="116%" height="116%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1080" height="520" rx="14" fill="#F8FAFC"/>
+  <rect x="0.5" y="0.5" width="1079" height="519" rx="13.5" stroke="#E2E8F0" stroke-width="1"/>
+
+  <!-- Diagram Title & Eyebrow -->
+  <text x="40" y="44" fill="#0284C7" font-family="'JetBrains Mono', 'Geist Mono', monospace" font-size="10" font-weight="700" letter-spacing="1.5px">SYSTEM ARCHITECTURE · INGRESS TO STORAGE</text>
+  <text x="40" y="68" fill="#0F172A" font-family="Inter, -apple-system, sans-serif" font-size="18" font-weight="800" letter-spacing="-0.5px">NETRA End-to-End Request Pipeline &amp; Data Plane</text>
+
+  <!-- ==================== TIER 1: CLIENT INGRESS (LEFT) ==================== -->
+  <rect x="40" y="100" width="200" height="380" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-dasharray="4,4"/>
+  <rect x="52" y="94" width="110" height="14" rx="3" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="107" y="104" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">CLIENT CONSUMERS</text>
+
+  <!-- Node 1.1: Applications / Agents -->
+  <g transform="translate(55, 130)">
+    <rect width="170" height="74" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="26" fill="#0F172A" font-family="Inter, sans-serif" font-size="13" font-weight="700">AI Agents &amp; Apps</text>
+    <text x="14" y="44" fill="#0284C7" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">Bearer netra-sk-*</text>
+    <text x="14" y="60" fill="#64748B" font-family="Inter, sans-serif" font-size="10">LangChain · OpenAI SDK</text>
+  </g>
+
+  <!-- Node 1.2: Ops Console UI -->
+  <g transform="translate(55, 230)">
+    <rect width="170" height="74" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="26" fill="#0F172A" font-family="Inter, sans-serif" font-size="13" font-weight="700">Ops Console &amp; UI</text>
+    <text x="14" y="44" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="10">React 19 / Vite 6 (:3000)</text>
+    <text x="14" y="60" fill="#64748B" font-family="Inter, sans-serif" font-size="10">Analytics · Keys · SSE Logs</text>
+  </g>
+
+  <!-- Node 1.3: Automation CLI -->
+  <g transform="translate(55, 330)">
+    <rect width="170" height="74" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="26" fill="#0F172A" font-family="Inter, sans-serif" font-size="13" font-weight="700">Automation CLI</text>
+    <text x="14" y="44" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="10">Makefile · Python Drills</text>
+    <text x="14" y="60" fill="#64748B" font-family="Inter, sans-serif" font-size="10">smoke · load · routing-eval</text>
+  </g>
+
+
+  <!-- ==================== TIER 2: NETRA GATEWAY CORE (CENTER) ==================== -->
+  <rect x="280" y="100" width="460" height="380" rx="10" fill="#FFFFFF" stroke="#0284C7" stroke-width="1.5"/>
+  <rect x="296" y="94" width="200" height="14" rx="3" fill="#E0F2FE" stroke="#BAE6FD" stroke-width="1"/>
+  <text x="396" y="104" fill="#0369A1" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">NETRA ENTERPRISE GATEWAY (IN-VPC)</text>
+
+  <!-- Node 2.1: Ingress & Atomic Rate Limiter -->
+  <g transform="translate(300, 130)">
+    <rect width="200" height="74" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="24" fill="#0F172A" font-family="Inter, sans-serif" font-size="12" font-weight="700">Ingress &amp; Rate Limiter</text>
+    <text x="14" y="42" fill="#059669" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">0.00% Over-Admission</text>
+    <text x="14" y="58" fill="#64748B" font-family="Inter, sans-serif" font-size="10">Caffeine L1 · Redis Lua ZSET</text>
+  </g>
+
+  <!-- Node 2.2: Semantic Vector Cache (FOCAL NODE) -->
+  <g transform="translate(525, 130)">
+    <rect width="195" height="74" rx="8" fill="#F0FDF4" stroke="#059669" stroke-width="1.5" filter="url(#shadow-light)"/>
+    <text x="14" y="24" fill="#065F46" font-family="Inter, sans-serif" font-size="12" font-weight="800">Semantic Vector Cache</text>
+    <text x="14" y="42" fill="#059669" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">&lt; 5ms · $0 Upstream Cost</text>
+    <text x="14" y="58" fill="#047857" font-family="Inter, sans-serif" font-size="10">ONNX Dense Vector · pgvector</text>
+  </g>
+
+  <!-- Node 2.3: Syntactic Complexity Auto-Router -->
+  <g transform="translate(300, 230)">
+    <rect width="200" height="74" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="24" fill="#0F172A" font-family="Inter, sans-serif" font-size="12" font-weight="700">Dynamic Model Router</text>
+    <text x="14" y="42" fill="#4F46E5" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">auto -> fast vs. smart</text>
+    <text x="14" y="58" fill="#64748B" font-family="Inter, sans-serif" font-size="10">Syntactic Classifier (~72% Save)</text>
+  </g>
+
+  <!-- Node 2.4: Unbuffered Streaming SSE Relay -->
+  <g transform="translate(525, 230)">
+    <rect width="195" height="74" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="24" fill="#0F172A" font-family="Inter, sans-serif" font-size="12" font-weight="700">Unbuffered SSE Relay</text>
+    <text x="14" y="42" fill="#0284C7" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">~20ms TTFT · Socket Abort</text>
+    <text x="14" y="58" fill="#64748B" font-family="Inter, sans-serif" font-size="10">Java 25 Virtual Threads</text>
+  </g>
+
+  <!-- Node 2.5: Micro-Cost Telemetry Ledger -->
+  <g transform="translate(300, 330)">
+    <rect width="420" height="64" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="16" y="24" fill="#0F172A" font-family="Inter, sans-serif" font-size="12" font-weight="700">Telemetry &amp; Micro-Cost Settlement</text>
+    <text x="16" y="44" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="9">BigDecimal 6-decimal ($0.000000) · x-netra-* headers · Live Forex (USD/INR)</text>
+  </g>
+
+
+  <!-- ==================== TIER 3: UPSTREAM INFERENCE (RIGHT) ==================== -->
+  <rect x="780" y="100" width="260" height="240" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-dasharray="4,4"/>
+  <rect x="796" y="94" width="130" height="14" rx="3" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="861" y="104" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">UPSTREAM AI PROVIDERS</text>
+
+  <!-- Upstream 1: Frontier & Open-Weights (OpenRouter / Cloud) -->
+  <g transform="translate(800, 130)">
+    <rect width="220" height="60" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="24" fill="#0F172A" font-family="Inter, sans-serif" font-size="12" font-weight="700">OpenRouter &amp; Cloud Labs</text>
+    <text x="14" y="42" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="9">openai/gpt-4o · claude-3-5 · gemini</text>
+  </g>
+
+  <!-- Upstream 2: Local & Self-Hosted (Mocks / vLLM) -->
+  <g transform="translate(800, 210)">
+    <rect width="220" height="60" rx="8" fill="#FFFFFF" stroke="#E2E8F0" filter="url(#shadow-light)"/>
+    <text x="14" y="24" fill="#0F172A" font-family="Inter, sans-serif" font-size="12" font-weight="700">Mocks &amp; Self-Hosted vLLM</text>
+    <text x="14" y="42" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="9">alpha (:9001) &amp; beta (:9002)</text>
+  </g>
+
+
+  <!-- ==================== TIER 4: STORAGE & PERSISTENCE (BOTTOM RIGHT) ==================== -->
+  <rect x="780" y="360" width="260" height="120" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <rect x="796" y="354" width="120" height="14" rx="3" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="856" y="364" fill="#475569" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">STORAGE &amp; STATE</text>
+
+  <g transform="translate(800, 385)">
+    <rect width="220" height="38" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="14" y="23" fill="#DC2626" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">Redis 8.0</text>
+    <text x="85" y="23" fill="#475569" font-family="Inter, sans-serif" font-size="10">Sliding RPM &amp; Spend ZSET</text>
+  </g>
+
+  <g transform="translate(800, 430)">
+    <rect width="220" height="38" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="14" y="23" fill="#0284C7" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">PostgreSQL 18</text>
+    <text x="105" y="23" fill="#475569" font-family="Inter, sans-serif" font-size="10">pgvector HNSW + Logs</text>
+  </g>
+
+
+  <!-- ==================== CONNECTORS & DATA FLOW ==================== -->
+  <!-- Client to Gateway Ingress -->
+  <path d="M 225 167 H 295" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arrow-light)"/>
+  <path d="M 225 267 H 260 V 177 H 295" stroke="#94A3B8" stroke-width="1.5" fill="none" marker-end="url(#arrow-light)"/>
+
+  <!-- Ingress to Cache -->
+  <path d="M 500 167 H 520" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow-emerald-light)"/>
+
+  <!-- Cache Miss to Router -->
+  <path d="M 622 204 V 218 H 400 V 225" stroke="#94A3B8" stroke-width="1.2" fill="none" marker-end="url(#arrow-light)"/>
+
+  <!-- Router to Upstream -->
+  <path d="M 500 267 H 520" stroke="#0284C7" stroke-width="1.5" marker-end="url(#arrow-cyan-light)"/>
+  <path d="M 720 267 H 755 V 160 H 795" stroke="#0284C7" stroke-width="1.5" fill="none" marker-end="url(#arrow-cyan-light)"/>
+  <path d="M 755 240 H 795" stroke="#0284C7" stroke-width="1.5" fill="none" marker-end="url(#arrow-cyan-light)"/>
+
+  <!-- Gateway to Storage -->
+  <path d="M 720 362 H 755 V 404 H 795" stroke="#94A3B8" stroke-width="1.2" stroke-dasharray="3,3" fill="none" marker-end="url(#arrow-light)"/>
+  <path d="M 755 404 V 449 H 795" stroke="#94A3B8" stroke-width="1.2" stroke-dasharray="3,3" fill="none" marker-end="url(#arrow-light)"/>
+
+</svg>

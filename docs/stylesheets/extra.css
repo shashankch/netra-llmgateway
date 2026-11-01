@@ -1,0 +1,75 @@
+/* NETRA Documentation Custom Stylesheet */
+
+/* Light/Dark mode reactive image switching for diagrams */
+[data-md-color-scheme="slate"] img[src*="#only-light"] {
+  display: none !important;
+}
+
+[data-md-color-scheme="default"] img[src*="#only-dark"] {
+  display: none !important;
+}
+
+/* Ensure crisp diagram rendering on retina and 4K displays */
+.md-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  cursor: zoom-in;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.md-content img:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Lightbox overlay for click-to-zoom diagrams */
+.netra-image-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 15, 29, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  cursor: zoom-out;
+  opacity: 0;
+  animation: netraFadeIn 0.2s forwards;
+  padding: 1.5rem;
+}
+
+.netra-image-overlay img {
+  max-width: 94vw;
+  max-height: 88vh;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  cursor: zoom-out;
+  transform: scale(0.96);
+  animation: netraScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.netra-image-caption {
+  margin-top: 1rem;
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+@keyframes netraFadeIn {
+  to { opacity: 1; }
+}
+
+@keyframes netraScaleIn {
+  to { transform: scale(1); }
+}

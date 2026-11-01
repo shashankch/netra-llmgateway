@@ -1,71 +1,97 @@
-# NETRA Architecture & Core Specification
-
-Welcome to the technical documentation for **NETRA** — an enterprise AI-First LLM Gateway and Semantic Vector Cache built on Java 25 LTS Virtual Threads, PostgreSQL 18 with `pgvector`, and Redis 8.0.
-
----
-
-## System Architecture & Component Topology
+# NETRA — Intelligent LLM Gateway & Semantic Cache
 
 <p align="center">
-  <a href="diagrams/01_system_architecture.svg">
-    <img src="diagrams/01_system_architecture.png" alt="NETRA System Architecture Diagram" width="100%">
-  </a>
-  <br>
-  <em>Figure 1: NETRA End-to-End System Architecture &amp; Component Topology (<a href="diagrams/01_system_architecture.svg">Vector SVG</a> · <a href="diagrams/01_system_architecture.d2">D2 Source</a>)</em>
+  <img src="assets/netra-banner.svg" alt="NETRA Enterprise AI Gateway Banner" width="100%" style="border-radius: 12px; margin: 1rem 0 2rem;">
 </p>
 
+**NETRA** (*Sanskrit: नेत्र — Vision / Aperture / Insight*) is an enterprise-grade, high-throughput LLM Gateway and tenant-isolated Semantic Vector Cache. Sitting in the critical path between application microservices and foundation model providers, NETRA delivers predictable latency, multi-provider failover, race-safe atomic admission control, and sub-5ms semantic cache hits.
+
 ---
 
-## Ingress Contract & Headers
+## Key Platform Guarantees
 
-Every successful chat completion response from `POST /v1/chat/completions` strictly emits canonical `x-netra-*` telemetry headers:
+- **Universal OpenAI Compatibility:** Direct drop-in proxy for `/v1/chat/completions` — zero client SDK changes required.
+- **Tenant-Isolated Semantic Cache:** Sub-5ms cosine similarity retrieval with cryptographic per-tenant boundaries at **$0.000000** upstream cost.
+- **Atomic Admission Control:** Single-transaction Redis 8.0 sliding-window rate limiting ensuring **0.00% over-admission** under high-concurrency bursts.
+- **Dynamic Cost Arbitrage:** Syntactic difficulty classifier (`auto` tier) routing simple queries to fast models and complex tasks to frontier reasoning models, achieving up to **~72.4% cost savings**.
+- **Synchronous Upstream Failover:** Multi-provider fallback chains (`fast` &rarr; `primary` &rarr; `fallback`) with bounded exponential retries and zero-glitch SSE streaming failover.
+- **Real-Time Financial Telemetry:** Exact 6-decimal micro-cost accounting (`BigDecimal`) in USD with live Forex conversion (USD / INR).
 
-| Header | Description | Example |
+---
+
+## Core Architecture & Technology Stack
+
+| Pillar | Technology | Role in Ingress Pipeline |
+|---|---|---|
+| <img src="assets/icons/java.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Runtime Engine** | Java 25 LTS (Virtual Threads / Loom) | High-throughput unbuffered SSE streaming relay & socket cancellation detection |
+| <img src="assets/icons/spring.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Framework** | Spring Boot 4.1.1 | Graceful shutdown connection draining, actuator probes & observability |
+| <img src="assets/icons/postgres.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Vector Storage** | PostgreSQL 18 & pgvector | Dense vector embeddings (384-dim) with HNSW indexing for sub-5ms cosine caching |
+| <img src="assets/icons/redis.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Admission Control** | Redis 8.0 Alpine (Lua Scripting) | Single-transaction sliding-window rate limiting & atomic budget validation (0.00% over-admission) |
+| <img src="assets/icons/react.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Operations Console** | React 19 / Vite 6 | Real-time SSE audit logging, multi-currency accounting (USD/INR) & prompt playground |
+| <img src="assets/icons/docker.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Containerization** | Docker Compose & Cloud VPS | Multi-service orchestration with zero-open-port Cloudflare Zero Trust tunnel support |
+
+---
+
+## Architectural Topology
+
+![NETRA System Architecture](diagrams/00_readme_architecture_light.svg#only-light)
+![NETRA System Architecture](diagrams/00_readme_architecture_dark.svg#only-dark)
+
+---
+
+## Canonical Telemetry Contract
+
+Every completion response emitted by NETRA strictly carries canonical `x-netra-*` telemetry headers:
+
+| Header | Description | Example Value |
 |---|---|---|
 | `x-netra-provider` | Upstream provider and model that served the request | `alpha/alpha-small` |
-| `x-netra-cache` | Indicates whether the response was served from cache | `hit` or `miss` |
-| `x-netra-fallback` | Indicates if an upstream failover provider was used | `false` or `true` |
-| `x-netra-cost-usd` | Computed cost in micro-USD ($0.000000 USD) *(omitted on streaming responses upfront)* | `0.000011` |
-| `x-netra-route-reason` | Decision rationale applied by the dynamic model router | `auto -> smart (score +3.5): +3.5 proof` |
-| `x-netra-retries` | Number of upstream network retries executed before success | `0` (or `1`, `2`, `3`) |
+| `x-netra-cache` | Indicates whether the completion was served from cache | `hit` or `miss` |
+| `x-netra-fallback` | Indicates if an upstream failover provider was invoked | `false` or `true` |
+| `x-netra-cost-usd` | Computed request cost formatted to 6 decimal places | `0.000014` |
+| `x-netra-route-reason` | Decision rationale applied by the model router | `auto -> smart (score +3.5)` |
+| `x-netra-retries` | Number of upstream network retries absorbed before success | `0` |
 
 ---
 
-## Multi-Provider Routing & Intelligent Auto Classifier
-NETRA implements high-availability provider resilience and machine-assisted model steering:
-- **Ordered Fallback Chains**: Aliases (`fast`, `smart`) and direct models resolve to candidate chains (e.g. `alpha/alpha-small` -> `beta/beta-small`).
-- **Bounded Exponential Retries**: Transient HTTP 5xx, 429, and timeouts are absorbed across 3 attempts (`initial_backoff_ms: 200`, `multiplier: 2.0`).
-- **Synchronous Upstream Failover**: Streaming SSE connects upstream synchronously before emitting headers, ensuring zero-glitch provider failover.
-- **Two-Stage Prompt Difficulty Classifier**: For the `auto` alias, task instructions are decoupled from wrapped data payloads (`extractInstruction()`) to evaluate grammatical complexity signals, achieving 100% accuracy on benchmark evaluations.
+## Quickstart in 60 Seconds
+
+### 1. Launch Backing Services & Gateway
+
+```bash
+git clone https://github.com/shashankch/netra-llmgateway.git
+cd netra-llmgateway
+make up
+```
+
+Verify service readiness:
+
+```bash
+curl -f http://localhost:8080/health
+# {"status":"ok","service":"netra-gateway","version":"0.6.0"}
+```
+
+### 2. Dispatch a Chat Completion
+
+```bash
+curl -i -X POST http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer netra-sk-search-1a2b3c" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "fast",
+    "messages": [
+      {"role": "user", "content": "What is a message queue?"}
+    ]
+  }'
+```
 
 ---
 
-## High-Throughput Streaming SSE Relay
-NETRA supports token-by-token pass-through streaming over Server-Sent Events (`stream: true`) utilizing native Java 25 Virtual Threads:
-- **Zero-Delay Pass-Through**: Line-by-line streaming relay with 1KB buffers for progressive delivery (~20ms per token).
-- **Socket Reclamation**: Immediate closure of upstream sockets upon client disconnect (`Broken pipe`), preventing phantom token generation.
-- **Terminal Accounting**: Captures terminal token usage chunks and executes post-stream micro-USD cost settlement.
+## Explore Technical Documentation
 
----
-
-## Tenant-Isolated Semantic Vector Cache
-NETRA features an in-JVM vector embedding engine and PostgreSQL 18 `pgvector` HNSW nearest-neighbor retrieval cache:
-- **In-JVM ONNX Transformer**: Generates 384-dimensional dense vectors using quantized `all-MiniLM-L6-v2` in ~5ms without external sidecars or network hops.
-- **pgvector HNSW Cosine Indexing**: Evaluates cosine distance using the pgvector `<=>` operator (`1 - (embedding <=> :queryVector)`), accelerated by HNSW indexing (`m=16, ef_construction=64`).
-- **Cryptographic Tenant Isolation**: Enforces query-level tenant boundaries (`WHERE virtual_key = :virtualKey AND model_alias = :modelAlias`), mathematically preventing cross-tenant data leakage.
-- **Paraphrase Recognition & Near-Miss Rejection**: Successfully resolves semantically equivalent prompts above tenant similarity thresholds (e.g., 0.92 for search tenant) while rejecting near-miss prompts and unrelated queries.
-- **Upstream Safety Refusal Suppression**: Automatically intercepts and suppresses safety guardrail refusals, preventing permanent cache poisoning.
-- **Streaming Cache Replay**: Seamlessly replays cached completions as Server-Sent Events (SSE) with `x-netra-cache: hit`, `x-netra-cost-usd: 0.000000`, and `x-netra-route-reason: semantic_cache_hit`.
-- **Cache Observability API**: Exposes global cache hit rates, entry counts, and per-tenant breakdowns at `GET /admin/cache/stats`.
-
----
-
-## React 19 Ops Console & Evaluator Sandbox (`dashboard/`)
-NETRA delivers an OpenRouter-grade developer operations console and evaluator sandbox built on React 19 and Vite 6:
-- **Real-Time Telemetry Analytics**: Headline KPI cards for Total Spend, Total Request Count, Token Volume Distribution, Semantic Cache Hit Rate %, and Average Latency / TTFT.
-- **Interactive SVG Visualizations**: Model spend & volume trends, smart router arbitrage efficiency donut, semantic cache savings waterfall, and p50/p90/p99 latency percentiles.
-- **Single-Denomination Currency Engine**: Dynamic real-time Forex service (`ForexRateService`) with a top navbar toggle (`[ USD $ | INR ₹ ]`) seamlessly switching all figures across the application.
-- **Seamless Dark & Light Theme Engine**: Zero-flicker obsidian/slate (`#090d16`) and enterprise light (`#ffffff`) themes with automatic OS `prefers-color-scheme` detection.
-- **Interactive Evaluator Sandbox**: 1-click presets for Search Team, Research Team, Free Tier, and Budget Demo with real-time SSE typewriter token streaming and telemetry badge inspectability.
-- **Virtual Keys Manager**: Real-time tenant leaderboard, sliding RPM quota gauges, monthly budget burn-down bars, model allowlists, and similarity threshold controls.
-- **Live Request Logs Inspector**: Streaming audit logs with SSE live mode, status code filtering, and full payload JSON inspector.
+- 🏛️ **[System Architecture](architecture.md)** — Ingress stages, pipeline flow, and virtual threads execution topology.
+- ⚖️ **[Gateway Comparison](comparison.md)** — Architectural tradeoffs against direct vendor APIs and public SaaS aggregators.
+- 📡 **[REST API Reference](api-reference.md)** — Complete OpenAPI 3.1 endpoint schemas, error envelopes, and request bodies.
+- 📜 **[Architectural Decision Records (ADRs)](ADR.md)** — Design decisions ADR-001 through ADR-010.
+- 🚀 **[Self-Hosting Guide](SELF-HOSTING.md)** — Turnkey deployment blueprints for Docker, Railway, Render, Fly.io, and Cloud VPS.
+- ✅ **[Official Verification Report](verification-report.md)** — Benchmark results, concurrency load test data, and semantic cache evaluations.

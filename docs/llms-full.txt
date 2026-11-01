@@ -35,7 +35,7 @@ NETRA is a high-performance LLM gateway and semantic cache designed to provide e
 - OpenRouter-grade analytics: Total Spend, Request Volume, Token Volume Distribution, Semantic Cache Hit Rate %, Average Latency / TTFT.
 - Seamless Dark & Light theme engine with OS preference auto-detection.
 - Single-denomination USD/INR toggle with dynamic live forex conversion.
-- Evaluator Sandbox with 1-click presets for rapid evaluation drills.
+- Developer Sandbox with 1-click demo profiles for rapid testing and evaluation drills.
 
 ## Error Model
 Standard OpenAI JSON format:

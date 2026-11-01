@@ -20,12 +20,11 @@
 ## Operations Console (`dashboard/`)
 - Modern React 19 / Vite 6 dashboard with OpenRouter-grade analytics suite.
 - 5 Headline KPI cards, 4 interactive SVG charts, single-denomination USD/INR toggle, dark/light theme engine.
-- Evaluator Sandbox with 1-click presets for Search, Research, Free Tier, and Budget demo.
+- Developer Sandbox with 1-click demo profiles for Search, Research, Free Tier, and Budget demo.
 
 ## Documentation Links
-- System Overview: docs/index.md
-- Phase 6 Ops Console & UI: docs/phases/phase-6.md
+- System Overview & Ops Console: docs/index.md
 - Verification & Benchmark Report: docs/verification-report.md
 - Architecture Decision Records: docs/ADR.md
 - Public Roadmap: docs/ROADMAP.md
-- Self-Hosting: docs/SELF-HOSTING.md
+- Self-Hosting & Deployment: docs/SELF-HOSTING.md

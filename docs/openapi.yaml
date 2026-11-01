@@ -16,7 +16,7 @@ info:
   version: 0.6.0
   contact:
     name: Shashank Chandel
-    email: shashakchandel@gmail.com
+    email: shashankchandel@gmail.com
     url: https://github.com/shashankch/netra-llmgateway
   license:
     name: Apache-2.0
@@ -876,5 +876,5 @@ components:
         rate:
           type: number
           format: double
-          example: 87.50
+          example: 85.00
 
