@@ -4,10 +4,13 @@ import {
   Database, ShieldCheck, Zap, Layers, RefreshCw, 
   CheckCircle2, ArrowRight, AlertCircle 
 } from 'lucide-react';
+import Pagination from './Pagination';
 
 export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   const fetchStats = async () => {
     try {
@@ -43,10 +46,10 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-            Semantic Vector Cache & HNSW Isolation Inspector
+            Semantic Cache
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            In-JVM dense embeddings (all-MiniLM-L6-v2) and PostgreSQL 18 pgvector HNSW cosine similarity search.
+            Accelerate response times and eliminate token costs for frequent and repeated queries.
           </p>
         </div>
         <button onClick={fetchStats} className="btn btn-secondary btn-sm">
@@ -59,11 +62,11 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
       <div className="kpi-grid">
         <div className="kpi-card">
           <div className="kpi-header">
-            <span className="kpi-title">Total Vector Entries</span>
+            <span className="kpi-title">Cached Entries</span>
             <Database size={16} style={{ color: 'var(--accent-primary)' }} />
           </div>
           <div className="kpi-value">{totalEntries}</div>
-          <div className="kpi-subtext">384-dimensional dense vectors</div>
+          <div className="kpi-subtext">Stored completions ready for retrieval</div>
         </div>
 
         <div className="kpi-card">
@@ -72,7 +75,7 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
             <Zap size={16} style={{ color: 'var(--accent-emerald)' }} />
           </div>
           <div className="kpi-value" style={{ color: 'var(--accent-emerald)' }}>{totalHits}</div>
-          <div className="kpi-subtext">&lt;5ms zero-cost completions</div>
+          <div className="kpi-subtext">$0 token cost completions</div>
         </div>
 
         <div className="kpi-card">
@@ -81,25 +84,25 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
             <Layers size={16} style={{ color: 'var(--text-muted)' }} />
           </div>
           <div className="kpi-value">{totalMisses}</div>
-          <div className="kpi-subtext">Dispatched to upstream models</div>
+          <div className="kpi-subtext">Routed to upstream LLMs</div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Global Hit Rate</span>
-            <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>pgvector</span>
+            <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>Active</span>
           </div>
           <div className="kpi-value" style={{ color: 'var(--accent-cyan)' }}>{hitRate}%</div>
-          <div className="kpi-subtext">Cosine similarity &ge; threshold</div>
+          <div className="kpi-subtext">Semantic query matches</div>
         </div>
       </div>
 
-      {/* Per-Key Cryptographic Isolation Table */}
+      {/* Per-Key Cache Breakdown Table */}
       <div className="card">
         <div style={{ marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Per-Tenant Cryptographic Partitioning</h3>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Per-Key Cache Breakdown</h3>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Vector similarity queries are strictly partitioned: <code>WHERE virtual_key = :virtualKey AND model_alias = :modelAlias</code>. Key A entries are mathematically unreachable from Key B.
+            Cache storage is isolated per virtual key. Keys only access their own cached completions.
           </p>
         </div>
 
@@ -113,7 +116,7 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
                 <th>Hits</th>
                 <th>Misses</th>
                 <th>Tenant Hit Rate</th>
-                <th>Cross-Tenant Isolation</th>
+                <th>Isolation</th>
               </tr>
             </thead>
             <tbody>
@@ -124,7 +127,7 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
                   </td>
                 </tr>
               ) : (
-                Object.entries(keyBreakdown).map(([keyName, keyStat]) => {
+                Object.entries(keyBreakdown).slice((page - 1) * pageSize, page * pageSize).map(([keyName, keyStat]) => {
                   const rate = (keyStat.hit_rate * 100).toFixed(1);
                   return (
                     <tr key={keyName}>
@@ -162,40 +165,51 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo' }) {
             </tbody>
           </table>
         </div>
+        {Object.keys(keyBreakdown).length > 0 && (
+          <Pagination
+            totalItems={Object.keys(keyBreakdown).length}
+            pageSize={pageSize}
+            currentPage={page}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[5, 10, 20]}
+          />
+        )}
       </div>
 
-      {/* Architecture Deep Dive Highlights */}
+      {/* Key Benefits */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
         <div className="card">
           <h4 style={{ fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <Zap size={16} style={{ color: 'var(--accent-cyan)' }} />
-            <span>Zero-Hop In-JVM Dense Embeddings</span>
+            <span>Instant Semantic Matching</span>
           </h4>
           <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            NETRA runs a quantized <code>all-MiniLM-L6-v2</code> embedding model directly in JVM heap via Microsoft ONNX Runtime. Vectors (384 dimensions) are generated in ~5ms without remote OpenAI embedding API calls, eliminating $0.00002/call overhead and network jitter.
+            Answers repeated and paraphrased prompts in sub-5ms without sending queries to upstream providers, saving 100% of token costs on cached responses.
           </p>
         </div>
 
         <div className="card">
           <h4 style={{ fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <Database size={16} style={{ color: 'var(--accent-primary)' }} />
-            <span>PostgreSQL 18 pgvector HNSW Index</span>
+            <span>Smart Paraphrase Detection</span>
           </h4>
           <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Similarity searches use the pgvector cosine distance operator <code>&lt;=&gt;</code> accelerated by an HNSW index (<code>m=16, ef_construction=64</code>). Multi-turn conversations canonicalize dialogue history into a structured transcript key.
+            Understands intent beyond exact keywords, matching semantically identical prompts while preserving conversation context across multi-turn sessions.
           </p>
         </div>
 
         <div className="card">
           <h4 style={{ fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <ShieldCheck size={16} style={{ color: 'var(--accent-emerald)' }} />
-            <span>Refusal Suppression & Streaming Replay</span>
+            <span>Safety Guardrails &amp; Clean Streaming</span>
           </h4>
           <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Temporary safety refusals (e.g. <em>"I'm sorry, but I can't help with that"</em>) are intercepted and rejected from vector storage to prevent poisoning. On cache hits, responses replay as unbuffered SSE token deltas ending with <code>[DONE]</code>.
+            Automatically excludes transient errors and refusal responses from cache storage, and replays valid cached responses with instant streaming token delivery.
           </p>
         </div>
       </div>
     </div>
   );
 }
+

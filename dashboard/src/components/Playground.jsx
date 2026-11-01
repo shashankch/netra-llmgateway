@@ -24,12 +24,12 @@ export default function Playground() {
 
   const abortControllerRef = useRef(null);
 
-  // Pre-seeded evaluator demo presets
+  // Pre-seeded demo profiles
   const presets = [
     { label: 'Search Team', key: 'netra-sk-search-1a2b3c', model: 'fast', desc: 'Cache threshold: 0.92, RPM: 60' },
     { label: 'Research Team', key: 'netra-sk-research-4d5e6f', model: 'auto', desc: 'Auto router, cache: disabled' },
     { label: 'Free Tier', key: 'netra-sk-free-7g8h9i', model: 'fast', desc: 'RPM: 10, cache threshold: 0.85' },
-    { label: 'Budget Demo', key: 'netra-sk-budget-demo-0j1k2l', model: 'fast', desc: '$0.00001 cap (Drill 402)' },
+    { label: 'Budget Demo', key: 'netra-sk-budget-demo-0j1k2l', model: 'fast', desc: 'Strict monthly limit demonstration ($0.00001 cap)' },
   ];
 
   // Quick prompt templates
@@ -68,6 +68,11 @@ export default function Playground() {
       label: 'Simple Auto Router',
       text: 'What is the capital of France?',
       model: 'auto'
+    },
+    {
+      label: 'OpenRouter Upstream (GPT-4o Mini)',
+      text: 'Explain quantum computing in 2 concise sentences.',
+      model: 'openai/gpt-4o-mini'
     }
   ];
 
@@ -185,17 +190,17 @@ export default function Playground() {
       {/* Header */}
       <div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-          Interactive Evaluator Sandbox & Prompt Playground
+          Interactive Developer Sandbox & Prompt Playground
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          Test unbuffered SSE streaming typewriter, in-JVM semantic cache hits, auto-router classification, and provider failover live.
+          Test unbuffered SSE streaming typewriter, instant semantic cache hits, auto-router classification, and provider failover live.
         </p>
       </div>
 
-      {/* 1-Click Evaluator Presets Bar */}
+      {/* Quick Profiles Bar */}
       <div className="card" style={{ padding: '1rem' }}>
         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-          1-Click Evaluator Demo Accounts:
+          Quick Profiles:
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           {presets.map(p => (
@@ -217,13 +222,13 @@ export default function Playground() {
       </div>
 
       {/* Main Form & Response Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 420px) 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '1.5rem' }}>
         {/* Controls Column */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Virtual API Key */}
+          {/* API Key */}
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
-              Virtual API Key:
+              API Key:
             </label>
             <input
               type="text"
@@ -234,20 +239,23 @@ export default function Playground() {
             />
           </div>
 
-          {/* Model Alias & Streaming Toggle */}
+          {/* Model & Streaming Toggle */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
-                Model Alias:
+                Model:
               </label>
               <select
                 className="select-input"
                 value={model}
                 onChange={e => setModel(e.target.value)}
               >
-                <option value="fast">fast (Alpha-Small)</option>
-                <option value="smart">smart (Alpha-Large)</option>
-                <option value="auto">auto (Intelligent)</option>
+                <option value="fast">fast (alpha-small)</option>
+                <option value="smart">smart (alpha-large)</option>
+                <option value="auto">auto (intelligent difficulty routing)</option>
+                <option value="openai/gpt-4o-mini">openai/gpt-4o-mini (OpenRouter)</option>
+                <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001 (OpenRouter)</option>
+                <option value="openai/gpt-4o">openai/gpt-4o (OpenRouter)</option>
               </select>
             </div>
             <div>
@@ -278,7 +286,7 @@ export default function Playground() {
           {/* Prompt Templates */}
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
-              Evaluation Test Presets:
+              Benchmark Test Presets:
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               {promptTemplates.map(t => (
@@ -469,7 +477,7 @@ export default function Playground() {
               </div>
             ) : (
               <div style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '4rem' }}>
-                Choose an evaluator preset or type a prompt, then click <strong>Dispatch Request</strong> to view response and live telemetry.
+                Choose a demo profile or type a prompt, then click <strong>Dispatch Request</strong> to view response and live telemetry.
               </div>
             )}
           </div>
@@ -486,3 +494,4 @@ export default function Playground() {
     </div>
   );
 }
+

@@ -4,6 +4,7 @@ import {
   Key, Plus, Edit2, Trash2, ShieldCheck, Check, 
   X, RefreshCw, AlertCircle, Sparkles 
 } from 'lucide-react';
+import Pagination from './Pagination';
 
 export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
   const { formatCurrency, currency } = useTheme();
@@ -11,6 +12,8 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // New key form state
   const [newKey, setNewKey] = useState({
@@ -123,10 +126,10 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-            Virtual API Keys & Multi-Tenant Isolation
+            API Keys &amp; Governance
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            Provision virtual keys with custom sliding-window RPM quotas, USD budget caps, model allowlists, and semantic cache thresholds.
+            Manage API keys, rate limits, monthly budgets, and model access controls.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -136,7 +139,7 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
           </button>
           <button onClick={() => setShowCreateModal(true)} className="btn btn-primary btn-sm">
             <Plus size={14} />
-            <span>Create Virtual Key</span>
+            <span>Create API Key</span>
           </button>
         </div>
       </div>
@@ -165,7 +168,7 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
                   </td>
                 </tr>
               ) : (
-                keys.map(k => (
+                keys.slice((page - 1) * pageSize, page * pageSize).map(k => (
                   <tr key={k.virtual_key}>
                     <td>
                       <div className="font-mono" style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>
@@ -232,13 +235,26 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
             </tbody>
           </table>
         </div>
+        {keys.length > 0 && (
+          <Pagination
+            totalItems={keys.length}
+            pageSize={pageSize}
+            currentPage={page}
+            onPageChange={setPage}
+            onPageSizeChange={size => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[5, 10, 20]}
+          />
+        )}
       </div>
 
       {/* Create Key Modal */}
       {showCreateModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Create New Virtual Key</h3>
               <button onClick={() => setShowCreateModal(false)} className="btn btn-outline btn-sm">
                 <X size={16} />
@@ -275,7 +291,7 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
-                    Sliding RPM Limit:
+                    Rate Limit (RPM):
                   </label>
                   <input
                     type="number"
@@ -329,9 +345,9 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
 
       {/* Edit Key Modal */}
       {editTarget && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div className="modal-overlay" onClick={() => setEditTarget(null)}>
+          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Edit Virtual Key</h3>
               <button onClick={() => setEditTarget(null)} className="btn btn-outline btn-sm">
                 <X size={16} />
@@ -431,3 +447,4 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo' }) {
     </div>
   );
 }
+

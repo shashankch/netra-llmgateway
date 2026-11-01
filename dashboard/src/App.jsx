@@ -9,7 +9,7 @@ import CacheInspector from './components/CacheInspector';
 import LandingPage from './components/LandingPage';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('landing');
   const [adminToken, setAdminToken] = useState('netra-admin-demo');
 
   return (
@@ -18,12 +18,12 @@ export default function App() {
         <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
         
         <main className="main-content">
-          {activeTab === 'overview' && <Overview adminToken={adminToken} onNavigate={setActiveTab} />}
+          {activeTab === 'landing' && <LandingPage onNavigate={setActiveTab} />}
+          {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} />}
           {activeTab === 'playground' && <Playground />}
           {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} />}
           {activeTab === 'logs' && <RequestLogs adminToken={adminToken} />}
           {activeTab === 'cache' && <CacheInspector adminToken={adminToken} />}
-          {activeTab === 'landing' && <LandingPage onNavigate={setActiveTab} />}
         </main>
 
         <footer style={{
@@ -44,16 +44,25 @@ export default function App() {
             gap: '1rem'
           }}>
             <div>
-              <span>NETRA LLM Gateway & Semantic Vector Cache · Apache 2.0 Open-Core Guarantee</span>
-            </div>
-            <div style={{ display: 'flex', gap: '1.5rem' }}>
+              <span>NETRA LLM Gateway · Crafted with precision by </span>
               <a 
-                href="/docs" 
+                href="https://github.com/shashankch" 
+                target="_blank" 
+                rel="noreferrer"
+                style={{ color: 'var(--text-primary)', fontWeight: 600, textDecoration: 'none' }}
+              >
+                Shashank Chandel
+              </a>
+              <span style={{ color: 'var(--text-muted)' }}> · Apache 2.0 Open-Core</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+              <a 
+                href="https://shashankch.github.io/netra-llmgateway/" 
                 target="_blank" 
                 rel="noreferrer"
                 style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}
               >
-                Documentation (MkDocs)
+                Documentation
               </a>
               <a 
                 href="https://github.com/shashankch/netra-llmgateway" 
@@ -61,9 +70,8 @@ export default function App() {
                 rel="noreferrer"
                 style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
               >
-                GitHub Repository
+                GitHub
               </a>
-              <span>Java 25 LTS · PostgreSQL 18 · Redis 8.0</span>
             </div>
           </div>
         </footer>
@@ -71,3 +79,4 @@ export default function App() {
     </ThemeProvider>
   );
 }
+

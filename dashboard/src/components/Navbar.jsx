@@ -1,20 +1,20 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
+import NetraLogo from './NetraLogo';
 import { 
-  Sun, Moon, DollarSign, Activity, Terminal, Key, 
-  Database, FileText, ShieldCheck, Sparkles 
+  Sun, Moon, Monitor, DollarSign, Activity, Terminal, Key, 
+  Database, FileText, Sparkles, BookOpen, Github 
 } from 'lucide-react';
 
 export default function Navbar({ activeTab, setActiveTab }) {
-  const { theme, toggleTheme, currency, toggleCurrency, exchangeRate } = useTheme();
+  const { theme, themeMode, setThemeMode, systemTheme, currency, toggleCurrency, exchangeRate } = useTheme();
 
   const navItems = [
-    { id: 'overview', label: 'Overview', icon: Activity },
+    { id: 'analytics', label: 'Analytics', icon: Activity },
     { id: 'playground', label: 'Playground', icon: Terminal },
-    { id: 'keys', label: 'Virtual Keys', icon: Key },
-    { id: 'logs', label: 'Live Logs', icon: FileText },
-    { id: 'cache', label: 'Semantic Cache', icon: Database },
-    { id: 'landing', label: 'About', icon: Sparkles },
+    { id: 'keys', label: 'API Keys', icon: Key },
+    { id: 'logs', label: 'Request Logs', icon: FileText },
+    { id: 'cache', label: 'Vector Cache', icon: Database },
   ];
 
   return (
@@ -24,7 +24,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      padding: '0.75rem 2rem',
+      padding: '0.65rem 2rem',
     }}>
       <div style={{
         maxWidth: 1400,
@@ -35,81 +35,118 @@ export default function Navbar({ activeTab, setActiveTab }) {
         flexWrap: 'wrap',
         gap: '1rem',
       }}>
-        {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-cyan) 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 800,
-            fontSize: '1rem'
-          }}>
-            N
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontWeight: 800, fontSize: '1.125rem', letterSpacing: '-0.02em' }}>NETRA</span>
-              <span className="badge badge-primary" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>v0.6.0</span>
-              <span className="pulse-indicator" title="Gateway Operational" />
-            </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>AI-First LLM Gateway & Ops Console</div>
+        {/* Brand with Netra Aperture Logo */}
+        <div 
+          onClick={() => setActiveTab('landing')}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', cursor: 'pointer' }}
+          title="Return to Home"
+        >
+          <NetraLogo size={32} showText={true} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span className="badge badge-neutral font-mono" style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>v0.6.0</span>
+            <span className="pulse-indicator" title="Gateway Operational" />
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+        {/* Navigation Tabs (OpenRouter Minimalist Pill Tabs) */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
           {navItems.map(item => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive = activeTab === item.id || (item.id === 'analytics' && activeTab === 'overview');
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline'}`}
+                className={`btn btn-sm ${isActive ? 'btn-secondary' : 'btn-outline'}`}
                 style={{
-                  padding: '0.4rem 0.75rem',
+                  padding: '0.35rem 0.75rem',
                   borderRadius: 6,
-                  fontWeight: isActive ? 600 : 500,
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: '0.8125rem',
+                  borderColor: isActive ? 'var(--border-strong)' : 'transparent',
+                  background: isActive ? 'var(--bg-card-hover)' : 'transparent',
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                 }}
               >
-                <Icon size={14} />
+                <Icon size={14} style={{ opacity: isActive ? 1 : 0.7 }} />
                 <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Action Controls: Currency & Theme */}
+        {/* Action Controls: Docs, Creator Attribution, Currency & Theme */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {/* Currency Toggle */}
+          {/* Documentation Link */}
+          <a
+            href="https://shashankch.github.io/netra-llmgateway/"
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-outline btn-sm"
+            style={{ fontWeight: 600, padding: '0.35rem 0.65rem' }}
+            title="Open Documentation (Zensical)"
+          >
+            <BookOpen size={13} />
+            <span>Docs</span>
+          </a>
+
+          {/* Creator Attribution Pill */}
+          <a
+            href="https://github.com/shashankch"
+            target="_blank"
+            rel="noreferrer"
+            className="author-nav-badge"
+            title="Crafted by Shashank Chandel"
+          >
+            <Github size={13} style={{ opacity: 0.8 }} />
+            <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.72rem' }}>by</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>@shashankch</span>
+          </a>
+
+          {/* Single-Denomination Currency Toggle */}
           <button
             onClick={toggleCurrency}
-            className="btn btn-secondary btn-sm"
-            title={`Active: ${currency} (1 USD = ${exchangeRate} INR)`}
-            style={{ fontWeight: 600, padding: '0.35rem 0.65rem' }}
+            className="btn btn-secondary btn-sm font-mono"
+            title={`Active Currency: ${currency} (1 USD = ${exchangeRate} INR)`}
+            style={{ fontWeight: 700, padding: '0.35rem 0.65rem' }}
           >
-            <DollarSign size={14} style={{ color: 'var(--accent-emerald)' }} />
+            <DollarSign size={13} style={{ color: 'var(--accent-emerald)' }} />
             <span>{currency}</span>
           </button>
 
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="btn btn-secondary btn-sm"
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            style={{ padding: '0.35rem 0.6rem' }}
-          >
-            {theme === 'dark' ? (
-              <Sun size={15} style={{ color: 'var(--accent-amber)' }} />
-            ) : (
-              <Moon size={15} style={{ color: 'var(--accent-primary)' }} />
-            )}
-          </button>
+          {/* Tri-State Theme Switcher (OpenRouter Style: Light, Dark, System) */}
+          <div className="theme-segmented-control" role="group" aria-label="Theme preference">
+            <button
+              type="button"
+              onClick={() => setThemeMode('light')}
+              className={`theme-segmented-btn ${themeMode === 'light' ? 'active' : ''}`}
+              title="Light Mode"
+              aria-label="Light mode"
+              aria-pressed={themeMode === 'light'}
+            >
+              <Sun size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setThemeMode('dark')}
+              className={`theme-segmented-btn ${themeMode === 'dark' ? 'active' : ''}`}
+              title="Dark Mode"
+              aria-label="Dark mode"
+              aria-pressed={themeMode === 'dark'}
+            >
+              <Moon size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setThemeMode('system')}
+              className={`theme-segmented-btn ${themeMode === 'system' ? 'active' : ''}`}
+              title={`System Default (${systemTheme === 'dark' ? 'Dark' : 'Light'})`}
+              aria-label="System default theme"
+              aria-pressed={themeMode === 'system'}
+            >
+              <Monitor size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </header>

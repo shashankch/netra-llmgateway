@@ -1,0 +1,84 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark Obsidian Canvas -->
+  <rect width="1200" height="630" rx="16" fill="#06070A"/>
+  
+  <!-- Subtle Gradient Glow in Center -->
+  <circle cx="600" cy="190" r="300" fill="#D2F823" fill-opacity="0.04" filter="blur(80px)"/>
+  <circle cx="600" cy="370" r="250" fill="#38BDF8" fill-opacity="0.03" filter="blur(80px)"/>
+
+  <!-- Border -->
+  <rect x="0.5" y="0.5" width="1199" height="629" rx="15.5" stroke="#18202F" stroke-width="1"/>
+
+  <!-- Logo Emblem & Wordmark (Centered) -->
+  <g transform="translate(450, 85)">
+    <!-- Neon Squircle Emblem -->
+    <rect width="60" height="60" rx="15" fill="#D2F823"/>
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M30 13C20.6112 13 13 20.6112 13 30C13 39.3888 20.6112 47 30 47C39.3888 47 47 39.3888 47 30C47 20.6112 39.3888 13 30 13ZM20.5 30C20.5 24.7533 24.7533 20.5 30 20.5C35.2467 20.5 39.5 24.7533 39.5 30C39.5 35.2467 35.2467 39.5 30 39.5C24.7533 39.5 20.5 35.2467 20.5 30Z" fill="#06070A"/>
+    <circle cx="30" cy="30" r="5.5" fill="#06070A"/>
+    <path d="M41 19L45 15" stroke="#06070A" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Wordmark "netra" in lowercase geometric bold -->
+    <text x="82" y="46" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="48" font-weight="900" letter-spacing="-2px">netra</text>
+  </g>
+
+  <!-- Tagline -->
+  <text x="600" y="195" text-anchor="middle" fill="#FFFFFF" font-family="Inter, -apple-system, sans-serif" font-size="22" font-weight="700" letter-spacing="-0.5px">The unified intelligent interface for LLMs.</text>
+  
+  <!-- Subtitle -->
+  <text x="600" y="228" text-anchor="middle" fill="#94A3B8" font-family="Inter, -apple-system, sans-serif" font-size="15" font-weight="400">Route across providers, judge prompt difficulty, and cache responses — through a single OpenAI-compatible API.</text>
+
+  <!-- 4 Stat Metric Cards (OpenRouter Aesthetic) -->
+  <!-- Card 1 -->
+  <g transform="translate(140, 275)">
+    <rect width="210" height="96" rx="8" fill="#0A0D14" stroke="#18202F"/>
+    <text x="20" y="42" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="28" font-weight="900" letter-spacing="-1px">ANY <tspan fill="#38BDF8" font-size="20">LLM</tspan></text>
+    <text x="20" y="62" fill="#94A3B8" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="1px">MODELS &amp; PROVIDERS</text>
+    <text x="20" y="78" fill="#64748B" font-family="Inter, -apple-system, sans-serif" font-size="11">connect any upstream or model</text>
+  </g>
+
+  <!-- Card 2 -->
+  <g transform="translate(370, 275)">
+    <rect width="210" height="96" rx="8" fill="#0A0D14" stroke="#18202F"/>
+    <text x="20" y="42" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="28" font-weight="900" letter-spacing="-1px">0.00<tspan fill="#D2F823">%</tspan></text>
+    <text x="20" y="62" fill="#94A3B8" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="1px">OVER-ADMISSION</text>
+    <text x="20" y="78" fill="#64748B" font-family="Inter, -apple-system, sans-serif" font-size="11">atomic sliding-window limits</text>
+  </g>
+
+  <!-- Card 3 -->
+  <g transform="translate(600, 275)">
+    <rect width="210" height="96" rx="8" fill="#0A0D14" stroke="#18202F"/>
+    <text x="20" y="42" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="28" font-weight="900" letter-spacing="-1px">&lt; 5<tspan fill="#10B981">ms</tspan></text>
+    <text x="20" y="62" fill="#94A3B8" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="1px">SEMANTIC CACHE</text>
+    <text x="20" y="78" fill="#64748B" font-family="Inter, -apple-system, sans-serif" font-size="11">vector similarity retrieval</text>
+  </g>
+
+  <!-- Card 4 -->
+  <g transform="translate(830, 275)">
+    <rect width="210" height="96" rx="8" fill="#0A0D14" stroke="#18202F"/>
+    <text x="20" y="42" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="28" font-weight="900" letter-spacing="-1px">72.4<tspan fill="#818CF8">%</tspan></text>
+    <text x="20" y="62" fill="#94A3B8" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="1px">COST ARBITRAGE</text>
+    <text x="20" y="78" fill="#64748B" font-family="Inter, -apple-system, sans-serif" font-size="11">prompt complexity auto routing</text>
+  </g>
+
+  <!-- Pill Links Bar (OpenRouter Style) -->
+  <g transform="translate(250, 410)">
+    <!-- Pill 1: Docs -->
+    <rect x="0" y="0" width="280" height="38" rx="7" fill="#0A0D14" stroke="#18202F"/>
+    <rect x="1" y="1" width="55" height="36" rx="6" fill="#141824"/>
+    <text x="12" y="23" fill="#64748B" font-family="Inter, -apple-system, sans-serif" font-size="10" font-weight="800" letter-spacing="0.8px">DOCS</text>
+    <text x="70" y="23" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="600">shashankch.github.io/netra-llmgateway</text>
+
+    <!-- Pill 2: API -->
+    <rect x="295" y="0" width="235" height="38" rx="7" fill="#0A0D14" stroke="#18202F"/>
+    <rect x="296" y="1" width="45" height="36" rx="6" fill="#141824"/>
+    <text x="306" y="23" fill="#64748B" font-family="Inter, -apple-system, sans-serif" font-size="10" font-weight="800" letter-spacing="0.8px">API</text>
+    <text x="355" y="23" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="600">/v1/chat/completions</text>
+
+    <!-- Pill 3: Playground Action Button -->
+    <rect x="545" y="0" width="155" height="38" rx="7" fill="#D2F823"/>
+    <text x="622" y="23" text-anchor="middle" fill="#06070A" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="800" letter-spacing="0.5px">OPEN PLAYGROUND</text>
+  </g>
+
+  <!-- Bottom Capability Micro-Labels -->
+  <text x="600" y="535" text-anchor="middle" fill="#64748B" font-family="Inter, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="1px">UNIFIED AI GATEWAY · SMART PROMPT ROUTING · SEMANTIC VECTOR CACHING · ZERO OVER-ADMISSION</text>
+</svg>

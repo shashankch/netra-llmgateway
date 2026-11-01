@@ -1,30 +1,92 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  // Theme state: dark | light
-  const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('netra-theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // Theme Mode: 'light' | 'dark' | 'system'
+  const [themeMode, setThemeMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('netra-theme-mode') || localStorage.getItem('netra-theme');
+      if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+    } catch (e) {}
+    return 'system';
   });
+
+  // Track system OS color-scheme preference
+  const [systemTheme, setSystemTheme] = useState(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'dark';
+  });
+
+  // Reactively listen for OS theme changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => {
+      setSystemTheme(e.matches ? 'dark' : 'light');
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Effective resolved theme: 'light' | 'dark'
+  const resolvedTheme = themeMode === 'system' ? systemTheme : themeMode;
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', resolvedTheme);
+    try {
+      localStorage.setItem('netra-theme-mode', themeMode);
+      localStorage.setItem('netra-theme', resolvedTheme); // keep legacy key in sync
+    } catch (e) {}
+
+    // Reflect override in <meta name="color-scheme">
+    let meta = document.querySelector('meta[name="color-scheme"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'color-scheme';
+      document.head.appendChild(meta);
+    }
+    meta.content = themeMode === 'system' ? 'light dark' : resolvedTheme;
+  }, [themeMode, resolvedTheme]);
+
+  // Synchronize across browser tabs via storage event
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === 'netra-theme-mode' && (e.newValue === 'light' || e.newValue === 'dark' || e.newValue === 'system')) {
+        setThemeMode(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Cycle toggle for backwards-compatibility or keyboard shortcuts
+  const toggleTheme = useCallback(() => {
+    setThemeMode((prev) => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'system';
+      return 'light';
+    });
+  }, []);
 
   // Currency state: USD | INR
   const [currency, setCurrency] = useState(() => {
-    return localStorage.getItem('netra-currency') || 'USD';
+    try {
+      return localStorage.getItem('netra-currency') || 'USD';
+    } catch (e) {
+      return 'USD';
+    }
   });
 
-  // Live exchange rate USD -> INR
-  const [exchangeRate, setExchangeRate] = useState(87.50);
+  // Static benchmark exchange rate USD -> INR (85.00 INR per 1 USD)
+  const [exchangeRate, setExchangeRate] = useState(85.00);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('netra-theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem('netra-currency', currency);
+    try {
+      localStorage.setItem('netra-currency', currency);
+    } catch (e) {}
   }, [currency]);
 
   useEffect(() => {
@@ -36,14 +98,10 @@ export function ThemeProvider({ children }) {
         }
       })
       .catch(() => {
-        // Fallback default
-        setExchangeRate(87.50);
+        // Fallback static benchmark default (85.00 INR per 1 USD)
+        setExchangeRate(85.00);
       });
   }, []);
-
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
 
   const toggleCurrency = () => {
     setCurrency(prev => (prev === 'USD' ? 'INR' : 'USD'));
@@ -69,7 +127,10 @@ export function ThemeProvider({ children }) {
 
   return (
     <ThemeContext.Provider value={{
-      theme,
+      theme: resolvedTheme,
+      themeMode,
+      setThemeMode,
+      systemTheme,
       toggleTheme,
       currency,
       toggleCurrency,

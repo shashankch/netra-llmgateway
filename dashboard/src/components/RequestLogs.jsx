@@ -4,6 +4,7 @@ import {
   FileText, Play, Pause, Filter, Search, 
   CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, RefreshCw 
 } from 'lucide-react';
+import Pagination from './Pagination';
 
 export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
   const { formatCurrency } = useTheme();
@@ -13,6 +14,8 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const eventSourceRef = useRef(null);
 
@@ -47,14 +50,41 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
       return;
     }
 
+    let es = null;
     try {
-      // Note: EventSource doesn't support custom headers directly in standard JS,
-      // so if server requires token we can either poll or connect. Let's do polling fallback + SSE
-      const interval = setInterval(fetchLogs, 3000); // 3s polling for rock-solid stability
-      return () => clearInterval(interval);
+      const sseUrl = `/admin/logs/stream?token=${encodeURIComponent(adminToken)}`;
+      es = new EventSource(sseUrl);
+      eventSourceRef.current = es;
+
+      es.addEventListener('log', (event) => {
+        try {
+          const newLog = JSON.parse(event.data);
+          setLogs(prev => {
+            if (prev.some(l => l.id === newLog.id || l.request_id === newLog.request_id)) {
+              return prev;
+            }
+            return [newLog, ...prev.slice(0, 199)];
+          });
+        } catch (err) {
+          console.error("Failed to parse live log SSE event", err);
+        }
+      });
+
+      es.onerror = () => {
+        // Silent recovery on SSE disconnect; interval polling covers gaps
+      };
     } catch (e) {
-      console.error("SSE stream error", e);
+      console.error("SSE stream initialization error", e);
     }
+
+    // Safety sync every 10s to ensure complete historical sync
+    const interval = setInterval(fetchLogs, 10000);
+    return () => {
+      if (es) {
+        es.close();
+      }
+      clearInterval(interval);
+    };
   }, [isLive, filterKey, adminToken]);
 
   // Filter logs
@@ -78,16 +108,18 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
     return true;
   });
 
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-            Live Request Logs & Audit Trail Inspector
+            Live Request Logs
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            Chronological streaming audit log capturing all 16 telemetry dimensions, rejections, latencies, and route reasons.
+            Real-time activity stream of completions, token usage, status codes, and latency.
           </p>
         </div>
 
@@ -114,9 +146,9 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
           <input
             type="text"
             className="input-text"
-            placeholder="Search request ID, model, route reason..."
+            placeholder="Search by request ID, model, or status..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             style={{ paddingLeft: '2rem' }}
           />
         </div>
@@ -127,7 +159,7 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
           {['ALL', '200', '429', '402', '401', '502'].map(st => (
             <button
               key={st}
-              onClick={() => setFilterStatus(st)}
+              onClick={() => { setFilterStatus(st); setCurrentPage(1); }}
               className={`btn btn-sm ${filterStatus === st ? 'btn-primary' : 'btn-outline'}`}
               style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
             >
@@ -143,7 +175,7 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
             className="input-text font-mono"
             placeholder="Filter by key..."
             value={filterKey}
-            onChange={e => setFilterKey(e.target.value)}
+            onChange={e => { setFilterKey(e.target.value); setCurrentPage(1); }}
             style={{ fontSize: '0.75rem' }}
           />
         </div>
@@ -175,7 +207,7 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map(log => {
+                paginatedLogs.map(log => {
                   const isExpanded = expandedId === log.id;
                   const is200 = log.status_code === 200;
                   return (
@@ -276,7 +308,21 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
             </tbody>
           </table>
         </div>
+        {filteredLogs.length > 0 && (
+          <Pagination
+            totalItems={filteredLogs.length}
+            pageSize={pageSize}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={size => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[15, 25, 50, 100]}
+          />
+        )}
       </div>
     </div>
   );
 }
+
