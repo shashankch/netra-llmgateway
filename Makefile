@@ -16,8 +16,8 @@ help:
 	@echo "  make load        - Run burst concurrency load test"
 	@echo "  make dashboard-dev - Run React 19 Ops Console in Vite hot-reload dev mode"
 	@echo "  make dashboard-build - Build production React 19 Ops Console distribution bundle"
-	@echo "  make docs-serve  - Serve live-reloading MkDocs developer documentation"
-	@echo "  make docs-build  - Build strict production documentation artifacts"
+	@echo "  make docs-serve  - Serve live-reloading Zensical developer documentation"
+	@echo "  make docs-build  - Build strict production documentation artifacts via Zensical"
 
 dev:
 	docker compose up -d postgres redis mock-alpha mock-beta
@@ -66,7 +66,7 @@ dashboard-build:
 	cd dashboard && npm run build
 
 docs-serve:
-	python3 -m mkdocs serve
+	uv run --with zensical zensical serve
 
 docs-build:
-	python3 -m mkdocs build --strict
+	uv run --with zensical zensical build --clean --strict

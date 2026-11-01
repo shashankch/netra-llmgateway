@@ -19,6 +19,8 @@ public interface RequestLogRepository extends JpaRepository<RequestLog, UUID> {
 
     List<RequestLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
+    long countByVirtualKey(String virtualKey);
+
     @Query("SELECT COUNT(r) AS requestCount, " +
             "COALESCE(SUM(r.promptTokens), 0) AS totalPromptTokens, " +
             "COALESCE(SUM(r.completionTokens), 0) AS totalCompletionTokens, " +

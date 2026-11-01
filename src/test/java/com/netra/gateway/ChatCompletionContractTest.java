@@ -362,6 +362,31 @@ class ChatCompletionContractTest {
     }
 
     @Test
+    @DisplayName("Rate limit breach returns HTTP 429 with standard IETF RateLimit and Retry-After headers")
+    void testRateLimitBreachReturnsIetfHeaders() throws Exception {
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "rate limit test")))
+                .build();
+
+        org.mockito.Mockito.doThrow(new com.netra.gateway.exception.RateLimitException(60, 60))
+                .when(admissionService).checkAdmission(any(), any());
+
+        mockMvc.perform(post("/v1/chat/completions")
+                        .header("Authorization", "Bearer netra-sk-search-1a2b3c")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "60"))
+                .andExpect(header().string("RateLimit-Limit", "60"))
+                .andExpect(header().string("RateLimit-Remaining", "0"))
+                .andExpect(header().string("RateLimit-Reset", "60"))
+                .andExpect(header().string("RateLimit-Policy", "60;w=60"))
+                .andExpect(jsonPath("$.error.type").value("rate_limit_exceeded"))
+                .andExpect(jsonPath("$.error.code").value("rate_limit_exceeded"));
+    }
+
+    @Test
     @DisplayName("Upstream failure triggers automatic admission slot rollback")
     void testUpstreamFailureRollsBackAdmission() throws Exception {
         ChatCompletionRequest request = ChatCompletionRequest.builder()

@@ -24,9 +24,14 @@ public class CorsConfig implements WebMvcConfigurer {
                         "RateLimit-Remaining",
                         "RateLimit-Reset",
                         "RateLimit-Policy",
-                        "Retry-After"
+                        "Retry-After",
+                        "X-Total-Count",
+                        "X-Page-Number",
+                        "X-Page-Size",
+                        "X-Total-Pages"
                 )
                 .allowCredentials(false)
                 .maxAge(3600);
     }
 }
+

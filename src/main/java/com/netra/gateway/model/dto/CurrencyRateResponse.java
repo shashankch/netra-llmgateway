@@ -16,3 +16,4 @@ public class CurrencyRateResponse {
     private String target;
     private BigDecimal rate;
 }
+

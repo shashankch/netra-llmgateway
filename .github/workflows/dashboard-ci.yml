@@ -1,4 +1,4 @@
-name: NETRA Ops Console Frontend CI
+name: Dashboard CI
 
 on:
   push:

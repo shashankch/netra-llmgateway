@@ -13,6 +13,21 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitException(RateLimitException ex) {
+        log.warn("Rate limit breached: {}", ex.getMessage());
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.set("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
+        headers.set("RateLimit-Limit", String.valueOf(ex.getRpmLimit()));
+        headers.set("RateLimit-Remaining", "0");
+        headers.set("RateLimit-Reset", String.valueOf(ex.getRetryAfterSeconds()));
+        headers.set("RateLimit-Policy", ex.getRpmLimit() + ";w=60");
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .headers(headers)
+                .body(ErrorResponse.of(ex.getMessage(), ex.getErrorType(), ex.getErrorCode()));
+    }
+
     @ExceptionHandler(GatewayException.class)
     public ResponseEntity<ErrorResponse> handleGatewayException(GatewayException ex) {
         log.warn("Gateway error [{}]: {}", ex.getErrorCode(), ex.getMessage());

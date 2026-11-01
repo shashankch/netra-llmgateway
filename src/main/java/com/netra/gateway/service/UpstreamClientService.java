@@ -95,39 +95,116 @@ public class UpstreamClientService {
 
             List<ResolvedTarget> targets = new ArrayList<>();
             String primaryModel = aliasConfig.getPrimary();
-            if (primaryModel != null) {
-                String primaryProvider = lookupProviderForModel(primaryModel);
-                targets.add(new ResolvedTarget(primaryProvider, primaryModel, false, routeReason));
+            if (primaryModel != null && !primaryModel.isBlank()) {
+                targets.add(resolveSingleTarget(primaryModel, false, routeReason));
             }
 
             if (aliasConfig.getFallbacks() != null) {
-                for (String fallbackModel : aliasConfig.getFallbacks()) {
-                    String fallbackProvider = lookupProviderForModel(fallbackModel);
-                    targets.add(new ResolvedTarget(fallbackProvider, fallbackModel, true, routeReason));
+                for (String rawFallback : aliasConfig.getFallbacks()) {
+                    if (rawFallback == null || rawFallback.isBlank()) continue;
+                    // Support comma-delimited strings from env vars (e.g. "item1,item2")
+                    for (String fallbackItem : rawFallback.split(",")) {
+                        String trimmed = fallbackItem.trim();
+                        if (!trimmed.isEmpty()) {
+                            targets.add(resolveSingleTarget(trimmed, true, routeReason));
+                        }
+                    }
                 }
             }
 
             return new CandidateChain(requestedModel, chosenTier, routeReason, targets);
         }
 
-        // Direct model lookup in pricing repository
-        Optional<ModelPricing> pricing = pricingRepository.findByModel(requestedModel);
-        if (pricing.isPresent()) {
+        // Direct model lookup or prefixed provider lookup (e.g. "vllm-local:meta-llama/...", "openrouter:deepseek/...")
+        try {
+            ResolvedTarget primary = resolveSingleTarget(requestedModel, false, "direct_model");
             List<ResolvedTarget> targets = new ArrayList<>();
-            String provider = pricing.get().getProvider();
-            targets.add(new ResolvedTarget(provider, requestedModel, false, "direct_model"));
+            targets.add(primary);
 
             // Check if there is an alternative partner provider model for fallback
-            String partnerModel = resolvePartnerModel(requestedModel);
-            if (partnerModel != null && !partnerModel.equals(requestedModel)) {
-                String partnerProvider = lookupProviderForModel(partnerModel);
-                targets.add(new ResolvedTarget(partnerProvider, partnerModel, true, "direct_model"));
+            String partnerModel = resolvePartnerModel(primary.modelName());
+            if (partnerModel != null && !partnerModel.equals(primary.modelName())) {
+                try {
+                    targets.add(resolveSingleTarget(partnerModel, true, "direct_model"));
+                } catch (Exception ignored) {
+                }
             }
 
-            return new CandidateChain(requestedModel, requestedModel, "direct_model", targets);
+            return new CandidateChain(requestedModel, requestedModel, primary.routeReason() != null ? primary.routeReason() : "direct_model", targets);
+        } catch (ModelNotFoundException mnfe) {
+            throw mnfe;
+        } catch (Exception e) {
+            throw new ModelNotFoundException(requestedModel);
+        }
+    }
+
+    /**
+     * Resolves a single model or provider:model specifier into a concrete upstream target.
+     * Differentiates deterministically between In-VPC providers, OpenRouter, and direct vendor APIs:
+     * 1. Explicit colon syntax: "provider:model" (e.g. "vllm-local:meta-llama/llama-3.3-70b-instruct")
+     * 2. Explicit slash prefix matching a configured provider name (e.g. "vllm-local/meta-llama/...")
+     * 3. Configured provider model affinity (provider.models list)
+     * 4. Pricing catalog lookup
+     * 5. Aggregator / OpenRouter passthrough for multi-vendor namespaces (e.g. "google/gemini-2.0-flash-001")
+     */
+    public ResolvedTarget resolveSingleTarget(String modelSpec, boolean isFallback, String routeReason) {
+        if (modelSpec == null || modelSpec.isBlank()) {
+            throw new ModelNotFoundException("Empty model specification");
         }
 
-        throw new ModelNotFoundException(requestedModel);
+        // 1. Check for explicit "provider:model" syntax
+        if (modelSpec.contains(":")) {
+            int colonIdx = modelSpec.indexOf(":");
+            String providerCandidate = modelSpec.substring(0, colonIdx).trim();
+            String innerModel = modelSpec.substring(colonIdx + 1).trim();
+            GatewayConfigProperties.ProviderConfig providerCfg = configProperties.getProvider(providerCandidate);
+            if (providerCfg != null) {
+                return new ResolvedTarget(providerCfg.getName(), innerModel, isFallback, routeReason != null ? routeReason : "explicit_provider");
+            }
+        }
+
+        // 2. Check for explicit "provider/model" syntax if the first segment matches a registered provider
+        if (modelSpec.contains("/")) {
+            int slashIdx = modelSpec.indexOf("/");
+            String prefix = modelSpec.substring(0, slashIdx).trim();
+            GatewayConfigProperties.ProviderConfig providerCfg = configProperties.getProvider(prefix);
+            if (providerCfg != null) {
+                String innerModel = modelSpec.substring(slashIdx + 1).trim();
+                return new ResolvedTarget(providerCfg.getName(), innerModel, isFallback, routeReason != null ? routeReason : "explicit_provider");
+            }
+        }
+
+        // 3. Check if any configured In-VPC provider explicitly advertises this model
+        GatewayConfigProperties.ProviderConfig advertisedProvider = configProperties.findProviderForModel(modelSpec);
+        if (advertisedProvider != null) {
+            return new ResolvedTarget(advertisedProvider.getName(), modelSpec, isFallback, routeReason != null ? routeReason : "provider_model_affinity");
+        }
+
+        // 4. Check if model exists in pricing repository
+        Optional<ModelPricing> pricing = pricingRepository.findByModel(modelSpec);
+        if (pricing.isPresent()) {
+            String provider = pricing.get().getProvider();
+            if (configProperties.getProvider(provider) == null && configProperties.getProvider("openrouter") != null) {
+                provider = "openrouter";
+            }
+            return new ResolvedTarget(provider, modelSpec, isFallback, routeReason != null ? routeReason : "catalog_model");
+        }
+
+        // 5. Check for OpenRouter / aggregator multi-vendor models
+        GatewayConfigProperties.ProviderConfig openrouterProvider = configProperties.getProvider("openrouter");
+        if (openrouterProvider != null && openrouterProvider.getApiKey() != null && !openrouterProvider.getApiKey().isBlank()) {
+            if (modelSpec.contains("/") || modelSpec.startsWith("gpt-") || modelSpec.startsWith("claude-") || modelSpec.startsWith("gemini-") || modelSpec.startsWith("deepseek-")) {
+                return new ResolvedTarget("openrouter", modelSpec, isFallback, "openrouter_passthrough");
+            }
+        }
+
+        // 6. Direct prefix convention (e.g. alpha-small -> alpha, beta-small -> beta)
+        String fallbackProvider = lookupProviderForModel(modelSpec);
+        if (configProperties.getProvider(fallbackProvider) != null) {
+            return new ResolvedTarget(fallbackProvider, modelSpec, isFallback, routeReason != null ? routeReason : "prefix_model");
+        }
+
+        throw new ModelNotFoundException(modelSpec);
     }
 
     /**
@@ -203,6 +280,9 @@ public class UpstreamClientService {
      */
     public UpstreamResult forwardNonStreaming(ChatCompletionRequest request, ResolvedTarget target) {
         GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(target.providerName());
+        if (providerConfig == null && configProperties.getProvider("openrouter") != null) {
+            providerConfig = configProperties.getProvider("openrouter");
+        }
         if (providerConfig == null) {
             throw new UpstreamException("Provider '" + target.providerName() + "' is not configured in gateway registry");
         }

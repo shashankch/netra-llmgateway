@@ -8,6 +8,7 @@ import com.netra.gateway.model.dto.CreateTenantRequest;
 import com.netra.gateway.model.dto.UpdateTenantRequest;
 import com.netra.gateway.model.dto.UsageSummaryProjection;
 import com.netra.gateway.model.entity.MonthlySpend;
+import com.netra.gateway.model.entity.ModelPricing;
 import com.netra.gateway.model.entity.RequestLog;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.repository.MonthlySpendRepository;
@@ -54,6 +55,9 @@ class AdminControllerContractTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private GatewayConfigProperties configProperties;
+
     @MockitoBean
     private RequestLogRepository requestLogRepository;
 
@@ -74,6 +78,9 @@ class AdminControllerContractTest {
 
     @MockitoBean
     private LogStreamBroadcaster logStreamBroadcaster;
+
+    @MockitoBean
+    private com.netra.gateway.repository.ModelPricingRepository modelPricingRepository;
 
     @Test
     @DisplayName("GET /admin/usage returns 200 with reconciled metrics")
@@ -168,6 +175,22 @@ class AdminControllerContractTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.type").value("authentication_error"))
                 .andExpect(jsonPath("$.error.message").value("Unauthorized admin access"));
+    }
+
+    @Test
+    @DisplayName("Gated demo token: when custom admin token configured, demo token is rejected with 401")
+    void testDemoTokenRejectedWhenCustomTokenConfigured() throws Exception {
+        configProperties.setAdminToken("sec-prod-admin-token-999");
+        try {
+            mockMvc.perform(get("/admin/usage")
+                            .param("key", "netra-sk-search-1a2b3c")
+                            .header("Authorization", "Bearer netra-admin-demo"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error.type").value("authentication_error"))
+                    .andExpect(jsonPath("$.error.message").value("Unauthorized admin access"));
+        } finally {
+            configProperties.setAdminToken("netra-admin-demo");
+        }
     }
 
     @Test
@@ -354,22 +377,51 @@ class AdminControllerContractTest {
     @Test
     @DisplayName("GET /admin/currency/rate returns 200 with USD/INR rate")
     void testGetCurrencyRate() throws Exception {
-        when(forexRateService.getUsdToInrRate()).thenReturn(new BigDecimal("87.5000"));
+        when(forexRateService.getUsdToInrRate()).thenReturn(new BigDecimal("85.0000"));
 
         mockMvc.perform(get("/admin/currency/rate"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.base").value("USD"))
                 .andExpect(jsonPath("$.target").value("INR"))
-                .andExpect(jsonPath("$.rate").value(87.5));
+                .andExpect(jsonPath("$.rate").value(85.0));
     }
 
     @Test
-    @DisplayName("GET /admin/logs/stream returns SSE emitter")
+    @DisplayName("GET /admin/logs/stream returns SSE emitter with Authorization header")
     void testGetLogsStream() throws Exception {
         when(logStreamBroadcaster.registerEmitter()).thenReturn(new SseEmitter());
 
         mockMvc.perform(get("/admin/logs/stream")
                         .header("Authorization", "Bearer netra-admin-demo"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /admin/logs/stream returns SSE emitter with query parameter token")
+    void testGetLogsStreamWithQueryToken() throws Exception {
+        when(logStreamBroadcaster.registerEmitter()).thenReturn(new SseEmitter());
+
+        mockMvc.perform(get("/admin/logs/stream")
+                        .param("token", "netra-admin-demo"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /admin/pricing returns 200 with aliases and active model pricing")
+    void testGetModelPricingCatalog() throws Exception {
+        ModelPricing p1 = ModelPricing.builder()
+                .model("alpha-small")
+                .provider("alpha")
+                .inputPer1m(new BigDecimal("0.150000"))
+                .outputPer1m(new BigDecimal("0.600000"))
+                .build();
+        when(modelPricingRepository.findAll()).thenReturn(List.of(p1));
+
+        mockMvc.perform(get("/admin/pricing")
+                        .header("Authorization", "Bearer netra-admin-demo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.aliases.fast.primary").value("alpha-small"))
+                .andExpect(jsonPath("$.aliases.fast.input_per_1m").value(0.15))
+                .andExpect(jsonPath("$.models[0].model").value("alpha-small"));
     }
 }

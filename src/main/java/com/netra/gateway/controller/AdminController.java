@@ -32,6 +32,9 @@ import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import com.netra.gateway.repository.ModelPricingRepository;
+import com.netra.gateway.model.entity.ModelPricing;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -48,6 +51,7 @@ public class AdminController {
     private final TenantAuthService tenantAuthService;
     private final ForexRateService forexRateService;
     private final LogStreamBroadcaster logStreamBroadcaster;
+    private final ModelPricingRepository modelPricingRepository;
 
     /**
      * Cache statistics API per API_CONTRACT.md.
@@ -131,36 +135,60 @@ public class AdminController {
     /**
      * Recent request logs API per API_CONTRACT.md and DATA_MODEL.md.
      * Returns recent log entries, newest first, filterable by virtual key.
+     * Supports cursor/offset and page-based pagination for enterprise datasets.
      */
     @GetMapping("/logs")
     public ResponseEntity<List<RequestLog>> getRequestLogs(
             @RequestParam(value = "key", required = false) String key,
             @RequestParam(value = "limit", defaultValue = "50") int limit,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "offset", required = false) Integer offset,
             @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         validateAdminAuth(authHeader);
 
         int maxLimit = Math.min(Math.max(limit, 1), 500);
-        PageRequest pageRequest = PageRequest.of(0, maxLimit);
+        int pageNumber = offset != null ? Math.max(0, offset / maxLimit) : Math.max(0, page);
+        PageRequest pageRequest = PageRequest.of(pageNumber, maxLimit);
 
         List<RequestLog> logs;
+        long totalCount;
         if (key != null && !key.isBlank()) {
             logs = requestLogRepository.findByVirtualKeyOrderByCreatedAtDesc(key, pageRequest);
+            totalCount = requestLogRepository.countByVirtualKey(key);
         } else {
             logs = requestLogRepository.findAllByOrderByCreatedAtDesc(pageRequest);
+            totalCount = requestLogRepository.count();
         }
 
-        return ResponseEntity.ok(logs);
+        int totalPages = totalCount > 0 ? (int) Math.ceil((double) totalCount / maxLimit) : 1;
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.set("X-Total-Count", String.valueOf(totalCount));
+        headers.set("X-Page-Number", String.valueOf(pageNumber));
+        headers.set("X-Page-Size", String.valueOf(maxLimit));
+        headers.set("X-Total-Pages", String.valueOf(totalPages));
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(logs);
     }
 
     /**
      * Live SSE request log stream for Ops Console real-time monitoring.
+     * Supports both standard Authorization header and URL query parameter 'token'
+     * for native browser EventSource compatibility.
      */
     @GetMapping(value = "/logs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamRequestLogs(
+            @RequestParam(value = "token", required = false) String queryToken,
             @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
-        validateAdminAuth(authHeader);
+        String effectiveAuth = authHeader;
+        if (effectiveAuth == null && queryToken != null && !queryToken.isBlank()) {
+            effectiveAuth = "Bearer " + queryToken.trim();
+        }
+        validateAdminAuth(effectiveAuth);
         return logStreamBroadcaster.registerEmitter();
     }
 
@@ -376,24 +404,68 @@ public class AdminController {
                 .build());
     }
 
+    /**
+     * Dynamic Models and Pricing Catalog API: Returns configured model aliases, active pricing rates, and providers.
+     */
+    @GetMapping("/pricing")
+    public ResponseEntity<Map<String, Object>> getModelPricingCatalog(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        validateAdminAuth(authHeader);
+
+        List<ModelPricing> models = modelPricingRepository.findAll();
+        Map<String, ModelPricing> modelMap = models.stream()
+                .collect(java.util.stream.Collectors.toMap(ModelPricing::getModel, m -> m, (a, b) -> a));
+
+        Map<String, Object> aliases = new java.util.LinkedHashMap<>();
+        if (configProperties.getModelAliases() != null) {
+            for (Map.Entry<String, GatewayConfigProperties.ModelAliasConfig> entry : configProperties.getModelAliases().entrySet()) {
+                String alias = entry.getKey();
+                GatewayConfigProperties.ModelAliasConfig cfg = entry.getValue();
+                Map<String, Object> aliasData = new java.util.LinkedHashMap<>();
+                aliasData.put("primary", cfg.getPrimary());
+                aliasData.put("fallbacks", cfg.getFallbacks());
+                if (cfg.getRouteByDifficulty() != null) {
+                    aliasData.put("route_by_difficulty", cfg.getRouteByDifficulty());
+                }
+                if (cfg.getPrimary() != null && modelMap.containsKey(cfg.getPrimary())) {
+                    ModelPricing mp = modelMap.get(cfg.getPrimary());
+                    aliasData.put("input_per_1m", mp.getInputPer1m());
+                    aliasData.put("output_per_1m", mp.getOutputPer1m());
+                    aliasData.put("provider", mp.getProvider());
+                }
+                aliases.put(alias, aliasData);
+            }
+        }
+
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("aliases", aliases);
+        response.put("models", models);
+
+        return ResponseEntity.ok(response);
+    }
+
     private void validateAdminAuth(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new AuthenticationException("Missing or invalid Authorization header for admin access");
         }
 
         String configuredToken = configProperties.getAdminToken();
-        if (configuredToken == null || configuredToken.isBlank()) {
-            configuredToken = "netra-admin-demo";
-        }
+        boolean hasCustomConfig = configuredToken != null && !configuredToken.isBlank() && !"netra-admin-demo".equals(configuredToken);
 
         String token = authHeader.substring(7).trim();
         byte[] tokenBytes = token.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] configuredBytes = configuredToken.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] demoBytes = "netra-admin-demo".getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
-        if (java.security.MessageDigest.isEqual(tokenBytes, configuredBytes)
-                || java.security.MessageDigest.isEqual(tokenBytes, demoBytes)) {
-            return;
+        if (hasCustomConfig) {
+            byte[] configuredBytes = configuredToken.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            if (java.security.MessageDigest.isEqual(tokenBytes, configuredBytes)) {
+                return;
+            }
+        } else {
+            byte[] demoBytes = "netra-admin-demo".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            if (java.security.MessageDigest.isEqual(tokenBytes, demoBytes)) {
+                return;
+            }
         }
 
         throw new AuthenticationException("Unauthorized admin access");

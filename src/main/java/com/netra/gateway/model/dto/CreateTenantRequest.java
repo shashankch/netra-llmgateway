@@ -38,3 +38,4 @@ public class CreateTenantRequest {
     @JsonProperty("similarity_threshold")
     private BigDecimal similarityThreshold;
 }
+

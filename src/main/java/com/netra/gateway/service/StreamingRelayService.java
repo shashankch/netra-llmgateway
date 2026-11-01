@@ -235,6 +235,9 @@ public class StreamingRelayService {
         for (int i = 0; i < chain.targets().size(); i++) {
             UpstreamClientService.ResolvedTarget candidate = chain.targets().get(i);
             GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(candidate.providerName());
+            if (providerConfig == null && configProperties.getProvider("openrouter") != null) {
+                providerConfig = configProperties.getProvider("openrouter");
+            }
             if (providerConfig == null) {
                 log.warn("Provider [{}] not configured in registry; skipping to next fallback", candidate.providerName());
                 continue;

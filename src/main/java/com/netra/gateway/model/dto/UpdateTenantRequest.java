@@ -38,3 +38,4 @@ public class UpdateTenantRequest {
     @JsonProperty("is_active")
     private Boolean isActive;
 }
+

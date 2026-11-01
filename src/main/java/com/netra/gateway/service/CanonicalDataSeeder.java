@@ -65,7 +65,7 @@ public class CanonicalDataSeeder implements CommandLineRunner {
                 JsonNode priceNode = entry.getValue();
                 BigDecimal inputPer1m = new BigDecimal(priceNode.get("input_per_1m").asText());
                 BigDecimal outputPer1m = new BigDecimal(priceNode.get("output_per_1m").asText());
-                String provider = model.contains("-") ? model.substring(0, model.indexOf('-')) : "default";
+                String provider = model.contains("/") ? model.substring(0, model.indexOf('/')) : (model.contains("-") ? model.substring(0, model.indexOf('-')) : "default");
 
                 ModelPricing pricing = pricingRepository.findByModel(model)
                         .orElse(ModelPricing.builder().model(model).build());

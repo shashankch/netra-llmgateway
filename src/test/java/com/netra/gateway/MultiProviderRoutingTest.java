@@ -90,7 +90,7 @@ class MultiProviderRoutingTest {
         beta.setBaseUrl("http://localhost:9002");
         beta.setApiKey("mock-beta-key");
 
-        configProperties.setProviders(List.of(alpha, beta));
+        configProperties.setProviders(new java.util.ArrayList<>(List.of(alpha, beta)));
 
         // Configure fast and smart aliases with primary + fallbacks
         GatewayConfigProperties.ModelAliasConfig fastConfig = new GatewayConfigProperties.ModelAliasConfig();
@@ -107,11 +107,11 @@ class MultiProviderRoutingTest {
                 "complex", "smart"
         ));
 
-        configProperties.setModelAliases(Map.of(
+        configProperties.setModelAliases(new java.util.HashMap<>(Map.of(
                 "fast", fastConfig,
                 "smart", smartConfig,
                 "auto", autoConfig
-        ));
+        )));
 
         // Configure retries: 3 attempts, 10ms initial backoff for fast tests
         GatewayConfigProperties.RetryConfig retryConfig = new GatewayConfigProperties.RetryConfig();
@@ -362,5 +362,97 @@ class MultiProviderRoutingTest {
         assertThat(servletResponse.getHeader("x-netra-provider")).isEqualTo("beta/beta-small");
         assertThat(servletResponse.getHeader("x-netra-fallback")).isEqualTo("true");
         assertThat(servletResponse.getHeader("x-netra-retries")).isEqualTo("3");
+    }
+
+    @Test
+    @DisplayName("Explicit provider prefix (e.g. vllm-local:meta-llama/llama-3.3-70b-instruct) routes to registered In-VPC provider")
+    void testResolveTargetWithExplicitProviderColonPrefix() {
+        GatewayConfigProperties.ProviderConfig vllm = new GatewayConfigProperties.ProviderConfig();
+        vllm.setName("vllm-local");
+        vllm.setBaseUrl("http://vllm.internal:8000/v1");
+        vllm.setApiKey("EMPTY");
+
+        configProperties.getProviders().add(vllm);
+
+        UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain(
+                "vllm-local:meta-llama/llama-3.3-70b-instruct", List.of()
+        );
+
+        assertThat(chain.targets()).hasSize(1);
+        UpstreamClientService.ResolvedTarget target = chain.targets().get(0);
+        assertThat(target.providerName()).isEqualTo("vllm-local");
+        assertThat(target.modelName()).isEqualTo("meta-llama/llama-3.3-70b-instruct");
+    }
+
+    @Test
+    @DisplayName("In-VPC provider model affinity routes model to internal VPC before OpenRouter aggregator")
+    void testResolveTargetWithInVpcProviderModelAffinity() {
+        GatewayConfigProperties.ProviderConfig vllm = new GatewayConfigProperties.ProviderConfig();
+        vllm.setName("vllm-local");
+        vllm.setBaseUrl("http://vllm.internal:8000/v1");
+        vllm.setApiKey("EMPTY");
+        vllm.setModels(List.of("meta-llama/llama-3.3-70b-instruct"));
+
+        GatewayConfigProperties.ProviderConfig openrouter = new GatewayConfigProperties.ProviderConfig();
+        openrouter.setName("openrouter");
+        openrouter.setBaseUrl("https://openrouter.ai/api/v1");
+        openrouter.setApiKey("sk-or-v1-test");
+
+        configProperties.getProviders().add(vllm);
+        configProperties.getProviders().add(openrouter);
+
+        // Requested model matches vllm's declared models list: should route to vllm-local!
+        UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain(
+                "meta-llama/llama-3.3-70b-instruct", List.of()
+        );
+
+        assertThat(chain.targets()).hasSize(1);
+        assertThat(chain.targets().get(0).providerName()).isEqualTo("vllm-local");
+        assertThat(chain.targets().get(0).modelName()).isEqualTo("meta-llama/llama-3.3-70b-instruct");
+
+        // Another model not in vllm's list routes to openrouter aggregator
+        UpstreamClientService.CandidateChain chainOr = upstreamClientService.resolveCandidateChain(
+                "google/gemini-2.0-flash-001", List.of()
+        );
+        assertThat(chainOr.targets().get(0).providerName()).isEqualTo("openrouter");
+    }
+
+    @Test
+    @DisplayName("Multiple fallbacks (primary -> fallback-1 -> fallback-2) resolve in ordered candidate chain")
+    void testMultipleFallbacksChainResolution() {
+        GatewayConfigProperties.ModelAliasConfig multiFallbackAlias = new GatewayConfigProperties.ModelAliasConfig();
+        multiFallbackAlias.setPrimary("alpha-small");
+        multiFallbackAlias.setFallbacks(List.of("beta-small", "alpha-large"));
+
+        configProperties.getModelAliases().put("custom-multi", multiFallbackAlias);
+
+        UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain("custom-multi", List.of());
+
+        assertThat(chain.targets()).hasSize(3);
+        assertThat(chain.targets().get(0).modelName()).isEqualTo("alpha-small");
+        assertThat(chain.targets().get(0).fallback()).isFalse();
+
+        assertThat(chain.targets().get(1).modelName()).isEqualTo("beta-small");
+        assertThat(chain.targets().get(1).fallback()).isTrue();
+
+        assertThat(chain.targets().get(2).modelName()).isEqualTo("alpha-large");
+        assertThat(chain.targets().get(2).fallback()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Comma-separated fallback string from environment variable parses into multiple ordered fallbacks")
+    void testCommaSeparatedFallbackParsing() {
+        GatewayConfigProperties.ModelAliasConfig envAlias = new GatewayConfigProperties.ModelAliasConfig();
+        envAlias.setPrimary("alpha-small");
+        envAlias.setFallbacks(List.of("beta-small, alpha-large"));
+
+        configProperties.getModelAliases().put("env-multi", envAlias);
+
+        UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain("env-multi", List.of());
+
+        assertThat(chain.targets()).hasSize(3);
+        assertThat(chain.targets().get(0).modelName()).isEqualTo("alpha-small");
+        assertThat(chain.targets().get(1).modelName()).isEqualTo("beta-small");
+        assertThat(chain.targets().get(2).modelName()).isEqualTo("alpha-large");
     }
 }

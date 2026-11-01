@@ -1,4 +1,4 @@
-name: NETRA Multi-Provider Routing CI
+name: Gateway CI
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  routing-eval:
-    name: Multi-Provider Routing & Accuracy Evaluation (Java 25 LTS)
+  build:
+    name: Build & Test (Java 25 LTS)
     runs-on: ubuntu-latest
 
     services:
@@ -52,24 +52,15 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Grant Execute Permissions
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build -x test
+
+      - name: Run Automated Test Suite (74 Tests)
+        run: ./gradlew test
+
+      - name: Validate Pack Integrity
         run: |
-          chmod +x gradlew
-          chmod +x scripts/run_routing_eval.py
-
-      - name: Run In-JVM Prompt Classifier Benchmark
-        run: ./gradlew test --tests com.netra.gateway.RoutingEvalTest
-
-      - name: Run Multi-Provider Routing & Failover Test Suite
-        run: ./gradlew test --tests com.netra.gateway.MultiProviderRoutingTest
-
-      - name: Run CLI Routing Evaluation Benchmark (Offline)
-        run: python3 scripts/run_routing_eval.py --offline
-
-      - name: Start Mock Providers in Background
-        run: |
-          python3 scripts/mock_provider.py --port 9001 --name alpha &
-          python3 scripts/mock_provider.py --port 9002 --name beta &
-          sleep 2
-          curl -s http://localhost:9001/health
-          curl -s http://localhost:9002/health
+          python3 scripts/validate_pack.py

@@ -56,7 +56,7 @@ public class TenantAuthService {
      * Validates if the requested model or alias is present on the tenant's model allowlist.
      */
     public void validateModelAllowed(Tenant tenant, String modelOrAlias) {
-        if (tenant.getModelAllowlist() == null || !tenant.getModelAllowlist().contains(modelOrAlias)) {
+        if (tenant.getModelAllowlist() == null || (!tenant.getModelAllowlist().contains("*") && !tenant.getModelAllowlist().contains(modelOrAlias))) {
             log.warn("Key [{}] attempted unauthorized model [{}]", tenant.getVirtualKey(), modelOrAlias);
             throw new ModelNotAllowedException(modelOrAlias);
         }

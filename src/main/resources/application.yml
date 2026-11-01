@@ -1,9 +1,18 @@
+# ==============================================================================
+# NETRA LLM Gateway — Base Configuration (Shared across all profiles)
+# Active Profile: Defaults to 'dev' for offline verification drills & local dev.
+# Set SPRING_PROFILES_ACTIVE=prod in production (OCI, AWS, PaaS, Kubernetes).
+# ==============================================================================
 spring:
   application:
     name: netra-llm-gateway
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   threads:
     virtual:
       enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/netra}
     username: ${SPRING_DATASOURCE_USERNAME:netra}
@@ -34,6 +43,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  shutdown: graceful
   tomcat:
     threads:
       max: 200
@@ -42,40 +52,28 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 netra:
   data-path: ${NETRA_DATA_PATH:data}
+  admin-token: ${NETRA_ADMIN_TOKEN:netra-admin-demo}
   currency:
-    fallback-usd-to-inr: 87.50
-    cache-ttl-hours: 6
-  providers:
-    - name: alpha
-      base-url: ${ALPHA_PROVIDER_URL:http://localhost:9001/v1}
-      api-key: mock-key-alpha
-    - name: beta
-      base-url: ${BETA_PROVIDER_URL:http://localhost:9002/v1}
-      api-key: mock-key-beta
-  model-aliases:
-    fast:
-      primary: alpha-small
-      fallbacks:
-        - beta-small
-    smart:
-      primary: alpha-large
-      fallbacks:
-        - beta-large
-    auto:
-      route-by-difficulty:
-        simple: fast
-        complex: smart
+    fallback-usd-to-inr: ${NETRA_CURRENCY_FALLBACK_USD_TO_INR:85.00}
+    cache-ttl-hours: ${NETRA_CURRENCY_CACHE_TTL_HOURS:6}
   retry:
-    max-attempts: 3
-    initial-backoff-ms: 200
-    backoff-multiplier: 2
+    max-attempts: ${NETRA_RETRY_MAX_ATTEMPTS:3}
+    initial-backoff-ms: ${NETRA_RETRY_INITIAL_BACKOFF_MS:200}
+    backoff-multiplier: ${NETRA_RETRY_BACKOFF_MULTIPLIER:2.0}
   degradation:
     error-rate-threshold: 0.5
     window-seconds: 60

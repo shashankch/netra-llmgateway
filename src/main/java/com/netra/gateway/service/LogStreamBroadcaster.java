@@ -37,12 +37,15 @@ public class LogStreamBroadcaster {
         if (emitters.isEmpty() || logEntry == null) {
             return;
         }
-        for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event().name("log").data(logEntry));
-            } catch (Exception e) {
-                emitters.remove(emitter);
+        Thread.ofVirtual().name("sse-log-broadcast-", 0).start(() -> {
+            for (SseEmitter emitter : emitters) {
+                try {
+                    emitter.send(SseEmitter.event().name("log").data(logEntry));
+                } catch (Exception e) {
+                    emitters.remove(emitter);
+                }
             }
-        }
+        });
     }
 }
+

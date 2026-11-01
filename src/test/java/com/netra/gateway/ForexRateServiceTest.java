@@ -24,7 +24,7 @@ class ForexRateServiceTest {
     @BeforeEach
     void setUp() {
         properties = new GatewayConfigProperties();
-        properties.getCurrency().setFallbackUsdToInr(87.50);
+        properties.getCurrency().setFallbackUsdToInr(85.00);
         properties.getCurrency().setCacheTtlHours(6);
         httpClient = mock(HttpClient.class);
         objectMapper = new ObjectMapper();
@@ -35,7 +35,7 @@ class ForexRateServiceTest {
     @DisplayName("Returns configured fallback rate when HTTP call is not mocked")
     void testFallbackRate() {
         BigDecimal rate = forexRateService.getUsdToInrRate();
-        assertThat(rate).isEqualTo(BigDecimal.valueOf(87.50).setScale(4, RoundingMode.HALF_UP));
+        assertThat(rate).isEqualTo(BigDecimal.valueOf(85.00).setScale(4, RoundingMode.HALF_UP));
     }
 
     @Test
@@ -43,16 +43,16 @@ class ForexRateServiceTest {
     void testConvertUsdToInr() {
         BigDecimal usd = new BigDecimal("10.00");
         BigDecimal inr = forexRateService.convertUsdToInr(usd);
-        // 10 * 87.50 = 875.00
-        assertThat(inr).isEqualTo(new BigDecimal("875.0000"));
+        // 10 * 85.00 = 850.00
+        assertThat(inr).isEqualTo(new BigDecimal("850.0000"));
     }
 
     @Test
     @DisplayName("Accurately converts INR to USD")
     void testConvertInrToUsd() {
-        BigDecimal inr = new BigDecimal("875.00");
+        BigDecimal inr = new BigDecimal("850.00");
         BigDecimal usd = forexRateService.convertInrToUsd(inr);
-        // 875 / 87.50 = 10.00
+        // 850 / 85.00 = 10.00
         assertThat(usd).isEqualByComparingTo(new BigDecimal("10.000000"));
     }
 

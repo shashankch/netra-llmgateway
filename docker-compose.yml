@@ -8,6 +8,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/netra
       - SPRING_DATASOURCE_USERNAME=netra
       - SPRING_DATASOURCE_PASSWORD=netra
@@ -15,6 +16,14 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - ALPHA_PROVIDER_URL=http://mock-alpha:9001/v1
       - BETA_PROVIDER_URL=http://mock-beta:9002/v1
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-${OPENAI_API_KEY:-}}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-${OPENROUTER_API_KEY:-}}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}}
+      - NETRA_MODEL_ALIASES_FAST_PRIMARY=${NETRA_MODEL_ALIASES_FAST_PRIMARY:-alpha-small}
+      - NETRA_MODEL_ALIASES_FAST_FALLBACK=${NETRA_MODEL_ALIASES_FAST_FALLBACK:-beta-small}
+      - NETRA_MODEL_ALIASES_SMART_PRIMARY=${NETRA_MODEL_ALIASES_SMART_PRIMARY:-alpha-large}
+      - NETRA_MODEL_ALIASES_SMART_FALLBACK=${NETRA_MODEL_ALIASES_SMART_FALLBACK:-beta-large}
       - NETRA_DATA_PATH=data
     depends_on:
       postgres:
@@ -93,6 +102,19 @@ services:
     depends_on:
       gateway:
         condition: service_healthy
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: netra-cloudflared
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command: tunnel --no-autoupdate run
+    depends_on:
+      gateway:
+        condition: service_healthy
+    profiles:
+      - tunnel
 
 volumes:
   pgdata:

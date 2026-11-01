@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - In Progress — Phase 7: Resilience, Two-Tier Cache & Protocols
+
+### 🚀 Added
+
+- **Two-Tier Cache Hierarchy**: Tier-1 in-memory exact match cache (SHA-256 hash in Caffeine/Redis, <0.5ms) with seamless fallback to Tier-2 pgvector semantic vector cache.
+- **IETF RateLimit Protocol Headers**: Additive emission of `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, `RateLimit-Policy`, and HTTP 429 `Retry-After`.
+- **Resilience4j Dynamic Circuit Breaker & Health API**: Upstream provider rolling failure/latency monitoring and fast-failover with `GET /admin/providers/health`.
+- **Refusal Auto-Escalation Engine**: Automatic detection and transparent escalation of small-model refusal responses to frontier reasoning models.
+- **Ops Console Telemetry**: Live Provider Health widget and Model Pricing Explorer modal.
+
+---
+
 ## [0.6.0] - 2026-10-28 — Phase 6: Modern Ops Console UI, Multi-Tier PaaS & Verification Drills
 
 ### 🚀 Added
+
 - **Modern React 19 / Vite 6 Operations Console (`dashboard/`)**: High-performance, zero-flicker developer dashboard providing OpenRouter-grade analytics, live request logging, virtual keys management, and interactive prompt testing.
 - **OpenRouter-Grade Analytics Suite**:
   - 5 Headline KPI Cards: Total Spend (rendered in active currency), Total Request Count, Token Volume Distribution (Prompt, Completion, Total), Semantic Cache Hit Rate %, and Average Latency / Time-To-First-Token (TTFT).
@@ -21,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Light Theme: Crisp enterprise white/slate palette (`#ffffff` canvas, `#f8fafc` cards, `#e2e8f0` borders, slate typography).
   - Zero-flicker Sun ☀️ / Moon 🌙 toggle in the top navbar.
 - **Single-Denomination Currency Engine (USD $ | INR ₹)**:
-  - Global navbar switcher converting all monetary figures dynamically via real-time Forex service (`ForexRateService`) with offline fallback (`87.50`).
+  - Global navbar switcher converting all monetary figures dynamically via real-time Forex service (`ForexRateService`) with offline fallback (`85.00`).
   - Strict database invariant: pure USD ledger persistence in PostgreSQL (`DECIMAL(12, 6)`), eliminating currency drift or schema duplication.
 - **Interactive Evaluator Sandbox & Prompt Playground (`/playground`)**:
   - 1-Click Evaluation presets pre-seeded for Search Team (`netra-sk-search`), Research Team (`netra-sk-research`), Free Tier (`netra-sk-free`), and Budget Demo (`netra-sk-budget-demo`).
@@ -50,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-10-27 — Phase 5: Tenant-Isolated Semantic Vector Cache & pgvector Integration
 
 ### 🚀 Added
+
 - **In-JVM Dense Vector Embeddings (`EmbeddingService`)**: Embedded quantized `all-MiniLM-L6-v2` model (384 dimensions) running directly in JVM memory via ONNX Runtime (`langchain4j-embeddings-all-minilm-l6-v2-q:0.36.2`). Generates normalized dense vector embeddings in ~5ms with zero external network hops or sidecar API costs.
 - **PostgreSQL 18 `pgvector` HNSW Nearest-Neighbor Retrieval (`CacheEntryRepository`)**: Leverages native pgvector cosine distance operator `<=>` with cosine similarity projection `1 - (c.embedding <=> cast(:queryVector as vector))` accelerated by HNSW cosine indexing (`m=16, ef_construction=64`).
 - **Cryptographic Per-Tenant Vector Isolation**: Enforces tenant-isolated querying at the database layer (`WHERE virtual_key = :virtualKey AND model_alias = :modelAlias`), guaranteeing mathematical zero cross-tenant completion leakage or cache bleeding.
@@ -67,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-10-26 — Phase 4: Multi-Provider Routing, Failover Chains & Intelligent Router
 
 ### 🚀 Added
+
 - **Multi-Provider Fallback Chains (`UpstreamClientService`)**: Dynamic ordered candidate chains for model aliases (`fast`, `smart`) and direct concrete models. Maps `fast` to primary `alpha/alpha-small` and fallback `beta/beta-small`, and `smart` to primary `alpha/alpha-large` and fallback `beta/beta-large`. Direct models automatically resolve to partner fallbacks.
 - **Exponential Backoff Retries with Fast-Failover**: Automated retry loop (`max_attempts: 3`, `initial_backoff_ms: 200`, `multiplier: 2.0`) catching transient HTTP 5xx, 429, and socket exceptions before switching to fallback partner models.
 - **Intelligent Prompt Difficulty Classifier (`PromptDifficultyClassifier`)**: Two-stage task instruction classification engine using operative verb extraction (`extractInstruction()`) to decouple user instructions from large text payloads (e.g. server logs, rosters). Scores proof, architecture design, Fermi estimation, systems reasoning, algorithmic complexity, and comparative evaluation signals against de-escalation patterns. Achieves 20/20 (100.00%) accuracy on `data/routing_eval.jsonl` benchmark.
@@ -81,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2026-10-25 — Phase 3: Unbuffered Streaming SSE Relay & Usage Finalization
 
 ### 🚀 Added
+
 - **Unbuffered Pass-Through SSE Relay (`StreamingRelayService`)**: Dedicated streaming engine spawning lightweight Java 25 Virtual Threads (`sse-relay-{requestId}`) to forward upstream Server-Sent Events line-by-line with 1KB read buffers for zero-delay token delivery (~20ms per token).
 - **Upfront Telemetry Header Injection**: Establishes streaming headers upfront before body chunks (`Content-Type: text/event-stream;charset=UTF-8`, `Cache-Control: no-cache`, `Connection: keep-alive`, `x-netra-provider`, `x-netra-cache: miss`, `x-netra-fallback: false`).
 - **Terminal Usage Object Parsing**: Automatically captures terminal `usage` block (`prompt_tokens`, `completion_tokens`, `total_tokens`) delivered in final SSE chunk per OpenAI streaming spec.
@@ -95,13 +111,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-10-24 — Phase 2: Virtual Key Auth, Atomic Lua Admission & Request Logs
 
 ### 🚀 Added
+
 - **Virtual Key Authentication & Caffeine L1 Near-Cache**: Implemented two-tier tenant auth (`TenantAuthService`) with in-memory Caffeine cache (10,000 entries, 60s TTL) backed by PostgreSQL. Enforces tenant active status and model allowlists (HTTP 403 `model_not_allowed`).
 - **Atomic Redis 8.0 Lua Admission Engine**: Sliding-window rate limiting script (`admission.lua`) executing atomically in Redis. Guarantees Zero Over-Admission under concurrent bursts. Supports instant slot rollback (`ZREM`) if upstream provider fails.
 - **Tenant Monthly Budget Guardrails**: Dynamic monthly spend accounting with Redis atomic counter synchronization (`netra:spend:{vkey}:{yearMonth}`) and automatic HTTP 402 `budget_exceeded` rejection.
 - **Comprehensive Audit Trail & Rejection Logging**: Flyway migration `V3__flexible_request_logs_fkey.sql` enabling comprehensive request auditing for all outcomes, including unauthenticated keys (401), allowlist violations (403), rate limits (429), and budget rejections (402).
 - **Admin Usage & Reconciliation API**: Implemented `GET /admin/usage` returning aggregated token counts, spend in USD, and cache hits, perfectly reconciling against client load test counters.
 - **Admin Request Logs API**: Implemented `GET /admin/logs` with pagination and key filtering for chronological audit inspection.
-- **Live Dynamic Forex Engine**: Added `ForexRateService` featuring live Frankfurter open forex API integration, 6-hour Caffeine caching, and offline fallback (`87.50` INR/USD).
+- **Live Dynamic Forex Engine**: Added `ForexRateService` featuring live Frankfurter open forex API integration, 6-hour Caffeine caching, and offline fallback (`85.00` INR/USD).
 - **CI Status Badges**: Added GitHub Actions workflow status badges to `README.md` for Backend CI, Docs CI, and OpenAPI 3.1.0 validation.
 - **OpenAPI 3.1 Specification & Documentation Sync**: Updated `docs/openapi.yaml`, `docs/api-reference.md`, and MkDocs site with complete Phase 2 Admin schemas and error contracts.
 
@@ -110,6 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-10-23 — Phase 1: Foundation & Core Pass-Through
 
 ### 🚀 Added
+
 - **Core JVM Runtime**: Enterprise foundation initialized with Java 25 LTS, Spring Boot 4.1.1, and Gradle 9 Kotlin DSL on high-throughput Virtual Threads (`spring.threads.virtual.enabled: true`).
 - **Telemetry Header Contract**: Ingress enforcement strictly injecting canonical telemetry headers (`x-netra-provider`, `x-netra-cache`, `x-netra-fallback`, `x-netra-cost-usd`).
 - **OpenAI-Compatible Chat Completion**: Non-streaming pass-through API at `POST /v1/chat/completions` with streaming Server-Sent Events relay.

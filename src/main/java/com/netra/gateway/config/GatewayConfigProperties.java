@@ -23,7 +23,7 @@ public class GatewayConfigProperties {
 
     @Data
     public static class CurrencyConfig {
-        private double fallbackUsdToInr = 87.50;
+        private double fallbackUsdToInr = 85.00;
         private int cacheTtlHours = 6;
     }
 
@@ -32,6 +32,7 @@ public class GatewayConfigProperties {
         private String name;
         private String baseUrl;
         private String apiKey;
+        private List<String> models = new ArrayList<>();
     }
 
     @Data
@@ -56,8 +57,17 @@ public class GatewayConfigProperties {
     }
 
     public ProviderConfig getProvider(String providerName) {
+        if (providerName == null) return null;
         return providers.stream()
                 .filter(p -> p.getName().equalsIgnoreCase(providerName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public ProviderConfig findProviderForModel(String modelName) {
+        if (modelName == null) return null;
+        return providers.stream()
+                .filter(p -> p.getModels() != null && p.getModels().contains(modelName))
                 .findFirst()
                 .orElse(null);
     }
