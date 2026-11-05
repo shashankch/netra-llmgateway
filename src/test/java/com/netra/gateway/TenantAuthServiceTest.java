@@ -71,5 +71,22 @@ class TenantAuthServiceTest {
         assertThatThrownBy(() -> authService.validateModelAllowed(tenant, "smart"))
                 .isInstanceOf(ModelNotAllowedException.class)
                 .hasMessageContaining("Model 'smart' is not permitted for this virtual key");
+
+        assertThat(authService.isModelAllowed(tenant, "fast")).isTrue();
+        assertThat(authService.isModelAllowed(tenant, "smart")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Permits any model when wildcard '*' is in key allowlist")
+    void testWildcardAllowedModel() {
+        Tenant tenant = Tenant.builder()
+                .virtualKey("netra-sk-admin-root")
+                .team("platform")
+                .modelAllowlist(List.of("*"))
+                .build();
+
+        authService.validateModelAllowed(tenant, "openai/gpt-4o-mini");
+        authService.validateModelAllowed(tenant, "smart");
+        // No exception thrown
     }
 }

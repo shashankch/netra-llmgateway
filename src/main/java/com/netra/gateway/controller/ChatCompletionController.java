@@ -1,14 +1,17 @@
 package com.netra.gateway.controller;
 
+import com.netra.gateway.context.RequestContext;
 import com.netra.gateway.exception.GatewayException;
 import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.entity.Tenant;
+import com.netra.gateway.service.AdmissionResult;
 import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.AuditLogService;
 import com.netra.gateway.service.CostCalculationService;
+import com.netra.gateway.service.RefusalEscalationService;
 import com.netra.gateway.service.StreamingRelayService;
 import com.netra.gateway.service.TenantAuthService;
 import com.netra.gateway.service.UpstreamClientService;
@@ -37,72 +40,112 @@ public class ChatCompletionController {
     private final AuditLogService auditLogService;
     private final StreamingRelayService streamingRelayService;
     private final com.netra.gateway.service.SemanticCacheService semanticCacheService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RefusalEscalationService refusalEscalationService;
 
     @PostMapping(value = "/chat/completions", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_EVENT_STREAM_VALUE})
     public Object createChatCompletion(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
             @RequestBody(required = false) ChatCompletionRequest request,
+            jakarta.servlet.http.HttpServletRequest servletRequest,
             HttpServletResponse servletResponse
     ) {
         long startTime = System.currentTimeMillis();
         String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        if (servletRequest != null) {
+            servletRequest.setAttribute(RequestContext.REQUEST_ID_ATTR, requestId);
+        }
         String virtualKey = extractVirtualKey(authHeader);
         String requestedModel = request != null ? request.getModel() : null;
         boolean isStream = request != null && Boolean.TRUE.equals(request.getStream());
 
-        Tenant tenant = null;
+        // Java 25 Scoped Values RequestContext (JEP 506): zero-allocation, immutable context propagation
+        RequestContext initialContext = new RequestContext(
+                requestId,
+                virtualKey,
+                null,
+                requestedModel,
+                requestedModel,
+                null,
+                startTime,
+                isStream
+        );
+
         try {
-            // 1. Authenticate Virtual Key (Caffeine L1 + DB fallback)
-            tenant = authService.authenticate(authHeader);
-            virtualKey = tenant.getVirtualKey();
+            return initialContext.call(() -> {
+                // 1. Authenticate Virtual Key (Caffeine L1 + DB fallback)
+                Tenant tenant = authService.authenticate(authHeader);
+                String authenticatedVirtualKey = tenant.getVirtualKey();
 
-            // 2. Validate Request Shape
-            if (request == null) {
-                throw new InvalidRequestException("Request body cannot be null");
-            }
-            if (request.getModel() == null || request.getModel().isBlank()) {
-                throw new InvalidRequestException("Model field is required");
-            }
-            if (request.getMessages() == null || request.getMessages().isEmpty()) {
-                throw new InvalidRequestException("Messages array cannot be empty");
-            }
-
-            // 3. Resolve Candidate Chain (Primary + Fallbacks; runs Prompt Difficulty Classifier for 'auto')
-            UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain(request.getModel(), request.getMessages());
-
-            // 4. Enforce Model Allowlist (Returns 403 if not permitted for this key)
-            authService.validateModelAllowed(tenant, request.getModel());
-
-            // 5. Atomic Redis Lua Admission Check (Zero Over-Admission Guarantee)
-            admissionService.checkAdmission(tenant, requestId);
-
-            // 6. Semantic Vector Cache Lookup (Tenant-Isolated Nearest-Neighbor)
-            java.util.Optional<com.netra.gateway.service.SemanticCacheService.CacheHitResult> cacheHitOpt =
-                    semanticCacheService.lookup(tenant, request.getModel(), request.getMessages());
-
-            if (cacheHitOpt.isPresent()) {
-                com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit = cacheHitOpt.get();
-                if (isStream) {
-                    return streamingRelayService.replayCachedStream(requestId, tenant, request, cacheHit, startTime, servletResponse);
-                } else {
-                    return handleCachedNonStreamingCompletion(requestId, tenant, request, cacheHit, startTime);
+                // 2. Validate Request Shape
+                if (request == null) {
+                    throw new InvalidRequestException("Request body cannot be null");
                 }
-            }
+                if (request.getModel() == null || request.getModel().isBlank()) {
+                    throw new InvalidRequestException("Model field is required");
+                }
+                if (request.getMessages() == null || request.getMessages().isEmpty()) {
+                    throw new InvalidRequestException("Messages array cannot be empty");
+                }
+                if (request.getMaxTokens() != null && request.getMaxTokens() <= 0) {
+                    throw new InvalidRequestException("max_tokens must be a positive integer (got " + request.getMaxTokens() + ")");
+                }
+                if (request.getTemperature() != null && (request.getTemperature() < 0.0 || request.getTemperature() > 2.0)) {
+                    throw new InvalidRequestException("temperature must be between 0.0 and 2.0 (got " + request.getTemperature() + ")");
+                }
 
-            // 7. Handle Streaming vs Non-Streaming Forwarding
-            if (isStream) {
-                return streamingRelayService.streamChatCompletion(requestId, tenant, request, chain, startTime, servletResponse);
-            } else {
-                return handleNonStreamingCompletion(requestId, tenant, request, chain, startTime);
-            }
+                // Bind authenticated tenant into the ScopedValue hierarchy
+                RequestContext tenantContext = initialContext.withTenant(tenant);
+                return ScopedValue.where(RequestContext.CURRENT, tenantContext).call(() -> {
+                    // 3. Resolve Candidate Chain (Primary + Fallbacks; runs Prompt Difficulty Classifier for 'auto')
+                    UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain(request.getModel(), request.getMessages());
+
+                    // 4. Enforce Model Allowlist (Returns 403 if not permitted for this key)
+                    authService.validateModelAllowed(tenant, request.getModel());
+
+                    // 5. Atomic Redis Lua Admission Check (Zero Over-Admission Guarantee)
+                    AdmissionResult admission = admissionService.checkAdmission(tenant, requestId);
+                    if (admission == null) {
+                        admission = AdmissionResult.defaultAdmitted(tenant.getRpmLimit());
+                    }
+
+                    // 6. Semantic Vector Cache Lookup (Two-Tier: Tier 1 Exact Hash + Tier 2 pgvector HNSW)
+                    java.util.Optional<com.netra.gateway.service.SemanticCacheService.CacheHitResult> cacheHitOpt =
+                            semanticCacheService.lookup(tenant, request.getModel(), request.getMessages());
+
+                    if (cacheHitOpt.isPresent()) {
+                        com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit = cacheHitOpt.get();
+                        if (isStream) {
+                            return streamingRelayService.replayCachedStream(requestId, tenant, request, cacheHit, startTime, servletResponse, admission);
+                        } else {
+                            return handleCachedNonStreamingCompletion(requestId, tenant, request, cacheHit, startTime, admission);
+                        }
+                    }
+
+                    // 7. Handle Streaming vs Non-Streaming Forwarding
+                    if (isStream) {
+                        return streamingRelayService.streamChatCompletion(requestId, tenant, request, chain, startTime, servletResponse, admission);
+                    } else {
+                        return handleNonStreamingCompletion(requestId, tenant, request, chain, startTime, admission);
+                    }
+                });
+            });
         } catch (GatewayException ex) {
             long latencyMs = System.currentTimeMillis() - startTime;
             recordRejectionAsync(requestId, virtualKey, requestedModel, ex.getErrorCode(), ex.getStatus().value(), latencyMs, isStream);
             throw ex;
         } catch (Exception ex) {
+            if (ex.getCause() instanceof GatewayException ge) {
+                long latencyMs = System.currentTimeMillis() - startTime;
+                recordRejectionAsync(requestId, virtualKey, requestedModel, ge.getErrorCode(), ge.getStatus().value(), latencyMs, isStream);
+                throw ge;
+            }
             long latencyMs = System.currentTimeMillis() - startTime;
             recordRejectionAsync(requestId, virtualKey, requestedModel, "internal_error", 500, latencyMs, isStream);
-            throw ex;
+            if (ex instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new RuntimeException(ex);
         }
     }
 
@@ -111,7 +154,8 @@ public class ChatCompletionController {
             Tenant tenant,
             ChatCompletionRequest request,
             UpstreamClientService.CandidateChain chain,
-            long startTime
+            long startTime,
+            AdmissionResult admission
     ) {
         UpstreamClientService.UpstreamResult result;
         try {
@@ -127,18 +171,59 @@ public class ChatCompletionController {
             throw new UpstreamException("Upstream provider returned status " + result.getStatusCode());
         }
 
-        long latencyMs = System.currentTimeMillis() - startTime;
-        int promptTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
-        int completionTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+        // Small-Model Refusal & Degradation Auto-Escalation Engine (Phase 7.4)
+        boolean isEscalated = false;
+        int initialPromptTokens = 0;
+        int initialCompletionTokens = 0;
+        BigDecimal initialCost = BigDecimal.ZERO;
 
-        // Compute Cost
-        BigDecimal cost = costService.calculateCost(result.getResolvedModel(), promptTokens, completionTokens);
+        if (refusalEscalationService != null
+                && refusalEscalationService.isEscalatable(result.getTier(), result.getResolvedModel())
+                && refusalEscalationService.isRefusal(response)) {
+            // Issue 7 fix: Respect tenant model allowlist before auto-escalating to smart tier
+            if (authService.isModelAllowed(tenant, "smart")) {
+                try {
+                    log.info("Refusal marker detected from cheap model [{}]. Auto-escalating to smart tier...", result.getResolvedModel());
+                    int prevPromptTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
+                    int prevCompletionTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+                    String prevAccountingModel = result.getCatalogModel() != null ? result.getCatalogModel() : result.getResolvedModel();
+                    BigDecimal prevCost = costService.calculateCost(prevAccountingModel, prevPromptTokens, prevCompletionTokens);
+
+                    UpstreamClientService.UpstreamResult escalatedResult = refusalEscalationService.escalate(request);
+                    result = escalatedResult;
+                    response = result.getResponse();
+                    initialPromptTokens = prevPromptTokens;
+                    initialCompletionTokens = prevCompletionTokens;
+                    initialCost = prevCost;
+                    isEscalated = true;
+                } catch (Exception escEx) {
+                    log.warn("Auto-escalation attempt failed, proceeding with original response: {}", escEx.getMessage());
+                    initialPromptTokens = 0;
+                    initialCompletionTokens = 0;
+                    initialCost = BigDecimal.ZERO;
+                    isEscalated = false;
+                }
+            } else {
+                log.warn("Auto-escalation skipped for tenant [{}] because 'smart' tier is not permitted by model allowlist", tenant.getVirtualKey());
+            }
+        }
+
+        long latencyMs = System.currentTimeMillis() - startTime;
+        int finalPromptTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
+        int finalCompletionTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+        int promptTokens = finalPromptTokens + initialPromptTokens;
+        int completionTokens = finalCompletionTokens + initialCompletionTokens;
+
+        // Compute Cost (escalated smart model cost + initial small model cost)
+        String accountingModel = result.getCatalogModel() != null ? result.getCatalogModel() : result.getResolvedModel();
+        BigDecimal finalCost = costService.calculateCost(accountingModel, finalPromptTokens, finalCompletionTokens);
+        BigDecimal cost = initialCost.add(finalCost);
         String costFormatted = costService.formatCostHeader(cost);
         String providerHeader = result.getResolvedProvider() + "/" + result.getResolvedModel();
         String cacheHeader = "miss";
         String fallbackHeader = String.valueOf(result.isFallback());
 
-        // Construct Headers (Canonical x-netra-*)
+        // Construct Headers (Canonical x-netra-* and IETF RateLimit)
         HttpHeaders headers = new HttpHeaders();
         headers.set("x-netra-provider", providerHeader);
         headers.set("x-netra-cache", cacheHeader);
@@ -148,6 +233,16 @@ public class ChatCompletionController {
             headers.set("x-netra-route-reason", result.getRouteReason());
         }
         headers.set("x-netra-retries", String.valueOf(result.getRetries()));
+        if (isEscalated) {
+            headers.set("x-netra-escalated", "true");
+        }
+
+        if (admission != null) {
+            headers.set("RateLimit-Limit", String.valueOf(admission.limit()));
+            headers.set("RateLimit-Remaining", String.valueOf(admission.remaining()));
+            headers.set("RateLimit-Reset", String.valueOf(admission.resetSeconds()));
+            headers.set("RateLimit-Policy", admission.policy());
+        }
 
         // Async audit log & monthly spend update
         recordAuditAndSpend(
@@ -167,6 +262,8 @@ public class ChatCompletionController {
                 result.getRetries(),
                 latencyMs,
                 false,
+                null,
+                isEscalated,
                 null
         );
 
@@ -183,7 +280,8 @@ public class ChatCompletionController {
             Tenant tenant,
             ChatCompletionRequest request,
             com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit,
-            long startTime
+            long startTime,
+            AdmissionResult admission
     ) {
         long latencyMs = System.currentTimeMillis() - startTime;
         ChatCompletionResponse response = cacheHit.response();
@@ -198,13 +296,21 @@ public class ChatCompletionController {
         HttpHeaders headers = new HttpHeaders();
         headers.set("x-netra-provider", providerHeader);
         headers.set("x-netra-cache", "hit");
+        headers.set("x-netra-cache-tier", cacheHit.cacheTier() != null ? cacheHit.cacheTier() : "tier2_semantic");
         headers.set("x-netra-fallback", "false");
         headers.set("x-netra-cost-usd", "0.000000");
         headers.set("x-netra-route-reason", "semantic_cache_hit");
         headers.set("x-netra-retries", "0");
 
+        if (admission != null) {
+            headers.set("RateLimit-Limit", String.valueOf(admission.limit()));
+            headers.set("RateLimit-Remaining", String.valueOf(admission.remaining()));
+            headers.set("RateLimit-Reset", String.valueOf(admission.resetSeconds()));
+            headers.set("RateLimit-Policy", admission.policy());
+        }
+
         String resolvedProvider = providerHeader.contains("/") ? providerHeader.split("/")[0] : providerHeader;
-        String resolvedModel = response.getModel() != null ? response.getModel() : request.getModel();
+        String resolvedModel = response != null && response.getModel() != null ? response.getModel() : request.getModel();
 
         recordAuditAndSpend(
                 requestId,
@@ -212,7 +318,7 @@ public class ChatCompletionController {
                 request.getModel(),
                 resolvedProvider,
                 resolvedModel,
-                "ok",
+                "cache_hit",
                 200,
                 promptTokens,
                 completionTokens,
@@ -223,14 +329,15 @@ public class ChatCompletionController {
                 0,
                 latencyMs,
                 false,
-                null
+                null,
+                false,
+                cacheHit.cacheTier()
         );
 
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(response);
     }
-
 
     private void recordAuditAndSpend(
             String requestId,
@@ -249,9 +356,12 @@ public class ChatCompletionController {
             int retries,
             long latencyMs,
             boolean isStream,
-            String errorType
+            String errorType,
+            boolean escalated,
+            String cacheTier
     ) {
-        Thread.ofVirtual().name("audit-log-", 0).start(() -> {
+        RequestContext ctx = RequestContext.get();
+        Runnable task = () -> {
             try {
                 auditLogService.recordAuditAndSpend(
                         requestId,
@@ -270,12 +380,15 @@ public class ChatCompletionController {
                         retries,
                         latencyMs,
                         isStream,
-                        errorType
+                        errorType,
+                        escalated,
+                        cacheTier
                 );
             } catch (Exception e) {
                 log.error("Failed to persist request log for [{}]: {}", requestId, e.getMessage());
             }
-        });
+        };
+        Thread.ofVirtual().name("audit-log-", 0).start(ctx != null ? ctx.wrap(task) : task);
     }
 
     private void recordRejectionAsync(
@@ -287,7 +400,8 @@ public class ChatCompletionController {
             long latencyMs,
             boolean isStream
     ) {
-        Thread.ofVirtual().name("rejection-log-", 0).start(() -> {
+        RequestContext ctx = RequestContext.get();
+        Runnable task = () -> {
             try {
                 auditLogService.recordRejection(
                         requestId,
@@ -301,7 +415,8 @@ public class ChatCompletionController {
             } catch (Exception e) {
                 log.warn("Failed to record rejection log for [{}]: {}", requestId, e.getMessage());
             }
-        });
+        };
+        Thread.ofVirtual().name("rejection-log-", 0).start(ctx != null ? ctx.wrap(task) : task);
     }
 
     private String extractVirtualKey(String authHeader) {

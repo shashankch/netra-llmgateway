@@ -10,12 +10,14 @@ import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.AuditLogService;
 import com.netra.gateway.service.CostCalculationService;
+import com.netra.gateway.service.ProviderCircuitBreakerService;
 import com.netra.gateway.service.StreamingRelayService;
 import com.netra.gateway.service.UpstreamClientService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -56,6 +58,9 @@ class StreamingRelayServiceTest {
     @Mock
     private HttpResponse<InputStream> httpResponse;
 
+    @Mock
+    private com.netra.gateway.service.ProviderCircuitBreakerService circuitBreakerService;
+
     private ObjectMapper objectMapper;
     private GatewayConfigProperties configProperties;
     private StreamingRelayService streamingRelayService;
@@ -80,7 +85,9 @@ class StreamingRelayServiceTest {
                 configProperties,
                 costService,
                 admissionService,
-                auditLogService
+                auditLogService,
+                null,
+                circuitBreakerService
         );
 
         testTenant = Tenant.builder()
@@ -91,6 +98,7 @@ class StreamingRelayServiceTest {
                 .build();
 
         testTarget = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
+        when(circuitBreakerService.tryAcquirePermission(anyString())).thenReturn(true);
     }
 
     @Test
@@ -336,6 +344,53 @@ class StreamingRelayServiceTest {
     }
 
     @Test
+    @DisplayName("streamChatCompletion releases breaker permit and rolls back admission on upstream HTTP 400 error")
+    void testUpstreamHttp400ReleasesPermitAndRollsBackAdmission() throws Exception {
+        ProviderCircuitBreakerService cbService = mock(ProviderCircuitBreakerService.class);
+        when(cbService.tryAcquirePermission(anyString())).thenReturn(true);
+
+        StreamingRelayService serviceWithCb = new StreamingRelayService(
+                httpClient,
+                objectMapper,
+                configProperties,
+                costService,
+                admissionService,
+                auditLogService,
+                null,
+                cbService
+        );
+
+        when(httpResponse.statusCode()).thenReturn(400);
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any())).thenReturn(httpResponse);
+
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "Test 400")))
+                .stream(true)
+                .build();
+
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+        UpstreamException thrown = org.junit.jupiter.api.Assertions.assertThrows(
+                UpstreamException.class,
+                () -> serviceWithCb.streamChatCompletion(
+                        "req-test-400",
+                        testTenant,
+                        request,
+                        testTarget,
+                        System.currentTimeMillis(),
+                        servletResponse
+                )
+        );
+
+        assertThat(thrown.getUpstreamStatusCode()).isEqualTo(400);
+        // Verify breaker permit is released, NOT recorded as error
+        verify(cbService).releasePermission("alpha");
+        verify(cbService, never()).recordError(anyString(), anyLong(), any());
+        // Verify admission is rolled back
+        verify(admissionService, timeout(2000)).rollbackAdmission("netra-sk-search-1a2b3c", "req-test-400");
+    }
+
+    @Test
     @DisplayName("streamChatCompletion rolls back rate limit slot and records zero cost when stream drops immediately with zero tokens")
     void testImmediateSeveranceZeroTokensNoCost() throws Exception {
         when(httpResponse.statusCode()).thenReturn(200);
@@ -453,7 +508,72 @@ class StreamingRelayServiceTest {
                 eq(0),
                 anyLong(),
                 eq(true),
-                isNull()
+                isNull(),
+                eq(false),
+                eq("tier2_semantic")
         );
+    }
+
+    @Test
+    @DisplayName("streamChatCompletion waits for first non-empty output delta to record TTFT and ignores empty role events")
+    void testEmptyAssistantRoleEventDoesNotStopTtftTimer() throws Exception {
+        // Stream where first event is empty role header, followed by actual text delta
+        String chunk1 = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n";
+        String chunk2 = "data: {\"choices\":[{\"delta\":{\"content\":\"Real content\"}}]}\n\n";
+        String chunk3 = "data: [DONE]\n\n";
+
+        // Custom InputStream that injects a small delay between chunk1 and chunk2
+        InputStream delayedStream = new InputStream() {
+            private final byte[] bytes1 = chunk1.getBytes(StandardCharsets.UTF_8);
+            private final byte[] bytes2 = (chunk2 + chunk3).getBytes(StandardCharsets.UTF_8);
+            private int pos1 = 0;
+            private int pos2 = 0;
+            private boolean slept = false;
+
+            @Override
+            public int read() {
+                if (pos1 < bytes1.length) {
+                    return bytes1[pos1++] & 0xFF;
+                }
+                if (!slept) {
+                    try {
+                        Thread.sleep(60);
+                    } catch (InterruptedException ignored) {}
+                    slept = true;
+                }
+                if (pos2 < bytes2.length) {
+                    return bytes2[pos2++] & 0xFF;
+                }
+                return -1;
+            }
+        };
+
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenReturn(delayedStream);
+        when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any())).thenReturn(httpResponse);
+        lenient().when(costService.calculateCost(eq("alpha-small"), anyInt(), anyInt())).thenReturn(new BigDecimal("0.000015"));
+
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "Hello")))
+                .stream(true)
+                .build();
+
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+        ResponseBodyEmitter emitter = streamingRelayService.streamChatCompletion(
+                "req-test-ttft",
+                testTenant,
+                request,
+                testTarget,
+                System.currentTimeMillis(),
+                servletResponse
+        );
+
+        assertThat(emitter).isNotNull();
+
+        // Verify circuitBreakerService.recordSuccess was invoked with wait duration >= 50ms (in nanoseconds)
+        ArgumentCaptor<Long> durationCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(circuitBreakerService, timeout(2000)).recordSuccess(eq("alpha"), durationCaptor.capture());
+        assertThat(durationCaptor.getValue()).isGreaterThanOrEqualTo(50_000_000L); // >= 50ms in nanos
     }
 }

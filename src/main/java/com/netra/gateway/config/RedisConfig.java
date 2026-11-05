@@ -25,4 +25,33 @@ public class RedisConfig {
                 List.class
         );
     }
+
+    @Bean
+    public org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer(
+            RedisConnectionFactory connectionFactory,
+            com.netra.gateway.service.TenantAuthService tenantAuthService,
+            com.netra.gateway.service.LogStreamBroadcaster logStreamBroadcaster,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper
+    ) {
+        org.springframework.data.redis.listener.RedisMessageListenerContainer container =
+                new org.springframework.data.redis.listener.RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+
+        container.addMessageListener((message, pattern) -> {
+            try {
+                String virtualKey = new String(message.getBody(), java.nio.charset.StandardCharsets.UTF_8);
+                tenantAuthService.invalidateLocal(virtualKey);
+            } catch (Exception ignored) {}
+        }, new org.springframework.data.redis.listener.ChannelTopic("netra:tenant:invalidation"));
+
+        container.addMessageListener((message, pattern) -> {
+            try {
+                String json = new String(message.getBody(), java.nio.charset.StandardCharsets.UTF_8);
+                com.netra.gateway.model.entity.RequestLog logEntry = objectMapper.readValue(json, com.netra.gateway.model.entity.RequestLog.class);
+                logStreamBroadcaster.broadcastLocally(logEntry);
+            } catch (Exception ignored) {}
+        }, new org.springframework.data.redis.listener.ChannelTopic("netra:logs:broadcast"));
+
+        return container;
+    }
 }

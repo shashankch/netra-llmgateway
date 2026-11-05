@@ -15,6 +15,7 @@ public class GatewayConfigProperties {
 
     private String dataPath = "data";
     private String adminToken = "netra-admin-demo";
+    private boolean seedDemoTenants = true;
     private CurrencyConfig currency = new CurrencyConfig();
     private List<ProviderConfig> providers = new ArrayList<>();
     private Map<String, ModelAliasConfig> modelAliases = new HashMap<>();
@@ -23,7 +24,7 @@ public class GatewayConfigProperties {
 
     @Data
     public static class CurrencyConfig {
-        private double fallbackUsdToInr = 87.50;
+        private double fallbackUsdToInr = 85.00;
         private int cacheTtlHours = 6;
     }
 
@@ -32,6 +33,7 @@ public class GatewayConfigProperties {
         private String name;
         private String baseUrl;
         private String apiKey;
+        private List<String> models = new ArrayList<>();
     }
 
     @Data
@@ -46,6 +48,7 @@ public class GatewayConfigProperties {
         private int maxAttempts = 3;
         private long initialBackoffMs = 200;
         private double backoffMultiplier = 2.0;
+        private long maxChainTimeoutMs = 15000;
     }
 
     @Data
@@ -56,8 +59,17 @@ public class GatewayConfigProperties {
     }
 
     public ProviderConfig getProvider(String providerName) {
+        if (providerName == null) return null;
         return providers.stream()
                 .filter(p -> p.getName().equalsIgnoreCase(providerName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public ProviderConfig findProviderForModel(String modelName) {
+        if (modelName == null) return null;
+        return providers.stream()
+                .filter(p -> p.getModels() != null && p.getModels().contains(modelName))
                 .findFirst()
                 .orElse(null);
     }

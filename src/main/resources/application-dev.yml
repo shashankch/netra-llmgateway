@@ -1,0 +1,34 @@
+# ==============================================================================
+# NETRA LLM Gateway — Development & Mock Verification Profile (dev)
+# ==============================================================================
+netra:
+  seed-demo-tenants: ${NETRA_SEED_DEMO_TENANTS:true}
+  providers:
+    - name: alpha
+      base-url: ${ALPHA_PROVIDER_URL:http://localhost:9001/v1}
+      api-key: ${ALPHA_PROVIDER_API_KEY:mock-key-alpha}
+    - name: beta
+      base-url: ${BETA_PROVIDER_URL:http://localhost:9002/v1}
+      api-key: ${BETA_PROVIDER_API_KEY:mock-key-beta}
+    - name: openrouter
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+      api-key: ${OPENROUTER_API_KEY:}
+
+  model-aliases:
+    fast:
+      primary: ${NETRA_MODEL_ALIASES_FAST_PRIMARY:alpha-small}
+      fallbacks:
+        - ${NETRA_MODEL_ALIASES_FAST_FALLBACK:beta-small}
+    smart:
+      primary: ${NETRA_MODEL_ALIASES_SMART_PRIMARY:alpha-large}
+      fallbacks:
+        - ${NETRA_MODEL_ALIASES_SMART_FALLBACK:beta-large}
+    auto:
+      route-by-difficulty:
+        simple: fast
+        complex: smart
+
+logging:
+  level:
+    com.netra.gateway: INFO
+    org.springframework.web: INFO

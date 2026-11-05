@@ -35,6 +35,64 @@ public class EmbeddingService {
     }
 
     /**
+     * Deterministically normalizes whitespace, line breaks, and Unicode (NFC) across prompt text.
+     */
+    public static String normalizeText(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        // 1. Unicode NFC normalization (replaces decomposed diacritics with composed characters)
+        String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC);
+        // 2. Canonicalize non-breaking spaces (\u00A0, \u2007, \u202F) and carriage returns
+        normalized = normalized.replace('\u00A0', ' ')
+                .replace('\u2007', ' ')
+                .replace('\u202F', ' ')
+                .replace("\r\n", "\n")
+                .replace("\r", "\n");
+        // 3. Collapse multiple spaces and tabs within lines
+        return normalized.replaceAll("[ \\t]+", " ").trim();
+    }
+
+    /**
+     * Canonicalizes text for Tier 1 SHA-256 exact caching while preserving code indentation,
+     * tabs, and spacing (vital for indentation-sensitive languages like Python and YAML).
+     */
+    public static String canonicalizeExactText(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC);
+        return normalized.replace('\u00A0', ' ')
+                .replace('\u2007', ' ')
+                .replace('\u202F', ' ')
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .strip();
+    }
+
+    /**
+     * Extracts exact verbatim text representation for Tier 1 SHA-256 hash calculation,
+     * preserving indentation and code structure.
+     */
+    public String extractExactKeyText(List<ChatMessage> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return "";
+        }
+        if (messages.size() == 1) {
+            Object content = messages.get(0).getContent();
+            return content != null ? canonicalizeExactText(content.toString()) : "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (ChatMessage msg : messages) {
+            String role = msg.getRole() != null ? msg.getRole().toLowerCase() : "user";
+            Object content = msg.getContent();
+            String text = content != null ? canonicalizeExactText(content.toString()) : "";
+            sb.append(role).append(": ").append(text).append("\n");
+        }
+        return sb.toString().strip();
+    }
+
+    /**
      * Normalizes a conversation message list into canonical text representation for caching.
      * Single-turn queries use user text directly; multi-turn queries incorporate history to prevent false hits.
      */
@@ -44,13 +102,13 @@ public class EmbeddingService {
         }
         if (messages.size() == 1) {
             Object content = messages.get(0).getContent();
-            return content != null ? content.toString().trim() : "";
+            return content != null ? normalizeText(content.toString()) : "";
         }
         StringBuilder sb = new StringBuilder();
         for (ChatMessage msg : messages) {
             String role = msg.getRole() != null ? msg.getRole().toLowerCase() : "user";
             Object content = msg.getContent();
-            String text = content != null ? content.toString().trim() : "";
+            String text = content != null ? normalizeText(content.toString()) : "";
             sb.append(role).append(": ").append(text).append("\n");
         }
         return sb.toString().trim();

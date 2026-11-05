@@ -92,6 +92,14 @@ public class RequestLog {
     @Column(name = "error_type", length = 64)
     private String errorType;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean escalated = false;
+
+    @JsonProperty("cache_tier")
+    @Column(name = "cache_tier", length = 32)
+    private String cacheTier;
+
     @JsonProperty("created_at")
     @Column(name = "created_at")
     @Builder.Default

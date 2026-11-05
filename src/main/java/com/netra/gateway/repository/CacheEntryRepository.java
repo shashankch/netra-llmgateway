@@ -58,4 +58,20 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
     void recordHit(@Param("id") UUID id);
 
     long countByVirtualKey(String virtualKey);
+
+    @Query("SELECT c FROM CacheEntry c WHERE (:virtualKey IS NULL OR c.virtualKey = :virtualKey) " +
+           "AND (:search IS NULL OR LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+           "ORDER BY c.createdAt DESC")
+    java.util.List<CacheEntry> findCacheEntries(
+            @Param("virtualKey") String virtualKey,
+            @Param("search") String search,
+            org.springframework.data.domain.Pageable pageable
+    );
+
+    @Query("SELECT COUNT(c) FROM CacheEntry c WHERE (:virtualKey IS NULL OR c.virtualKey = :virtualKey) " +
+           "AND (:search IS NULL OR LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%')))")
+    long countCacheEntries(
+            @Param("virtualKey") String virtualKey,
+            @Param("search") String search
+    );
 }

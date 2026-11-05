@@ -21,7 +21,7 @@ public class CostCalculationService {
     private static final BigDecimal ONE_MILLION = new BigDecimal("1000000");
     private final ModelPricingRepository pricingRepository;
 
-    // L1 in-memory near-cache for model pricing schedules (AUD-02 & P2)
+    // L1 in-memory near-cache for model pricing schedules (High-Throughput Ingress Optimization)
     private final Cache<String, Optional<ModelPricing>> pricingCache = Caffeine.newBuilder()
             .maximumSize(100)
             .expireAfterWrite(Duration.ofMinutes(10))
@@ -32,7 +32,19 @@ public class CostCalculationService {
      * cost = (promptTokens * inputPer1m / 1,000,000) + (completionTokens * outputPer1m / 1,000,000)
      */
     public BigDecimal calculateCost(String model, int promptTokens, int completionTokens) {
-        Optional<ModelPricing> pricingOpt = pricingCache.get(model, pricingRepository::findByModel);
+        if (model == null || model.isBlank()) {
+            return BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP);
+        }
+        Optional<ModelPricing> pricingOpt = pricingCache.get(model, m -> {
+            Optional<ModelPricing> direct = pricingRepository.findByModel(m);
+            if (direct.isPresent() || m.contains("/")) {
+                return direct;
+            }
+            // Check if catalog has a provider-prefixed model ending with "/model"
+            return pricingRepository.findAll().stream()
+                    .filter(p -> p.getModel().endsWith("/" + m))
+                    .findFirst();
+        });
         if (pricingOpt == null || pricingOpt.isEmpty()) {
             log.warn("No pricing found for model [{}], defaulting cost to 0.000000 USD", model);
             return BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP);

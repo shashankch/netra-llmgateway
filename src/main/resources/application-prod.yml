@@ -1,0 +1,73 @@
+# ==============================================================================
+# NETRA LLM Gateway — Enterprise Production Profile (prod)
+# Hardened connection pooling, zero-leak telemetry, and 2026 Frontier Models.
+# ==============================================================================
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:30}
+      minimum-idle: ${HIKARI_MIN_IDLE:10}
+      idle-timeout: 300000
+      connection-timeout: 10000
+      leak-detection-threshold: 20000
+      validation-timeout: 3000
+
+server:
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:400}
+      min-spare: 50
+    connection-timeout: 10000
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/plain,application/javascript,text/css
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+netra:
+  admin-token: ${NETRA_ADMIN_TOKEN:}
+  seed-demo-tenants: ${NETRA_SEED_DEMO_TENANTS:false}
+  providers:
+    # 1. Aggregator Egress (OpenRouter with 500+ frontier models)
+    - name: openrouter
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+      api-key: ${OPENROUTER_API_KEY:}
+
+    # 2. Direct OpenAI Egress (Dedicated direct provider - opt-in when OPENAI_API_KEY is configured)
+    - name: openai
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${OPENAI_API_KEY:}
+
+    # 3. In-VPC / Private Enterprise Endpoint Template (vLLM / Ollama / TGI)
+    - name: vllm-local
+      base-url: ${VLLM_BASE_URL:http://localhost:8000/v1}
+      api-key: ${VLLM_API_KEY:EMPTY}
+      models:
+        - meta-llama/llama-3.3-70b-instruct
+        - mistralai/mistral-7b-instruct
+
+  # Recommended 2026 Frontier Routing Topology
+  model-aliases:
+    fast:
+      primary: ${NETRA_MODEL_ALIASES_FAST_PRIMARY:openrouter:google/gemini-2.0-flash-001}
+      fallbacks:
+        - ${NETRA_MODEL_ALIASES_FAST_FALLBACK:openrouter:openai/gpt-4o-mini}
+    smart:
+      primary: ${NETRA_MODEL_ALIASES_SMART_PRIMARY:openrouter:anthropic/claude-3.5-sonnet}
+      fallbacks:
+        - ${NETRA_MODEL_ALIASES_SMART_FALLBACK:openrouter:openai/o3-mini}
+    auto:
+      route-by-difficulty:
+        simple: fast
+        complex: smart
+
+logging:
+  level:
+    root: INFO
+    com.netra.gateway: INFO
+    org.springframework.web: WARN

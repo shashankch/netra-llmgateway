@@ -20,9 +20,16 @@ local clear_before = now - window
 redis.call("ZREMRANGEBYSCORE", zset_key, "-inf", clear_before)
 local current_rpm = redis.call("ZCARD", zset_key)
 
+local oldest_entry = redis.call("ZRANGE", zset_key, 0, 0, "WITHSCORES")
+local reset_seconds = math.ceil(window / 1000)
+if #oldest_entry >= 2 then
+    local oldest_time = tonumber(oldest_entry[2])
+    reset_seconds = math.max(1, math.ceil(((oldest_time + window) - now) / 1000))
+end
+
 if current_rpm >= rpm_limit then
     redis.call("EXPIRE", zset_key, math.ceil(window / 1000) * 2)
-    return {429, "rate_limit_exceeded", tostring(current_rpm)}
+    return {429, "rate_limit_exceeded", tostring(current_rpm), tostring(reset_seconds)}
 end
 
 -- 2. Monthly Budget Check (budget_cap < 0 represents unlimited budget)
@@ -35,4 +42,5 @@ end
 redis.call("ZADD", zset_key, now, req_id)
 redis.call("EXPIRE", zset_key, math.ceil(window / 1000) * 2)
 
-return {200, "admitted", tostring(current_rpm + 1)}
+local remaining = math.max(0, rpm_limit - (current_rpm + 1))
+return {200, "admitted", tostring(current_rpm + 1), tostring(reset_seconds), tostring(remaining)}

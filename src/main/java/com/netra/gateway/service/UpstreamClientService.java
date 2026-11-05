@@ -30,7 +30,6 @@ import java.util.Optional;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UpstreamClientService {
 
     private final GatewayConfigProperties configProperties;
@@ -38,6 +37,34 @@ public class UpstreamClientService {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final PromptDifficultyClassifier difficultyClassifier;
+    private final ProviderCircuitBreakerService circuitBreakerService;
+
+    public UpstreamClientService(
+            GatewayConfigProperties configProperties,
+            ModelPricingRepository pricingRepository,
+            ObjectMapper objectMapper,
+            HttpClient httpClient,
+            PromptDifficultyClassifier difficultyClassifier
+    ) {
+        this(configProperties, pricingRepository, objectMapper, httpClient, difficultyClassifier, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public UpstreamClientService(
+            GatewayConfigProperties configProperties,
+            ModelPricingRepository pricingRepository,
+            ObjectMapper objectMapper,
+            HttpClient httpClient,
+            PromptDifficultyClassifier difficultyClassifier,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService
+    ) {
+        this.configProperties = configProperties;
+        this.pricingRepository = pricingRepository;
+        this.objectMapper = objectMapper;
+        this.httpClient = httpClient;
+        this.difficultyClassifier = difficultyClassifier;
+        this.circuitBreakerService = circuitBreakerService;
+    }
 
     @Data
     @Builder
@@ -45,6 +72,8 @@ public class UpstreamClientService {
         private ChatCompletionResponse response;
         private String resolvedProvider;
         private String resolvedModel;
+        private String catalogModel;
+        private String tier;
         private boolean fallback;
         private String routeReason;
         private int retries;
@@ -56,10 +85,19 @@ public class UpstreamClientService {
             String providerName,
             String modelName,
             boolean fallback,
-            String routeReason
+            String routeReason,
+            String catalogModelName
     ) {
+        public ResolvedTarget(String providerName, String modelName, boolean fallback, String routeReason) {
+            this(providerName, modelName, fallback, routeReason, null);
+        }
+
         public ResolvedTarget(String providerName, String modelName, boolean fallback) {
-            this(providerName, modelName, fallback, null);
+            this(providerName, modelName, fallback, null, null);
+        }
+
+        public String accountingModel() {
+            return catalogModelName != null && !catalogModelName.isBlank() ? catalogModelName : modelName;
         }
     }
 
@@ -95,39 +133,124 @@ public class UpstreamClientService {
 
             List<ResolvedTarget> targets = new ArrayList<>();
             String primaryModel = aliasConfig.getPrimary();
-            if (primaryModel != null) {
-                String primaryProvider = lookupProviderForModel(primaryModel);
-                targets.add(new ResolvedTarget(primaryProvider, primaryModel, false, routeReason));
+            if (primaryModel != null && !primaryModel.isBlank()) {
+                targets.add(resolveSingleTarget(primaryModel, false, routeReason));
             }
 
             if (aliasConfig.getFallbacks() != null) {
-                for (String fallbackModel : aliasConfig.getFallbacks()) {
-                    String fallbackProvider = lookupProviderForModel(fallbackModel);
-                    targets.add(new ResolvedTarget(fallbackProvider, fallbackModel, true, routeReason));
+                for (String rawFallback : aliasConfig.getFallbacks()) {
+                    if (rawFallback == null || rawFallback.isBlank()) continue;
+                    // Support comma-delimited strings from env vars (e.g. "item1,item2")
+                    for (String fallbackItem : rawFallback.split(",")) {
+                        String trimmed = fallbackItem.trim();
+                        if (!trimmed.isEmpty()) {
+                            targets.add(resolveSingleTarget(trimmed, true, routeReason));
+                        }
+                    }
                 }
             }
 
             return new CandidateChain(requestedModel, chosenTier, routeReason, targets);
         }
 
-        // Direct model lookup in pricing repository
-        Optional<ModelPricing> pricing = pricingRepository.findByModel(requestedModel);
-        if (pricing.isPresent()) {
+        // Direct model lookup or prefixed provider lookup (e.g. "vllm-local:meta-llama/...", "openrouter:deepseek/...")
+        try {
+            ResolvedTarget primary = resolveSingleTarget(requestedModel, false, "direct_model");
             List<ResolvedTarget> targets = new ArrayList<>();
-            String provider = pricing.get().getProvider();
-            targets.add(new ResolvedTarget(provider, requestedModel, false, "direct_model"));
+            targets.add(primary);
 
             // Check if there is an alternative partner provider model for fallback
-            String partnerModel = resolvePartnerModel(requestedModel);
-            if (partnerModel != null && !partnerModel.equals(requestedModel)) {
-                String partnerProvider = lookupProviderForModel(partnerModel);
-                targets.add(new ResolvedTarget(partnerProvider, partnerModel, true, "direct_model"));
+            String partnerModel = resolvePartnerModel(primary.modelName());
+            if (partnerModel != null && !partnerModel.equals(primary.modelName())) {
+                try {
+                    targets.add(resolveSingleTarget(partnerModel, true, "direct_model"));
+                } catch (Exception ignored) {
+                }
             }
 
-            return new CandidateChain(requestedModel, requestedModel, "direct_model", targets);
+            return new CandidateChain(requestedModel, requestedModel, primary.routeReason() != null ? primary.routeReason() : "direct_model", targets);
+        } catch (ModelNotFoundException mnfe) {
+            throw mnfe;
+        } catch (Exception e) {
+            throw new ModelNotFoundException(requestedModel);
+        }
+    }
+
+    /**
+     * Resolves a single model or provider:model specifier into a concrete upstream target.
+     * Differentiates deterministically between In-VPC providers, OpenRouter, and direct vendor APIs:
+     * 1. Explicit colon syntax: "provider:model" (e.g. "vllm-local:meta-llama/llama-3.3-70b-instruct")
+     * 2. Explicit slash prefix matching a configured provider name (e.g. "vllm-local/meta-llama/...")
+     * 3. Configured provider model affinity (provider.models list)
+     * 4. Pricing catalog lookup
+     * 5. Aggregator / OpenRouter passthrough for multi-vendor namespaces (e.g. "google/gemini-2.0-flash-001")
+     */
+    public ResolvedTarget resolveSingleTarget(String modelSpec, boolean isFallback, String routeReason) {
+        if (modelSpec == null || modelSpec.isBlank()) {
+            throw new ModelNotFoundException("Empty model specification");
         }
 
-        throw new ModelNotFoundException(requestedModel);
+        // 1. Check for explicit "provider:model" syntax
+        if (modelSpec.contains(":")) {
+            int colonIdx = modelSpec.indexOf(":");
+            String providerCandidate = modelSpec.substring(0, colonIdx).trim();
+            String innerModel = modelSpec.substring(colonIdx + 1).trim();
+            GatewayConfigProperties.ProviderConfig providerCfg = configProperties.getProvider(providerCandidate);
+            if (providerCfg != null) {
+                // External paid aggregators require known pricing to enforce tenant budgets and prevent unmetered spend
+                if ("openrouter".equalsIgnoreCase(providerCfg.getName()) && pricingRepository.findByModel(innerModel).isEmpty() && pricingRepository.findByModel(modelSpec).isEmpty()) {
+                    throw new ModelNotFoundException("Model '" + innerModel + "' on provider '" + providerCfg.getName()
+                            + "' is not in the pricing catalog. Known prices are required to enforce tenant budgets.");
+                }
+                String catalogModel = pricingRepository.findByModel(modelSpec).isPresent() ? modelSpec
+                        : (pricingRepository.findByModel(providerCandidate + "/" + innerModel).isPresent() ? (providerCandidate + "/" + innerModel)
+                        : (pricingRepository.findByModel(innerModel).isPresent() ? innerModel : modelSpec));
+                return new ResolvedTarget(providerCfg.getName(), innerModel, isFallback, routeReason != null ? routeReason : "explicit_provider", catalogModel);
+            }
+        }
+
+        // 2. Check for explicit "provider/model" syntax if the first segment matches a registered provider
+        if (modelSpec.contains("/")) {
+            int slashIdx = modelSpec.indexOf("/");
+            String prefix = modelSpec.substring(0, slashIdx).trim();
+            GatewayConfigProperties.ProviderConfig providerCfg = configProperties.getProvider(prefix);
+            if (isProviderActiveForDirectRouting(providerCfg)) {
+                String innerModel = modelSpec.substring(slashIdx + 1).trim();
+                // External paid aggregators require known pricing to enforce tenant budgets and prevent unmetered spend
+                if ("openrouter".equalsIgnoreCase(providerCfg.getName()) && pricingRepository.findByModel(innerModel).isEmpty() && pricingRepository.findByModel(modelSpec).isEmpty()) {
+                    throw new ModelNotFoundException("Model '" + innerModel + "' on provider '" + providerCfg.getName()
+                            + "' is not in the pricing catalog. Known prices are required to enforce tenant budgets.");
+                }
+                String catalogModel = pricingRepository.findByModel(modelSpec).isPresent() ? modelSpec
+                        : (pricingRepository.findByModel(prefix + "/" + innerModel).isPresent() ? (prefix + "/" + innerModel)
+                        : (pricingRepository.findByModel(innerModel).isPresent() ? innerModel : modelSpec));
+                return new ResolvedTarget(providerCfg.getName(), innerModel, isFallback, routeReason != null ? routeReason : "explicit_provider", catalogModel);
+            }
+        }
+
+        // 3. Check if any configured In-VPC provider explicitly advertises this model
+        GatewayConfigProperties.ProviderConfig advertisedProvider = configProperties.findProviderForModel(modelSpec);
+        if (advertisedProvider != null) {
+            return new ResolvedTarget(advertisedProvider.getName(), modelSpec, isFallback, routeReason != null ? routeReason : "provider_model_affinity");
+        }
+
+        // 4. Check if model exists in pricing repository
+        Optional<ModelPricing> pricing = pricingRepository.findByModel(modelSpec);
+        if (pricing.isPresent()) {
+            String provider = pricing.get().getProvider();
+            if (configProperties.getProvider(provider) == null && configProperties.getProvider("openrouter") != null) {
+                provider = "openrouter";
+            }
+            return new ResolvedTarget(provider, modelSpec, isFallback, routeReason != null ? routeReason : "catalog_model");
+        }
+
+        // 5. Direct prefix convention (e.g. alpha-small -> alpha, beta-small -> beta)
+        String fallbackProvider = lookupProviderForModel(modelSpec);
+        if (configProperties.getProvider(fallbackProvider) != null) {
+            return new ResolvedTarget(fallbackProvider, modelSpec, isFallback, routeReason != null ? routeReason : "prefix_model");
+        }
+
+        throw new ModelNotFoundException("Model '" + modelSpec + "' is not recognized or unpriced in the catalog. Known pricing is required to prevent unmetered spend.");
     }
 
     /**
@@ -143,35 +266,103 @@ public class UpstreamClientService {
     public UpstreamResult forwardWithFailover(ChatCompletionRequest request, CandidateChain chain) {
         int totalRetries = 0;
         Exception lastException = null;
+        long chainStartTime = System.currentTimeMillis();
+        long maxChainTimeoutMs = configProperties.getRetry().getMaxChainTimeoutMs();
 
         for (int i = 0; i < chain.targets().size(); i++) {
             ResolvedTarget target = chain.targets().get(i);
             boolean isFallback = i > 0;
+
+            long elapsed = System.currentTimeMillis() - chainStartTime;
+            if (elapsed >= maxChainTimeoutMs) {
+                log.error("Candidate chain deadline of {}ms exceeded (elapsed: {}ms) before dispatching to target [{}]",
+                        maxChainTimeoutMs, elapsed, target.providerName());
+                throw new UpstreamException("Candidate chain deadline exceeded (" + elapsed + "ms)");
+            }
+
+            // Resilience4j Circuit Breaker pre-check: fast-fail in <0.05ms if circuit is OPEN (non-consuming)
+            if (circuitBreakerService != null && !circuitBreakerService.isCallPermitted(target.providerName())) {
+                log.warn("Fast-failing target [{}] because circuit breaker is OPEN", target.providerName());
+                totalRetries++;
+                continue;
+            }
 
             int maxAttempts = configProperties.getRetry().getMaxAttempts();
             long initialBackoff = configProperties.getRetry().getInitialBackoffMs();
             double multiplier = configProperties.getRetry().getBackoffMultiplier();
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                long currentElapsed = System.currentTimeMillis() - chainStartTime;
+                long remainingBudgetMs = Math.max(10, maxChainTimeoutMs - currentElapsed);
+                if (currentElapsed >= maxChainTimeoutMs) {
+                    log.error("Candidate chain deadline of {}ms exceeded (elapsed: {}ms) at attempt {}/{} for target [{}]",
+                            maxChainTimeoutMs, currentElapsed, attempt, maxAttempts, target.providerName());
+                    throw new UpstreamException("Candidate chain deadline exceeded (" + currentElapsed + "ms)");
+                }
+
+                // Resilience4j Circuit Breaker check: acquire exactly 1 permission per actual attempt
+                if (circuitBreakerService != null && !circuitBreakerService.tryAcquirePermission(target.providerName())) {
+                    log.warn("Fast-failing attempt {}/{} to target [{}] because circuit breaker is OPEN",
+                            attempt, maxAttempts, target.providerName());
+                    totalRetries++;
+                    break;
+                }
+
+                long startNanos = System.nanoTime();
                 try {
-                    UpstreamResult res = forwardNonStreaming(request, target);
+                    UpstreamResult res = forwardNonStreaming(request, target, remainingBudgetMs);
+                    if (circuitBreakerService != null) {
+                        circuitBreakerService.recordSuccess(target.providerName(), System.nanoTime() - startNanos);
+                    }
                     res.setRetries(totalRetries);
                     res.setFallback(isFallback);
                     res.setRouteReason(target.routeReason());
+                    res.setTier(chain.chosenTier());
                     return res;
                 } catch (UpstreamException ue) {
+                    boolean isRequestSpecific = ue.isRequestSpecificError();
+                    boolean isThrottled = ue.isThrottled();
+                    if (!isRequestSpecific && circuitBreakerService != null) {
+                        circuitBreakerService.recordError(target.providerName(), System.nanoTime() - startNanos, ue);
+                    }
                     lastException = ue;
-                    log.warn("Attempt {}/{} to provider [{}] for model [{}] failed: {}",
-                            attempt, maxAttempts, target.providerName(), target.modelName(), ue.getMessage());
+                    log.warn("Attempt {}/{} to provider [{}] for model [{}] failed (status {}): {}",
+                            attempt, maxAttempts, target.providerName(), target.modelName(), ue.getUpstreamStatusCode(), ue.getMessage());
+
+                    // Request-specific errors (400 Bad Request, 422 Unprocessable) are client input errors - abort chain
+                    if (isRequestSpecific) {
+                        if (circuitBreakerService != null) {
+                            circuitBreakerService.releasePermission(target.providerName());
+                        }
+                        throw ue;
+                    }
+
+                    // Temporary provider throttling (HTTP 429) triggers immediate failover to next provider in candidate chain
+                    if (isThrottled && i < chain.targets().size() - 1) {
+                        if (circuitBreakerService != null) {
+                            circuitBreakerService.releasePermission(target.providerName());
+                        }
+                        log.warn("Provider [{}] throttled request (HTTP 429). Triggering immediate failover to next candidate in chain...", target.providerName());
+                        totalRetries++;
+                        break;
+                    }
 
                     if (attempt < maxAttempts || i < chain.targets().size() - 1) {
                         totalRetries++;
                     }
                     if (attempt < maxAttempts) {
-                        sleepBackoff(initialBackoff, multiplier, attempt);
+                        long rem = maxChainTimeoutMs - (System.currentTimeMillis() - chainStartTime);
+                        if (rem <= 50) {
+                            log.error("Candidate chain remaining budget {}ms is insufficient for backoff; aborting chain early", rem);
+                            throw new UpstreamException("Candidate chain deadline exceeded (" + (System.currentTimeMillis() - chainStartTime) + "ms)");
+                        }
+                        sleepBackoff(initialBackoff, multiplier, attempt, rem);
                         continue;
                     }
                 } catch (Exception e) {
+                    if (circuitBreakerService != null) {
+                        circuitBreakerService.recordError(target.providerName(), System.nanoTime() - startNanos, e);
+                    }
                     lastException = e;
                     log.warn("Attempt {}/{} to provider [{}] encountered unexpected exception: {}",
                             attempt, maxAttempts, target.providerName(), e.getMessage());
@@ -180,7 +371,12 @@ public class UpstreamClientService {
                         totalRetries++;
                     }
                     if (attempt < maxAttempts) {
-                        sleepBackoff(initialBackoff, multiplier, attempt);
+                        long rem = maxChainTimeoutMs - (System.currentTimeMillis() - chainStartTime);
+                        if (rem <= 50) {
+                            log.error("Candidate chain remaining budget {}ms is insufficient for backoff; aborting chain early", rem);
+                            throw new UpstreamException("Candidate chain deadline exceeded (" + (System.currentTimeMillis() - chainStartTime) + "ms)");
+                        }
+                        sleepBackoff(initialBackoff, multiplier, attempt, rem);
                         continue;
                     }
                 }
@@ -199,10 +395,20 @@ public class UpstreamClientService {
     }
 
     /**
-     * Forwards non-streaming chat completion to a concrete target with a strict 3-second timeout.
+     * Forwards non-streaming chat completion to a concrete target with default 3-second timeout.
      */
     public UpstreamResult forwardNonStreaming(ChatCompletionRequest request, ResolvedTarget target) {
+        return forwardNonStreaming(request, target, 3000L);
+    }
+
+    /**
+     * Forwards non-streaming chat completion to a concrete target with a dynamically budgeted timeout.
+     */
+    public UpstreamResult forwardNonStreaming(ChatCompletionRequest request, ResolvedTarget target, long remainingBudgetMs) {
         GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(target.providerName());
+        if (providerConfig == null && configProperties.getProvider("openrouter") != null) {
+            providerConfig = configProperties.getProvider("openrouter");
+        }
         if (providerConfig == null) {
             throw new UpstreamException("Provider '" + target.providerName() + "' is not configured in gateway registry");
         }
@@ -219,13 +425,14 @@ public class UpstreamClientService {
                 .build();
 
         long startTime = System.currentTimeMillis();
+        long httpTimeoutMs = Math.max(50L, Math.min(3000L, remainingBudgetMs));
         try {
             String jsonBody = objectMapper.writeValueAsString(upstreamPayload);
 
             HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(targetUrl))
                     .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(3))
+                    .timeout(Duration.ofMillis(httpTimeoutMs))
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
 
             if (providerConfig.getApiKey() != null && !providerConfig.getApiKey().isBlank()) {
@@ -240,7 +447,7 @@ public class UpstreamClientService {
                 String responseBody = httpResponse.body() != null && httpResponse.body().length() > 500
                         ? httpResponse.body().substring(0, 500) + "... [truncated]"
                         : httpResponse.body();
-                throw new UpstreamException("Upstream provider '" + target.providerName() + "' returned HTTP " + httpResponse.statusCode() + ": " + responseBody);
+                throw new UpstreamException(httpResponse.statusCode(), "Upstream provider '" + target.providerName() + "' returned HTTP " + httpResponse.statusCode() + ": " + responseBody);
             }
 
             ChatCompletionResponse chatResponse = objectMapper.readValue(httpResponse.body(), ChatCompletionResponse.class);
@@ -249,6 +456,7 @@ public class UpstreamClientService {
                     .response(chatResponse)
                     .resolvedProvider(target.providerName())
                     .resolvedModel(target.modelName())
+                    .catalogModel(target.accountingModel())
                     .fallback(target.fallback())
                     .routeReason(target.routeReason())
                     .latencyMs(latencyMs)
@@ -270,6 +478,44 @@ public class UpstreamClientService {
                 .orElseGet(() -> modelName.contains("-") ? modelName.split("-")[0] : modelName);
     }
 
+    private boolean isProviderActiveForDirectRouting(GatewayConfigProperties.ProviderConfig providerCfg) {
+        if (providerCfg == null) {
+            return false;
+        }
+        if (providerCfg.getApiKey() != null && !providerCfg.getApiKey().isBlank()) {
+            return true;
+        }
+        return isPrivateProvider(providerCfg);
+    }
+
+    private boolean isPrivateProvider(GatewayConfigProperties.ProviderConfig providerCfg) {
+        if (providerCfg == null) {
+            return false;
+        }
+        String name = providerCfg.getName() != null ? providerCfg.getName().toLowerCase() : "";
+        String url = providerCfg.getBaseUrl() != null ? providerCfg.getBaseUrl().toLowerCase() : "";
+
+        // Known public cloud providers require credentials
+        if ("openai".equals(name) || "anthropic".equals(name) || "openrouter".equals(name)
+                || url.contains("api.openai.com") || url.contains("api.anthropic.com") || url.contains("openrouter.ai")) {
+            return false;
+        }
+
+        // In-VPC, local, on-prem, or private endpoints do not require credentials
+        return url.contains("localhost")
+                || url.contains("127.0.0.1")
+                || url.contains(".local")
+                || url.contains(".internal")
+                || url.contains(".vpc")
+                || url.contains(".cluster.local")
+                || url.startsWith("http://")
+                || name.contains("local")
+                || name.contains("vllm")
+                || name.contains("ollama")
+                || name.contains("internal")
+                || name.contains("vpc");
+    }
+
     private String resolvePartnerModel(String modelName) {
         if ("alpha-small".equals(modelName)) return "beta-small";
         if ("beta-small".equals(modelName)) return "alpha-small";
@@ -278,10 +524,14 @@ public class UpstreamClientService {
         return null;
     }
 
-    private void sleepBackoff(long initialBackoffMs, double multiplier, int attempt) {
+    private void sleepBackoff(long initialBackoffMs, double multiplier, int attempt, long remainingBudgetMs) {
         long delay = (long) (initialBackoffMs * Math.pow(multiplier, attempt - 1));
+        long cappedDelay = Math.min(delay, Math.max(0, remainingBudgetMs - 50));
+        if (cappedDelay <= 0) {
+            return;
+        }
         try {
-            Thread.sleep(Math.max(10, delay));
+            Thread.sleep(Math.max(10, cappedDelay));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
