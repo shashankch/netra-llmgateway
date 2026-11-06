@@ -1,0 +1,134 @@
+<svg width="1000" height="460" viewBox="0 0 1000 460" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Arrowhead markers -->
+    <marker id="arr-ent-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748B"/>
+    </marker>
+    <marker id="arr-ent-lime" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D2F823"/>
+    </marker>
+    <marker id="arr-ent-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38BDF8"/>
+    </marker>
+
+    <!-- Drop Shadow Filter -->
+    <filter id="shadow-ent-dark" x="-6%" y="-6%" width="112%" height="112%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1000" height="460" rx="14" fill="#06070A"/>
+  <rect x="0.5" y="0.5" width="999" height="459" rx="13.5" stroke="#18202F" stroke-width="1"/>
+
+  <!-- Diagram Title & Eyebrow -->
+  <text x="35" y="32" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" letter-spacing="1.5px">ENTERPRISE ARCHITECTURE · CLOUD DEPLOYMENT TOPOLOGY</text>
+  <text x="35" y="52" fill="#F8FAFC" font-family="Inter, -apple-system, sans-serif" font-size="16" font-weight="800" letter-spacing="-0.4px">High-Availability Multi-Zone Ingress &amp; Data Plane</text>
+
+  <!-- ==================== TIER 1: CLIENTS & ENTERPRISE INGRESS ==================== -->
+  <g transform="translate(35, 75)">
+    <!-- Container outline -->
+    <rect width="930" height="74" rx="8" fill="#0A0D14" stroke="#18202F" filter="url(#shadow-ent-dark)"/>
+    <rect x="16" y="-8" width="160" height="16" rx="3" fill="#06070A"/>
+    <text x="96" y="3" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">ENTERPRISE EDGE INGRESS</text>
+
+    <!-- Ingress Service Item 1: Applications -->
+    <g transform="translate(16, 14)">
+      <rect width="210" height="46" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="12" y="20" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11" font-weight="700">Client Applications &amp; Microservices</text>
+      <text x="12" y="34" fill="#94A3B8" font-family="'JetBrains Mono', monospace" font-size="9">POST /v1/chat/completions (HTTPS)</text>
+    </g>
+
+    <!-- Connector within Tier 1 -->
+    <path d="M 235 37 H 255" stroke="#38BDF8" stroke-width="1.5" marker-end="url(#arr-ent-cyan)"/>
+
+    <!-- Ingress Service Item 2: Enterprise Edge Ingress -->
+    <g transform="translate(265, 14)">
+      <rect width="645" height="46" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="16" y="20" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11" font-weight="700">Enterprise Load Balancer &amp; WAF Layer</text>
+      <text x="16" y="34" fill="#94A3B8" font-family="'JetBrains Mono', monospace" font-size="9">AWS ALB · Azure App Gateway / Front Door · Cloudflare Enterprise · Envoy</text>
+      <rect x="520" y="14" width="110" height="18" rx="4" fill="#18202F"/>
+      <text x="575" y="26" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">TLS 1.3 · DDoS WAF</text>
+    </g>
+  </g>
+
+  <!-- Flow Arrow from Ingress to Gateway Fleet -->
+  <path d="M 500 150 V 178" stroke="#38BDF8" stroke-width="1.8" marker-end="url(#arr-ent-cyan)"/>
+  <text x="510" y="167" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="600">Private VPC Ingress</text>
+
+  <!-- ==================== TIER 2: STATELESS GATEWAY POD CLUSTER (FOCAL TIER) ==================== -->
+  <g transform="translate(35, 185)">
+    <rect width="930" height="105" rx="8" fill="#0A0D14" stroke="#D2F823" stroke-width="1.5" filter="url(#shadow-ent-dark)"/>
+    <rect x="16" y="-8" width="280" height="16" rx="3" fill="#06070A"/>
+    <text x="156" y="3" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="800" text-anchor="middle" letter-spacing="1px">STATELESS GATEWAY FLEET (EKS · AKS · GKE · ECS)</text>
+
+    <!-- Pod 1 -->
+    <g transform="translate(20, 20)">
+      <rect width="205" height="66" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="12" y="22" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">NETRA Pod 1</text>
+      <text x="12" y="38" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">Java 25 Loom Threads</text>
+      <text x="12" y="52" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">Sub-0.5ms Proxy Overhead</text>
+    </g>
+
+    <!-- Pod 2 -->
+    <g transform="translate(245, 20)">
+      <rect width="205" height="66" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="12" y="22" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">NETRA Pod 2</text>
+      <text x="12" y="38" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">Java 25 Loom Threads</text>
+      <text x="12" y="52" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">Unbuffered SSE Streaming</text>
+    </g>
+
+    <!-- Pod 3 -->
+    <g transform="translate(470, 20)">
+      <rect width="205" height="66" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="12" y="22" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">NETRA Pod 3</text>
+      <text x="12" y="38" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">Java 25 Loom Threads</text>
+      <text x="12" y="52" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">In-Process ONNX Embedding</text>
+    </g>
+
+    <!-- Auto-scale Pod N -->
+    <g transform="translate(695, 20)">
+      <rect width="215" height="66" rx="6" fill="#0D111A" stroke="#38BDF8" stroke-dasharray="3,3"/>
+      <text x="12" y="22" fill="#38BDF8" font-family="Inter, sans-serif" font-size="12" font-weight="700">NETRA Pod N (HPA)</text>
+      <text x="12" y="38" fill="#94A3B8" font-family="'JetBrains Mono', monospace" font-size="9">Horizontal Pod Autoscaler</text>
+      <text x="12" y="52" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Scaled by Concurrency / RPM</text>
+    </g>
+  </g>
+
+  <!-- Connectors from Gateway Fleet to Backing Tiers -->
+  <path d="M 200 290 V 322" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-ent-gray)"/>
+  <path d="M 500 290 V 322" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-ent-gray)"/>
+  <path d="M 800 290 V 322" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-ent-gray)"/>
+
+  <!-- ==================== TIER 3: MANAGED CLOUD PERSISTENCE (MULTI-AZ) ==================== -->
+  <g transform="translate(35, 330)">
+    <rect width="930" height="105" rx="8" fill="#0A0D14" stroke="#18202F" filter="url(#shadow-ent-dark)"/>
+    <rect x="16" y="-8" width="260" height="16" rx="3" fill="#06070A"/>
+    <text x="146" y="3" fill="#64748B" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1px">MANAGED MULTI-AZ BACKING INFRASTRUCTURE</text>
+
+    <!-- Storage 1: Distributed Admission Control -->
+    <g transform="translate(20, 18)">
+      <rect width="285" height="70" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="14" y="22" fill="#DC382D" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700">Redis 8.0 Cluster</text>
+      <text x="14" y="38" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="10" font-weight="600">AWS ElastiCache · Azure Managed Redis · GCP</text>
+      <text x="14" y="52" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">Sliding-Window Lua Scripts · 0.00% Over-Admission</text>
+    </g>
+
+    <!-- Storage 2: Managed Vector DB -->
+    <g transform="translate(322, 18)">
+      <rect width="285" height="70" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="14" y="22" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700">PostgreSQL 18 (pgvector)</text>
+      <text x="14" y="38" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="10" font-weight="600">AWS Aurora PostgreSQL · Azure PG · Cloud SQL</text>
+      <text x="14" y="52" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">Multi-AZ Read Replicas · HNSW Indexing (384-dim)</text>
+    </g>
+
+    <!-- Storage 3: Cloud KMS & Secret Vault -->
+    <g transform="translate(625, 18)">
+      <rect width="285" height="70" rx="6" fill="#0D111A" stroke="#253046"/>
+      <text x="14" y="22" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700">Secrets Manager &amp; Vault</text>
+      <text x="14" y="38" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="10" font-weight="600">AWS Secrets Manager · Azure Key Vault · HashiCorp</text>
+      <text x="14" y="52" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">Dynamic Master Key Rotation · Envelope Encryption</text>
+    </g>
+  </g>
+
+</svg>

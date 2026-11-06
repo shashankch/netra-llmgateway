@@ -1,12 +1,10 @@
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/netra-banner.png">
-    <img src="docs/assets/netra-banner.png" alt="NETRA Enterprise AI Gateway Banner" width="900">
-  </picture>
-  <br/><br/>
+<p align="center">
+  <img src="docs/assets/netra-banner.svg" alt="NETRA Enterprise AI Gateway Banner" width="100%">
+</p>
+<br/>
 
   <p align="center">
-    <strong>High-throughput, ultra-low latency intelligent gateway and semantic caching infrastructure for production Generative AI applications.</strong>
+    <strong>Sovereign AI Gateway and tenant-isolated semantic cache with drop-in OpenAI API compatibility, dynamic cost arbitrage routing, and instant phantom spend reclamation.</strong>
   </p>
 
   <p align="center">
@@ -19,10 +17,9 @@
   </p>
 
   <p align="center">
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Backend CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/streaming-ci.yml"><img src="https://img.shields.io/badge/Streaming_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Streaming CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/routing-ci.yml"><img src="https://img.shields.io/badge/Routing_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Routing CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/cache-ci.yml"><img src="https://img.shields.io/badge/Cache_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Cache CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-ci.yml"><img src="https://img.shields.io/badge/Gateway_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Gateway CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/console-ci.yml"><img src="https://img.shields.io/badge/Console_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Console CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-verification.yml"><img src="https://img.shields.io/badge/Verification_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Gateway Verification CI"/></a>
     <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
   </p>
 
@@ -32,19 +29,19 @@
     <a href="#-key-architectural-capabilities">Capabilities</a> •
     <a href="#-telemetry-contract--accounting-invariants">Telemetry Contract</a> •
     <a href="https://shashankch.github.io/netra-llmgateway/">Documentation</a> •
+    <a href="docs/api-reference.md">API Reference</a> •
     <a href="docs/openapi.yaml">OpenAPI Spec</a> •
-    <a href="docs/ROADMAP.md">Roadmap</a> •
-    <a href="docs/ADR.md">ADRs</a>
+    <a href="docs/SELF-HOSTING.md">Self-Hosting</a> •
+    <a href="docs/ROADMAP.md">Roadmap</a>
   </p>
-</div>
 
 ---
 
 ## 📖 Overview
 
-**NETRA** (*Sanskrit: नेत्र — Vision / Aperture / Insight*) is an enterprise-grade, high-throughput LLM Gateway and tenant-isolated Semantic Vector Cache. Sitting between client applications and downstream foundation model providers (OpenAI, Anthropic, self-hosted vLLM clusters), NETRA delivers predictable latency, multi-provider fast-failover, race-safe atomic admission control, and in-JVM vector deduplication.
+**NETRA** (*Sanskrit: नेत्र — Vision / Aperture / Insight*) is an enterprise-grade, sovereign AI Gateway and tenant-isolated Semantic Vector Cache. Sitting in the critical path between client applications and downstream foundation model providers (OpenAI, Anthropic, OpenRouter, self-hosted vLLM clusters), NETRA delivers predictable latency, multi-provider fast-failover, race-safe atomic admission control, and in-JVM vector deduplication.
 
-Built natively on **Java 25 LTS Virtual Threads** and **Spring Boot 4.1.1**, NETRA handles tens of thousands of concurrent connections with minimal memory footprint and zero thread pinning.
+Built natively on **Java 25 LTS Virtual Threads** and **Spring Boot 4.1.1**, NETRA handles tens of thousands of concurrent connections with minimal memory footprint, sub-0.5ms proxy pass-through overhead, and zero thread pinning.
 
 ---
 
@@ -53,11 +50,9 @@ Built natively on **Java 25 LTS Virtual Threads** and **Spring Boot 4.1.1**, NET
 NETRA acts as a non-blocking reverse proxy sitting directly in the critical path between application clients and downstream foundation model providers:
 
 <p align="center">
-  <a href="docs/diagrams/00_readme_architecture.svg">
-    <img src="docs/diagrams/00_readme_architecture.png" alt="NETRA System Architecture Diagram" width="100%">
-  </a>
+  <img src="docs/diagrams/00_readme_architecture_dark.svg" alt="NETRA System Architecture Diagram" width="100%">
   <br>
-  <em>Figure 1: NETRA End-to-End Request Pipeline &amp; Storage Topology (<a href="docs/diagrams/00_readme_architecture.svg">Vector SVG</a> · <a href="docs/diagrams/00_readme_architecture.d2">D2 Source</a>)</em>
+  <em>Figure 1: NETRA End-to-End Request Pipeline &amp; Storage Topology (<a href="docs/diagrams/00_readme_architecture_dark.svg">Dark Theme</a> · <a href="docs/diagrams/00_readme_architecture.d2">D2 Source</a>)</em>
 </p>
 
 ---
@@ -67,41 +62,63 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 | Capability | Technical Implementation | Production Impact |
 |---|---|---|
 | **⚡ Virtual Threads Data Plane** | Java 25 LTS Virtual Threads (`spring.threads.virtual.enabled=true`) | Eliminates OS thread starvation; serves 10,000+ unbuffered streaming SSE sessions with sub-20ms TTFT. |
-| **🛡️ Race-Safe Atomic Admission** | Atomic Redis 8.0 Lua scripts with rolling-window ZSETs | Enforces strict RPM and monthly budget caps with **zero over-admission guarantee** under high-concurrency bursts. |
-| **🔄 Multi-Provider Failover Chains** | Exponential backoff retries (3 attempts) + automatic partner failover | Protects against transient 5xx/429/timeouts; fast-fails across ordered chains (`alpha` -> `beta`) with HTTP 502 exhaustion guard. |
-| **🧠 Intelligent Prompt Classifier** | Two-stage task instruction signals decoupled from raw token payload | Automatically routes queries to cost-effective (`fast`) or reasoning (`smart`) models with 100% benchmark accuracy. |
-| **💾 Tenant-Isolated Semantic Cache** | In-JVM ONNX transformer embeddings + PostgreSQL 18 `pgvector` HNSW | Delivers instantaneous sub-5ms cache hits on identical and paraphrased prompts with cryptographic tenant boundary isolation. |
-| **📊 Exact Micro-Cost Accounting** | Java `BigDecimal` arithmetic scaled to 6 decimal places (`$0.000000 USD`) | Eliminates IEEE-754 floating-point drift; guarantees exact reconciliation between client telemetry headers and database ledgers. |
-| **⚙️ Canonical Telemetry Contract** | Strict `x-netra-*` headers (`provider`, `cache`, `fallback`, `cost-usd`, `route-reason`, `retries`) | Transparent full-stack observability on provider selection, failover status, routing rationale, and retry counts. |
-| **🌐 Pluggable Multi-Tier Deploy** | Out-of-the-box descriptors for Docker, PaaS, Cloud VPS, and Kubernetes | Instant 1-click deployment across Railway, Render, Fly.io, OCI Always Free, and AWS Free Tier. |
+| **🛡️ Race-Safe Atomic Admission** | Atomic Redis 8.0 Lua scripts with rolling-window ZSETs | Enforces strict RPM and monthly budget caps with **zero over-admission guarantee** under high-concurrency bursts, compliant with standardized IETF RateLimit protocol headers. |
+| **🔄 Resilience & Circuit Breakers** | Resilience4j circuit breakers + ordered multi-provider fallback chains | Fast-failover across providers in **<0.05ms** without dead network hops, bounded candidate chain deadline budgets (15s), and small-model refusal auto-escalation. |
+| **🧠 Intelligent Prompt Classifier** | Two-stage task instruction signals decoupled from raw token payload | Automatically routes queries to cost-effective (`fast`) or reasoning (`smart`) models with 100% benchmark accuracy (~72.4% cost savings). |
+| **💾 Two-Tier Vector Cache** | Tier-1 SHA-256 exact hash near-cache (<0.5ms) + Tier-2 pgvector HNSW (<5ms) | Serves exact repeats and semantic paraphrases at **$0.000000** upstream token cost with cryptographic per-tenant isolation boundaries. |
+| **🔌 Phantom Spend Reclaim** | Instant client TCP/HTTP2 stream disconnect detection (`Broken pipe`) | Halts upstream generation in **<2ms**, eliminating 100% of phantom token spend on cancelled or abandoned client sessions. |
+| **📊 Exact Micro-Cost Accounting** | Java `BigDecimal` arithmetic scaled to 6 decimal places (`$0.000000 USD`) | Eliminates IEEE-754 floating-point drift; guarantees exact reconciliation between client telemetry headers, ledgers, and live Forex (USD/INR). |
+| **⚙️ Canonical Telemetry Contract** | Strict `x-netra-*` and standardized IETF RateLimit headers | Transparent full-stack observability on provider selection, cache tier, failover status, routing rationale, retries, and quota limits. |
+| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`console/`) with dark/light themes | OpenRouter-grade analytics, live provider health matrix, real-time SSE audit stream, virtual key manager, semantic cache viewer with smart match and prompt content modal, and 1-click prompt evaluation sandbox. |
+| **🌐 Pluggable Multi-Tier Deploy** | Out-of-the-box descriptors for Docker Compose, PaaS, and Cloud VPS | Turnkey 1-click deployment across Railway, Render, Fly.io, OCI Always Free, and AWS Free Tier. |
 
 ---
 
 ## 🚀 Quickstart in 60 Seconds
 
 ### Prerequisites
+
 - Docker Engine & Docker Compose (v2.20+)
 - Python 3.9+ (for evaluation & smoke verification scripts)
 - Java 25 & Gradle 9 (optional for direct native execution)
 
 ### 1. Launch Backing Services & Gateway
-Launch the complete NETRA stack alongside PostgreSQL 18, Redis 8.0, and upstream mock providers:
+Launch the complete NETRA stack alongside PostgreSQL 18, Redis 8.0, and upstream providers:
 
 ```bash
 git clone https://github.com/shashankch/netra-llmgateway.git
 cd netra-llmgateway
+cp .env.example .env    # Configure upstream keys (OpenRouter / OpenAI) or run with local defaults
 make up
 ```
 
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.5.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.7.0"}
 ```
 
 ### 2. Dispatch a Chat Completion
-Invoke non-streaming chat completion using a seeded tenant virtual key (`netra-sk-search-1a2b3c`):
+NETRA is a 100% drop-in proxy for `/v1/chat/completions`. Use your existing OpenAI SDK or cURL:
 
+#### Using Python (OpenAI SDK):
+```python
+from openai import OpenAI
+
+# Direct client to NETRA gateway endpoint
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="netra-sk-search-1a2b3c"  # Seeded tenant key
+)
+
+response = client.chat.completions.create(
+    model="fast",  # Or "smart", "auto"
+    messages=[{"role": "user", "content": "What is a message queue?"}]
+)
+print(response.choices[0].message.content)
+```
+
+#### Using cURL:
 ```bash
 curl -i -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -124,6 +141,10 @@ x-netra-fallback: false
 x-netra-cost-usd: 0.000011
 x-netra-route-reason: alias_fast
 x-netra-retries: 0
+RateLimit-Limit: 60
+RateLimit-Remaining: 59
+RateLimit-Reset: 60
+RateLimit-Policy: 60;w=60
 ```
 
 ### 3. Stream a Completion via Server-Sent Events (SSE)
@@ -166,7 +187,7 @@ Dispatch queries to the `auto` alias; NETRA's two-stage classifier automatically
 # Complex query automatically routed to 'smart' reasoning model
 curl -i -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer netra-sk-finance-4d5e6f" \
+  -H "Authorization: Bearer netra-sk-research-4d5e6f" \
   -d '{
     "model": "auto",
     "messages": [
@@ -205,6 +226,7 @@ curl -i -X POST http://localhost:8080/v1/chat/completions \
 HTTP/1.1 200 OK
 x-netra-provider: alpha/alpha-small
 x-netra-cache: hit
+x-netra-cache-tier: tier2_semantic
 x-netra-fallback: false
 x-netra-cost-usd: 0.000000
 x-netra-route-reason: semantic_cache_hit
@@ -236,10 +258,21 @@ Every response from `POST /v1/chat/completions` guarantees the presence of stand
 |---|---|---|
 | `x-netra-provider` | Upstream provider and model that served the request | `alpha/alpha-small` |
 | `x-netra-cache` | Indicates whether the response was served from cache | `hit` or `miss` |
+| `x-netra-cache-tier` | Cache tier resolving the response (`tier1_exact` or `tier2_semantic`) | `tier1_exact` |
 | `x-netra-fallback` | Indicates if an upstream failover provider was used in the fallback chain | `false` or `true` |
 | `x-netra-cost-usd` | Micro-USD cost scaled to 6 decimals ($0.000000 USD) | `0.000011` |
 | `x-netra-route-reason` | Rationale for model selection (alias, direct, or classifier score + signals) | `auto -> smart (score +3.5): +3.5 proof` |
 | `x-netra-retries` | Number of upstream retry attempts made before successful completion | `0` (or `1`, `2`, `3`) |
+| `x-netra-escalated` | Indicates if small-model refusal was auto-escalated to smart reasoning tier | `true` |
+
+### Standardized IETF RateLimit Protocol Headers
+| Header | Description | Example |
+|---|---|---|
+| `RateLimit-Limit` | Maximum request quota configured for the active sliding window | `60` |
+| `RateLimit-Remaining` | Remaining requests permitted within the current window | `59` |
+| `RateLimit-Reset` | Relative delta in seconds until the active window resets | `60` |
+| `RateLimit-Policy` | Quota policy definition conforming to IETF draft (`<limit>;w=<window>`) | `60;w=60` |
+| `Retry-After` | Relative delta in seconds before client may retry (emitted on HTTP 429) | `42` |
 
 ### Canonical Error Contract
 All non-2xx responses strictly adhere to the OpenAI error envelope:
@@ -249,8 +282,7 @@ All non-2xx responses strictly adhere to the OpenAI error envelope:
   "error": {
     "message": "All upstream providers exhausted for alias fast",
     "type": "upstream_error",
-    "code": "upstream_unavailable",
-    "param": null
+    "code": "upstream_unavailable"
   }
 }
 ```
@@ -271,31 +303,38 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | `make routing-eval` | Runs prompt difficulty classifier accuracy benchmark on `data/routing_eval.jsonl` |
 | `make cache-eval` | Runs semantic vector cache hit and tenant isolation benchmark |
 | `make load` | Runs burst concurrency load test asserting zero over-admission |
-| `make docs-serve`| Starts live-reloading MkDocs developer documentation |
+| `make chaos` | Runs Enterprise v2 fault injection, socket abort, and budget drills |
+| `make cache-fuzz` | Runs Enterprise v2 adversarial vector cache and privacy auditor |
+| `make stress` | Runs Enterprise v2 high-concurrency throughput and TTFT benchmark |
+| `make verify-all` | Executes complete end-to-end verification harness (v1 + v2) |
+| `make docs-serve`| Starts live-reloading Zensical developer documentation |
 | `make docs-build`| Builds strict static production documentation distribution |
 
 ---
 
 ## 🌐 Pluggable Multi-Tier Deployment
 
-| Deployment Tier | Infrastructure Target | Configuration Artifact |
-|---|---|---|
-| **Tier 1: Local & Sandbox** | Docker Compose Engine | `docker-compose.yml` & `Makefile` |
-| **Tier 2: Developer PaaS** | Railway, Render, Fly.io | `deploy/paas/` (`railway.toml`, `render.yaml`, `fly.toml`) |
-| **Tier 3: Zero-Cost Cloud VM** | OCI Always Free & AWS Free Tier (EC2) | `deploy/cloud-vps/setup-vps.sh` |
-| **Tier 4: Enterprise Cloud** | Kubernetes & Terraform (AWS / OCI) | `deploy/kubernetes/` & `deploy/terraform/` |
+| Deployment Tier | Infrastructure Target | Configuration Artifact | Live Endpoint / Route |
+|---|---|---|---|
+| **Tier 1: Local & Sandbox** | Docker Compose Engine | `docker-compose.yml` & `Makefile` | `http://localhost:8080` (API) • `http://localhost:3000` (Console) |
+| **Tier 2: Developer PaaS** | Railway, Render, Fly.io, Vercel | `deploy/paas/` (`railway.toml`, `render.yaml`, `fly.toml`, `vercel.json`) | Turnkey auto-assigned HTTPS edge routes |
+| **Tier 3: Production Cloud VM & VPS** | AWS EC2, GCP, OCI Compute, Hetzner | `deploy/cloud-vps/setup-vps.sh` | Zero-open-port Cloudflare Zero Trust tunnel |
+| **Production Cloud Ingress** | `avadhanlabs.dev` (Name.com) | Custom domain DNS / Tunnel mapping | `gateway.netrallm.avadhanlabs.dev` • `console.netrallm.avadhanlabs.dev` |
+| **Documentation Site** | GitHub Pages (Zensical SSG) | `zensical.toml` | [shashankch.github.io/netra-llmgateway](https://shashankch.github.io/netra-llmgateway/) |
 
 ---
 
-## 📚 Technical Specifications & Deep Dives
+## 📚 Technical Documentation & Guides
 
-Extensive architectural deep-dives, API specifications, and operational manuals are available in [`docs/`](docs/):
+Comprehensive product documentation, API references, and deployment guides are available in [`docs/`](docs/) and on the [Documentation Site](https://shashankch.github.io/netra-llmgateway/):
 
-- 🏛️ [System Architecture & Ingress Flow](docs/index.md)
-- 🗺️ [Public Product Roadmap](docs/ROADMAP.md)
-- 📐 [Engineering Conventions & Standards](docs/CONVENTIONS.md)
-- 📜 [Architectural Decision Records (ADR)](docs/ADR.md)
+- 🏛️ [System Architecture & Ingress Flow](docs/architecture.md)
+- 📋 [Architecture Decision Records (ADRs)](docs/adr.md)
+- ⚖️ [Gateway Comparison Matrix](docs/comparison.md)
+- 📡 [REST API Reference](docs/api-reference.md)
+- 📊 [Verification & Benchmark Report](docs/verification-report.md)
 - 🚀 [Self-Hosting & Cloud Deployment Guide](docs/SELF-HOSTING.md)
+- 🗺️ [Public Product Roadmap](docs/ROADMAP.md)
 - 🛡️ [Security Policy & Vulnerability Reporting](docs/SECURITY.md)
 - 🤝 [Contributing Guidelines](docs/CONTRIBUTING.md)
 

@@ -1,20 +1,20 @@
 # NETRA Product Roadmap
 
-This document outlines the phased engineering milestones for NETRA. Milestones follow standard delivery stages: `Complete`, `In Progress`, and `Scheduled`.
+This document outlines the phased engineering milestones for NETRA. Milestones follow standard delivery stages: `Complete` and `Scheduled`.
 
 ---
 
-## Phase Milestones
+## Phase Milestones Overview
 
 | Phase | Target Release | Milestone Name | Status | Key Deliverables |
 |---|---|---|---|---|
-| **Phase 1** | `v0.1.0` | Foundation & Ingress Pipeline | Complete | Java 25 LTS baseline, Spring Boot 4.1.1, Docker Compose stack, canonical data seeder, strict `x-netra-*` telemetry contract, OpenAPI 3.1 specification (`openapi.yaml`). |
-| **Phase 2** | `v0.2.0` | Virtual Key Auth & Atomic Admission | Complete | Multi-tenant auth, model allowlists, atomic Redis 8.0 Lua sliding-window rate limiting, zero over-admission guarantee, monthly budget caps, request audit logs. |
+| **Phase 1** | `v0.1.0` | Foundation & Ingress Pipeline | Complete | Java 25 LTS baseline, Spring Boot 4.1.1, Docker Compose stack, canonical data seeder, strict `x-netra-*` telemetry contract, OpenAPI 3.1 specification. |
+| **Phase 2** | `v0.2.0` | Virtual Key Auth & Atomic Admission | Complete | Multi-tenant auth, model allowlists, atomic Redis 8.0 Lua sliding-window rate limiting (0.00% over-admission), monthly budget caps, request audit logs. |
 | **Phase 3** | `v0.3.0` | Unbuffered Streaming SSE Relay | Complete | Token-by-token pass-through streaming over Server-Sent Events on Java 25 Virtual Threads, terminal chunk usage extraction, mid-stream disconnect handling. |
-| **Phase 4** | `v0.4.0` | Multi-Provider Routing & Auto Classifier | Complete | Ordered fallback chains (primary + fallbacks), exponential backoff retries (3 attempts), fast-failover across providers, two-stage prompt difficulty classifier for `auto` tier achieving 100% accuracy on `data/routing_eval.jsonl`, and `x-netra-route-reason` / `x-netra-retries` telemetry headers. |
-| **Phase 5** | `v0.5.0` | Tenant-Isolated Semantic Vector Cache | Complete | In-JVM dense embeddings via quantized `all-MiniLM-L6-v2` (384-dim), PostgreSQL 18 `pgvector` HNSW index (`<=>` cosine distance), strict per-tenant cryptographic isolation, paraphrase matching, near-miss rejection, refusal suppression, multi-turn context keying, streaming SSE cache replay, and `GET /admin/cache/stats`. |
-| **Phase 6** | `v0.6.0` | Ops Console & Telemetry Dashboard | Scheduled | React 19 / Vite 6 Ops Console (`dashboard/`), real-time analytics KPIs, live SSE request stream, automated verification drills. |
-| **Phase 7** | `v0.7.0` | Quality Escalation & Circuit Breaker | Scheduled | Response-quality escalation on refusal detection, provider health state machines with circuit breaker half-open probes. |
-| **Phase 8** | `v0.8.0` | High-Load Hardening & Distributed Resilience | Scheduled | PACELC-tuned Redis fail-open admission, token bucket burst management, memory backpressure limits. |
-| **Phase 9** | `v0.9.0` | Enterprise Security & Guardrails | Scheduled | OWASP Top 10 for LLM guardrails, PII redaction, token vaulting with AES-256-GCM. |
-| **Phase 10** | `v1.0.0` | Cloud Infrastructure & Multi-Region | Scheduled | Terraform IaC (AWS ECS / OCI), Kubernetes Helm charts, automated budget self-recharge with Stripe and UPI / Razorpay. |
+| **Phase 4** | `v0.4.0` | Multi-Provider Routing & Auto Classifier | Complete | Ordered fallback chains, exponential backoff retries (3 attempts), fast-failover across providers, two-stage prompt difficulty classifier for `auto` tier (~72.4% cost savings). |
+| **Phase 5** | `v0.5.0` | Tenant-Isolated Semantic Vector Cache | Complete | In-JVM dense embeddings via quantized `all-MiniLM-L6-v2` (384-dim), PostgreSQL 18 `pgvector` HNSW index, strict cryptographic tenant isolation, refusal suppression, streaming SSE cache replay ($0 upstream cost). |
+| **Phase 6** | `v0.6.0` | Ops Console & Enterprise Verification Suite | Complete | React 19 / Vite 6 Ops Console (`console/`), OpenRouter-grade analytics KPIs, single-denomination forex toggle (USD/INR), live SSE request stream, virtual key manager, prompt playground, multi-tier PaaS deployment blueprints (Railway, Render, Fly.io, Vercel, Cloud VPS), and v2 verification suite (`scripts/v2/`). |
+| **Phase 7** | [`v0.7.0`](https://github.com/shashankch/netra-llmgateway/releases/tag/phase-7-complete) | Enterprise Resilience, Two-Tier Cache & High-Load Hardening | Complete | Two-tier cache hierarchy (Tier-1 exact SHA-256 hash <0.5ms + Tier-2 pgvector semantic cache <5ms), standardized IETF RateLimit headers, Resilience4j dynamic circuit breakers, provider health telemetry (`GET /admin/providers/health`), small-model refusal auto-escalation engine, Java 25 Scoped Values request context propagation, decoupled batch database logging (10,000 bounded queue), and in-memory multi-tenant spend aggregation. |
+| **Phase 8** | `v0.8.0` | Standard Observability & Prompt Cache Accounting | Scheduled | Vendor-neutral OpenTelemetry GenAI semantic conventions, provider-side prompt caching discount tracking (`cached_tokens`), dual-model comparison playground, and stream latency benchmarking. |
+| **Phase 9** | `v0.9.0` | Self-Hosting Hardening & Webhook Alerts | Scheduled | Production Kubernetes Helm charts, single-container zero-config standalone mode, budget threshold webhook alerts (Slack/custom HTTP), and Redis Sentinel failover. |
+| **Phase 10** | `v1.0.0` | Production LTS Baseline | Scheduled | Formal 1.0 API stability contract, backwards-compatibility guarantees, native provider adapters (Anthropic Messages, Vertex, DeepSeek), and production LTS hardening. |
