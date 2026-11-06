@@ -1,11 +1,11 @@
-# Railway Deployment Template for NETRA Gateway
+# Railway Deployment Template for NETRA Gateway (2026 Edition)
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "java -XX:+UseZGC -XX:+EnableDynamicAgentLoading -jar app.jar"
+startCommand = "java -XX:+UseZGC -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError org.springframework.boot.loader.launch.JarLauncher"
 healthcheckPath = "/health"
 healthcheckTimeout = 15
-restartPolicyType = "ON_FAILURE"
+restartPolicyType = "on-failure"
 restartPolicyMaxRetries = 10

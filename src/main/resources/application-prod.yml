@@ -38,18 +38,18 @@ netra:
       base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
       api-key: ${OPENROUTER_API_KEY:}
 
-    # 2. Direct OpenAI Egress (Dedicated direct provider - opt-in when OPENAI_API_KEY is configured)
-    - name: openai
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
-      api-key: ${OPENAI_API_KEY:}
+    # 2. Direct OpenAI Egress (Dedicated direct provider - uncomment when OPENAI_API_KEY is configured)
+    # - name: openai
+    #   base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    #   api-key: ${OPENAI_API_KEY:}
 
-    # 3. In-VPC / Private Enterprise Endpoint Template (vLLM / Ollama / TGI)
-    - name: vllm-local
-      base-url: ${VLLM_BASE_URL:http://localhost:8000/v1}
-      api-key: ${VLLM_API_KEY:EMPTY}
-      models:
-        - meta-llama/llama-3.3-70b-instruct
-        - mistralai/mistral-7b-instruct
+    # 3. In-VPC / Private Enterprise Endpoint Template (vLLM / Ollama / TGI - uncomment when local host is deployed)
+    # - name: vllm-local
+    #   base-url: ${VLLM_BASE_URL:http://localhost:8000/v1}
+    #   api-key: ${VLLM_API_KEY:EMPTY}
+    #   models:
+    #     - meta-llama/llama-3.3-70b-instruct
+    #     - mistralai/mistral-7b-instruct
 
   # Recommended 2026 Frontier Routing Topology
   model-aliases:

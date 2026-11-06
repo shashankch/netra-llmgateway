@@ -3,19 +3,47 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ${NETRA_GATEWAY_IMAGE:-ghcr.io/shashankch/netra-gateway:latest}
     container_name: netra-gateway
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${NETRA_BIND_IP:-0.0.0.0}:8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/netra
-      - SPRING_DATASOURCE_USERNAME=netra
-      - SPRING_DATASOURCE_PASSWORD=netra
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/netra}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-netra}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-netra}
+      - SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST:-redis}
+      - SPRING_DATA_REDIS_PORT=${SPRING_DATA_REDIS_PORT:-6379}
       - ALPHA_PROVIDER_URL=http://mock-alpha:9001/v1
       - BETA_PROVIDER_URL=http://mock-beta:9002/v1
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://localhost:8000/v1}
+      - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
       - NETRA_DATA_PATH=data
+      - NETRA_ADMIN_TOKEN=${NETRA_ADMIN_TOKEN:-netra-admin-demo}
+      - NETRA_SEED_DEMO_TENANTS=${NETRA_SEED_DEMO_TENANTS:-true}
+      # Model Aliases & Route Overrides (Forwarded without mock defaults)
+      - NETRA_MODEL_ALIASES_FAST_PRIMARY
+      - NETRA_MODEL_ALIASES_FAST_FALLBACK
+      - NETRA_MODEL_ALIASES_SMART_PRIMARY
+      - NETRA_MODEL_ALIASES_SMART_FALLBACK
+      # Resilience & Deadlines
+      - NETRA_RETRY_MAX_ATTEMPTS
+      - NETRA_RETRY_INITIAL_BACKOFF_MS
+      - NETRA_RETRY_BACKOFF_MULTIPLIER
+      - NETRA_RETRY_MAX_CHAIN_TIMEOUT_MS
+      # Currency
+      - NETRA_CURRENCY_FALLBACK_USD_TO_INR
+      - NETRA_CURRENCY_CACHE_TTL_HOURS
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./data:/app/data:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,15 +65,15 @@ services:
     container_name: netra-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${NETRA_INTERNAL_BIND_IP:-127.0.0.1}:5432:5432"
     environment:
-      POSTGRES_DB: netra
-      POSTGRES_USER: netra
-      POSTGRES_PASSWORD: netra
+      POSTGRES_DB: ${POSTGRES_DB:-netra}
+      POSTGRES_USER: ${SPRING_DATASOURCE_USERNAME:-netra}
+      POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-netra}
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U netra -d netra"]
+      test: ["CMD-SHELL", "pg_isready -U $${SPRING_DATASOURCE_USERNAME:-netra} -d $${POSTGRES_DB:-netra}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -55,7 +83,7 @@ services:
     container_name: netra-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${NETRA_INTERNAL_BIND_IP:-127.0.0.1}:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -67,7 +95,7 @@ services:
     container_name: netra-mock-alpha
     restart: unless-stopped
     ports:
-      - "9001:9001"
+      - "${NETRA_INTERNAL_BIND_IP:-127.0.0.1}:9001:9001"
     volumes:
       - ./scripts:/scripts:ro
     command: python3 /scripts/mock_provider.py --port 9001 --name alpha
@@ -77,10 +105,35 @@ services:
     container_name: netra-mock-beta
     restart: unless-stopped
     ports:
-      - "9002:9002"
+      - "${NETRA_INTERNAL_BIND_IP:-127.0.0.1}:9002:9002"
     volumes:
       - ./scripts:/scripts:ro
     command: python3 /scripts/mock_provider.py --port 9002 --name beta
+
+  console:
+    build:
+      context: ./console
+      dockerfile: Dockerfile
+    container_name: netra-console
+    restart: unless-stopped
+    ports:
+      - "${NETRA_BIND_IP:-0.0.0.0}:3000:3000"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: netra-cloudflared
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command: tunnel --no-autoupdate run
+    depends_on:
+      gateway:
+        condition: service_healthy
+    profiles:
+      - tunnel
 
 volumes:
   pgdata:
