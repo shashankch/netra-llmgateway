@@ -45,6 +45,7 @@ jobs:
       - name: Build Documentation Site via Zensical
         run: |
           zensical build --clean --strict
+          if [ -f docs/CNAME ]; then cp docs/CNAME site/CNAME; fi
 
       - name: Upload GitHub Pages Artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
