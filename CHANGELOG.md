@@ -9,86 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.1] - 2026-11-08 — Enterprise Resilience, Console Modernization & Ingress Polish
 
-### 🚀 Added & Improved
+### 🚀 Gateway & Resilience
+- **High-Precedence CORS**: Registered `CorsFilter` bean (`Ordered.HIGHEST_PRECEDENCE`) to permit cross-subdomain API calls and expose all `x-netra-*` and IETF `RateLimit-*` headers.
+- **Circuit Breaker & Telemetry**: Exposed live provider health telemetry (`GET /admin/providers/health`) and separated cache hits ($0) from outbound model egress calls (`upstream ok · err`).
+- **Safe Pagination Bounds**: Capped offset calculations in `AdminController` to prevent integer overflow on large offsets.
+- **Compilation Fix**: Added missing `java.util.List` import in `CostCalculationService.java`.
 
-- **High-Precedence CORS Filter (`CorsFilter` Ordered.HIGHEST_PRECEDENCE)**:
-  - Registered dedicated `FilterRegistrationBean<CorsFilter>` intercepting preflight `OPTIONS` and cross-origin requests before Spring MVC or security dispatcher layers.
-  - Prevents browser CORS drops across disparate subdomains (`console-netrallm.avadhanlabs.dev` -> `gateway-netrallm.avadhanlabs.dev`).
-  - Fully exposes all `x-netra-*` canonical headers, IETF `RateLimit-*` draft headers, and pagination headers (`X-Total-Count`, `X-Page-Number`, `X-Page-Size`, `X-Total-Pages`).
-- **Modernized Prompt Playground Controls (`/playground`)**:
-  - Upgraded sidebar with 1-click model alias selection badges (`fast` ⚡ Sub-200ms, `smart` 🧠 Deep Reasoning, `auto` 🎯 Dynamic Arbiter) with active visual states.
-  - Introduced segmented "Stream" vs "JSON" slider pill switch.
-  - Added grouped evaluation benchmark scenarios: Semantic Cache Paraphrase Pairs (Pair A/B), Near-Miss Boundary Rejection, Complex Reasoning & Induction, and Direct Factual Lookup.
-  - Cleaned up prompt header by removing distorted preset badges and obsolete hero latency badges.
-- **Upstream Provider Fleet Telemetry & Executive Health Status**:
-  - Redesigned Overview provider fleet view with an Executive Health Status card for primary configurations.
-  - Added explicit upstream call telemetry (`upstream ok · err`) cleanly separating raw requests that hit the cache ($0) from requests requiring outbound model egress.
-  - Prioritized provider grid sorting by circuit state and volume.
-- **Hardened Streaming Semantic Cache Capture**:
-  - Enhanced SSE streaming relay parser in `StreamingRelayService` to recognize all EOF and `[DONE]` variants (`data: [DONE]`, `data:[DONE]`, suffix termination).
-  - Added clean socket closure fallback capturing streamed completions into pgvector semantic cache even when upstream providers terminate without an explicit `[DONE]` sentinel chunk.
-- **Sub-1% Spend Display Precision & Visual Visibility**:
-  - Added `<1%` spend badge in Virtual Keys table for non-zero micro-cent expenditures.
-  - Enforced a minimum 3% progress bar width for positive spend, ensuring immediate visual feedback.
-- **Health Probe Deduplication & Resilient State Management**:
-  - Deduplicated concurrent health check probes in `console/src/config/api.js` using a shared in-flight promise to prevent background request bursts across components.
-- **Safe Integer Pagination Bounds**:
-  - Implemented safe offset bounds calculation in `AdminController.java` (`Math.min(calcOffset, (long) Integer.MAX_VALUE - maxLimit)`) preventing arithmetic overflow on large cursor offsets.
-- **Cloudflare Universal SSL Single-Level Hyphenated Ingress**:
-  - Migrated cloud endpoints from double-level subdomains to single-level hyphenated hostnames (`gateway-netrallm.avadhanlabs.dev` and `console-netrallm.avadhanlabs.dev`) to ensure 100% compatibility with Cloudflare Free Tier wildcard SSL certificates.
-- **Cloud VM Automated Docker Compose Elevation**:
-  - Added automatic fallback to `sudo docker compose` in `setup-vps.sh` for fresh VM provisioning environments where group privileges have not refreshed in the active shell.
-- **Documentation Sovereign Custom Domain (`docs-netrallm.avadhanlabs.dev`)**:
-  - Configured sovereign custom domain via GitHub Pages CNAME (`docs-netrallm.avadhanlabs.dev`).
-  - Synchronized documentation links, OpenAPI servers, banner SVGs, and operations console links across all public and internal assets.
-- **Operations Console Port 3000 Enforcement & Dropdown Ergonomics**:
-  - Enforced deterministic port 3000 binding (`strictPort: true`) in Vite development configuration.
-  - Refined Playground select controls with proper vertical centering and aligned offline fallback models with production alias configurations.
-- **Cost Calculation Catalog Lookup Compilation Fix**:
-  - Added missing `java.util.List` import in `CostCalculationService.java` to resolve CI build failure during containerized compile.
-- **Operations Console UI Serving & Deployment Documentation**:
-  - Added concise, step-by-step UI deployment guides covering Docker Compose, standalone Vite development (`make console-dev`), production preview (`make console-serve`), and edge CDN hosting in README, documentation site, and self-hosting guides.
-- **Documentation CI CNAME Preservation & DNS Guidance**:
-  - Ensured `docs/CNAME` is explicitly copied to `site/CNAME` in the documentation build workflow (`.github/workflows/docs.yml`).
-  - Added Cloudflare DNS Only guidance to prevent SSL Handshake Error 525 during GitHub Pages TLS certificate issuance.
+### 🖥️ Operations Console
+- **Playground Ergonomics**: Modernized sidebar with 1-click model alias badges (`fast`, `smart`, `auto`), segmented Stream/JSON slider, and grouped benchmark test scenarios.
+- **Dropdown Centering**: Fixed `<select>` vertical text clipping across Playground dropdowns (`height: 38px`, `lineHeight: 1.4`).
+- **Port 3000 Enforcement**: Configured deterministic port binding (`strictPort: true`) in Vite development configuration.
+- **Spend Visualization**: Added `<1%` spend badge and enforced 3% minimum progress bar visibility for non-zero micro-spend in Virtual Keys table.
+- **Health Probe Deduplication**: Merged concurrent background health checks via a shared in-flight promise.
+
+### 🌐 Ingress & Documentation
+- **Universal SSL Ingress**: Migrated cloud endpoints to single-level hyphenated hostnames (`gateway-netrallm.avadhanlabs.dev`, `console-netrallm.avadhanlabs.dev`, `docs-netrallm.avadhanlabs.dev`) for Cloudflare wildcard SSL compatibility.
+- **Documentation Custom Domain**: Configured `docs-netrallm.avadhanlabs.dev` via GitHub Pages CNAME with CI preservation in `.github/workflows/docs.yml`.
+- **UI Deployment Guides**: Documented step-by-step console serving workflows across Docker Compose, standalone Vite (`make console-dev`, `make console-serve`), and edge CDN hosting.
+- **Automated Sudo Elevation**: Added fallback to `sudo docker compose` in `setup-vps.sh` for non-root shell provisioning.
 
 ---
 
 ## [0.7.0] - 2026-11-03 — Phase 7: Resilience, Two-Tier Cache & High-Load Hardening
 
-### 🚀 Added
-
-- **Java 25 Scoped Values Context Propagation (JEP 506)**:
-  - Introduced unified request context utilizing finalized Java 25 `ScopedValue` instead of `ThreadLocal`.
-  - Guarantees zero-allocation, immutable, and thread-safe context sharing across virtual thread execution trees and child worker tasks without memory leaks or thread pool pollution.
-  - Automatically propagates `requestId`, `virtualKey`, `tenant` entity, `requestedModel`, `selectedModel`, `resolvedProvider`, `startTimeMs`, and streaming flags throughout the ingress pipeline.
-- **PostgreSQL Connection Pool & HikariCP Protection Under Heavy Load**:
-  - Decoupled database audit logging from ingress virtual threads via an in-memory bounded batch buffer (10,000 capacity).
-  - Implemented background scheduled batch worker flushing multi-row `INSERT` statements to PostgreSQL every 250ms or 100 entries, completely shielding the HikariCP connection pool under 10,000+ virtual thread ingress bursts.
-  - Integrated batch spend aggregation that groups spend items by tenant and billing month, eliminating database write amplification by up to 90%.
-  - Added dropped log counter metrics protecting against out-of-memory errors during persistent database outages.
-  - Added graceful `@PreDestroy` shutdown hook and non-blocking synchronous flush hook for reliable testing.
-- **Two-Tier Cache Hierarchy**:
-  - Tier-1 Exact Match Near-Cache: In-memory Caffeine L1 + Redis 8 L2 keying (`netra:cache:exact:{virtualKey}:{model}:{sha256}`) computing canonical SHA-256 hash over normalized prompt to bypass vector models entirely with sub-0.5ms latency and $0 compute cost.
-  - Tier-2 Semantic Vector Cache: PostgreSQL 18 `pgvector` HNSW nearest-neighbor cosine similarity matching for paraphrased queries (<5ms) with automated back-population of Tier-1 on hits.
-  - Granular telemetry header `x-netra-cache-tier: tier1_exact` or `tier2_semantic`.
-- **IETF Standardized RateLimit Protocol Headers (`draft-ietf-httpapi-ratelimit-headers`)**:
-  - Full additive compliance with modern RFC draft headers: `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset` (relative delta seconds, immune to clock drift), `RateLimit-Policy`, and HTTP 429 `Retry-After`.
-- **Resilience4j Dynamic Circuit Breaker & Provider Health Telemetry (`GET /admin/providers/health`)**:
-  - Sliding-window error rate and slow call latency monitoring per upstream provider (`alpha`, `beta`, `openrouter`, `vllm-local`).
-  - Automated fast-failover diverting traffic to fallback providers in <0.05ms when circuit is `OPEN`, eliminating upstream timeout stalls.
-  - Provider health snapshot API exposing live circuit states (`CLOSED`, `OPEN`, `HALF_OPEN`), rolling error rates %, slow call rates %, and p95 latencies.
-- **Small-Model Refusal & Degradation Auto-Escalation Engine**:
-  - Automatic detection of small-model refusal signatures (`[refuse]`, `"I'm sorry, but I can't help with that"`, and empty degraded responses) from cheap tiers (`alpha-small`, `beta-small`).
-  - Seamless transparent escalation to high-capability tier (`smart` / `alpha-large`) with telemetry emission of `x-netra-escalated: true` and route reason `refusal_auto_escalation`.
-- **Enterprise Ops Console Polish & Scalability**:
-  - Integrated enterprise pagination component (`Pagination.jsx`) into Model Pricing Explorer and Upstream Provider Health & Failover matrices for graceful scalability to hundreds of providers/models.
-  - Added compact provider grid pagination to the main Overview health widget.
-  - Standardized Admin Key credential modal action and differentiated tenant virtual keys in playground and settings.
-  - Refined user-facing copy across caching and severance modals to maintain clean enterprise product presentation.
-  - Added simplified Cached Content inspection modal (`CacheContentModal.jsx`) allowing operators to click "View Content" on any virtual key row to inspect stored prompt/completion pairs with hit count badges.
-  - Integrated dynamic per-tenant similarity threshold display (e.g. 0.920 for Search, 0.850 for general) directly into the Semantic Cache table.
-  - Two dedicated X-Factor differentiator visual widgets: **Phantom Spend Reclaim Gauge** (socket severing velocity on client cancelations) and **Cosine Boundary Distribution Plot** (strict $\ge 0.920$ hallucination defense).
+### 🚀 Added & Improved
+- **Java 25 Scoped Values (JEP 506)**: Replaced `ThreadLocal` with immutable, thread-safe `ScopedValue` context propagation across virtual threads.
+- **PostgreSQL Connection Pool Protection**: Added an in-memory bounded batch buffer (10,000 capacity) for asynchronous audit logging, shielding HikariCP under high-concurrency bursts.
+- **Two-Tier Cache Hierarchy**: Sub-0.5ms exact hash near-cache (Tier 1: Caffeine + Redis) and sub-5ms semantic vector cache (Tier 2: PostgreSQL pgvector HNSW).
+- **IETF RateLimit Protocol**: Added compliance with `draft-ietf-httpapi-ratelimit-headers` (`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, `RateLimit-Policy`).
+- **Resilience4j Circuit Breakers**: Added fast-failover (<0.05ms) across providers and live health snapshot API (`GET /admin/providers/health`).
+- **Refusal Auto-Escalation**: Automatically detects small-model refusals and transparently escalates requests to frontier reasoning models.
+- **Console Analytics Polish**: Added virtual key spend pagination, cache inspection modals, and live audit log stream viewer.
 
 ---
 
