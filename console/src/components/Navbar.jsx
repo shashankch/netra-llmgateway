@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { getGatewayBaseUrl, setGatewayBaseUrl, useGatewayHealth, setHealthPollingEnabled, normalizeGatewayUrl } from '../config/api';
+import { getGatewayBaseUrl, setGatewayBaseUrl, useGatewayHealth, setHealthPollingEnabled, normalizeGatewayUrl, isHealthPollingEnabled } from '../config/api';
 import NetraLogo from './NetraLogo';
 import { 
   Sun, Moon, Monitor, DollarSign, Activity, Terminal, Key, 
@@ -22,6 +22,7 @@ export default function Navbar({
   const setShowAdminModal = externalSetShowAdminModal || setLocalShowAdminModal;
   const [tokenInput, setTokenInput] = useState(adminToken || '');
   const [gatewayUrlInput, setGatewayUrlInput] = useState(() => getGatewayBaseUrl());
+  const [pollingInput, setPollingInput] = useState(() => isHealthPollingEnabled());
   const [showSecret, setShowSecret] = useState(false);
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const { isOnline, isChecking, isPollingEnabled, lastChecked, latencyMs, checkNow, togglePolling } = useGatewayHealth();
@@ -176,6 +177,7 @@ export default function Navbar({
     if (showAdminModal) {
       setTokenInput(adminToken || '');
       setGatewayUrlInput(getGatewayBaseUrl());
+      setPollingInput(isHealthPollingEnabled());
       document.body.classList.add('modal-open');
       const handleKeyDown = (e) => {
         if (e.key === 'Escape') setShowAdminModal(false);
@@ -198,14 +200,17 @@ export default function Navbar({
     if (onUpdateAdminToken) {
       onUpdateAdminToken(tokenInput);
     }
-    setHealthPollingEnabled(true);
-    checkNow();
+    setHealthPollingEnabled(pollingInput);
+    if (pollingInput) {
+      checkNow();
+    }
     setShowAdminModal(false);
   };
 
   const handleResetDemo = () => {
     setTokenInput('netra-admin-demo');
     setGatewayUrlInput('');
+    setPollingInput(true);
   };
 
   const navItems = [
@@ -663,8 +668,8 @@ export default function Navbar({
                     <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', userSelect: 'none' }}>
                       <input
                         type="checkbox"
-                        checked={isPollingEnabled}
-                        onChange={e => togglePolling(e.target.checked)}
+                        checked={pollingInput}
+                        onChange={e => setPollingInput(e.target.checked)}
                         style={{ cursor: 'pointer', width: 13, height: 13, accentColor: 'var(--accent-emerald)' }}
                       />
                       <span>Background connection monitoring</span>
