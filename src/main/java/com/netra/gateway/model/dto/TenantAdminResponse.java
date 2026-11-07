@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,6 +20,7 @@ public class TenantAdminResponse {
 
     private UUID id;
 
+    @ToString.Exclude
     @JsonProperty("virtual_key")
     private String virtualKey;
 

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -60,19 +61,35 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
     @Query("SELECT COUNT(c) FROM CacheEntry c WHERE LOWER(c.virtualKey) = LOWER(:virtualKey)")
     long countByVirtualKey(@Param("virtualKey") String virtualKey);
 
-    @Query("SELECT c FROM CacheEntry c WHERE (:virtualKey IS NULL OR LOWER(c.virtualKey) = LOWER(:virtualKey)) " +
-           "AND (:search IS NULL OR LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+    List<CacheEntry> findByVirtualKeyIgnoreCaseOrderByCreatedAtDesc(String virtualKey, org.springframework.data.domain.Pageable pageable);
+
+    List<CacheEntry> findAllByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT c FROM CacheEntry c WHERE LOWER(c.virtualKey) = LOWER(:virtualKey) " +
+           "AND (LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%'))) " +
            "ORDER BY c.createdAt DESC")
-    java.util.List<CacheEntry> findCacheEntries(
+    List<CacheEntry> findByVirtualKeyAndSearch(
             @Param("virtualKey") String virtualKey,
             @Param("search") String search,
             org.springframework.data.domain.Pageable pageable
     );
 
-    @Query("SELECT COUNT(c) FROM CacheEntry c WHERE (:virtualKey IS NULL OR LOWER(c.virtualKey) = LOWER(:virtualKey)) " +
-           "AND (:search IS NULL OR LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%')))")
-    long countCacheEntries(
+    @Query("SELECT c FROM CacheEntry c WHERE LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "ORDER BY c.createdAt DESC")
+    List<CacheEntry> findBySearch(
+            @Param("search") String search,
+            org.springframework.data.domain.Pageable pageable
+    );
+
+    long countByVirtualKeyIgnoreCase(String virtualKey);
+
+    @Query("SELECT COUNT(c) FROM CacheEntry c WHERE LOWER(c.virtualKey) = LOWER(:virtualKey) " +
+           "AND (LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%')))")
+    long countByVirtualKeyAndSearch(
             @Param("virtualKey") String virtualKey,
             @Param("search") String search
     );
+
+    @Query("SELECT COUNT(c) FROM CacheEntry c WHERE LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%'))")
+    long countBySearch(@Param("search") String search);
 }

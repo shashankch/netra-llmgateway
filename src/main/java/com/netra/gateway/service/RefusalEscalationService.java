@@ -111,11 +111,19 @@ public class RefusalEscalationService {
 
     private boolean isMatchingModel(String candidate, String configured) {
         if (candidate == null || configured == null) return false;
-        String c = configured.toLowerCase().trim();
-        if (c.contains(":")) {
-            c = c.substring(c.indexOf(":") + 1).trim();
+        String cand = stripProviderPrefix(candidate.toLowerCase().trim());
+        String conf = stripProviderPrefix(configured.toLowerCase().trim());
+        return cand.equals(conf);
+    }
+
+    private String stripProviderPrefix(String m) {
+        if (m.contains(":")) {
+            m = m.substring(m.indexOf(":") + 1).trim();
         }
-        return candidate.equals(c) || candidate.contains(c) || c.contains(candidate);
+        if (m.contains("/")) {
+            m = m.substring(m.lastIndexOf('/') + 1).trim();
+        }
+        return m;
     }
 
     /**

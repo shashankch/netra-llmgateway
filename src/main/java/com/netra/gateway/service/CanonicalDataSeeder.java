@@ -51,7 +51,7 @@ public class CanonicalDataSeeder implements CommandLineRunner {
             GatewayConfigProperties configProperties,
             ObjectMapper objectMapper,
             ResourceLoader resourceLoader,
-            @Autowired(required = false) TenantAuthService tenantAuthService
+            @org.springframework.lang.Nullable TenantAuthService tenantAuthService
     ) {
         this.pricingRepository = pricingRepository;
         this.tenantRepository = tenantRepository;
@@ -77,10 +77,12 @@ public class CanonicalDataSeeder implements CommandLineRunner {
         try {
             seedTenants();
             seedModelPricing();
-        } finally {
             this.seedingComplete = true;
+            log.info("✅ NETRA Canonical Data Seeding Complete.");
+        } catch (Exception e) {
+            this.seedingComplete = false;
+            log.error("❌ NETRA Canonical Data Seeding encountered failure: {}", e.getMessage(), e);
         }
-        log.info("✅ NETRA Canonical Data Seeding Complete.");
     }
 
     @Transactional

@@ -114,6 +114,7 @@ class RequestContextTest {
                 vt.join();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
             }
         });
 

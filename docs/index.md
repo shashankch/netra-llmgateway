@@ -34,7 +34,7 @@
 | <img src="assets/icons/spring.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Framework** | Spring Boot 4.1.1 | Graceful shutdown connection draining, actuator probes & observability |
 | <img src="assets/icons/postgres.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Vector Storage** | PostgreSQL 18 & pgvector | Dense vector embeddings (384-dim) with HNSW indexing for sub-5ms cosine caching |
 | <img src="assets/icons/redis.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Admission Control** | Redis 8.0 Alpine (Lua Scripting) | Single-transaction sliding-window rate limiting & atomic budget validation (0.00% over-admission) |
-| <img src="assets/icons/react.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Operations Console** | React 19 / Vite 6 | Real-time SSE audit logging, multi-currency accounting (USD/INR), semantic cache inspector with smart match, & prompt sandbox |
+| <img src="assets/icons/react.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Operations Console** | React 19 / Vite 6 | Real-time SSE audit logging, multi-currency accounting (USD/INR), cache inspector, and modernized sandbox with 1-click router badges (`fast`/`smart`/`auto`) & Stream/JSON toggle |
 | <img src="assets/icons/docker.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Containerization** | Docker Compose & Cloud VPS | Multi-service orchestration with zero-open-port Cloudflare Zero Trust tunnel support |
 
 ---
@@ -108,11 +108,28 @@ curl -i -X POST http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-!!! info "Production Cloud Ingress (`avadhanlabs.dev`)"
-    In production environments, requests route through the sovereign custom domain:
-    
+!!! tip "Cloud Ingress Endpoints (`avadhanlabs.dev`) [Pre-Prod / Demo Only]"
+    *(These endpoints are provided for pre-prod and demo evaluation; for production workloads, deploy your own self-hosted instance.)*
+
     * **Gateway Data Plane:** `https://gateway-netrallm.avadhanlabs.dev/v1/chat/completions`
     * **Operations Console:** `https://console-netrallm.avadhanlabs.dev`
+    * **Documentation Site:** `https://docs-netrallm.avadhanlabs.dev`
+
+### 3. Launch & Serve Operations Console UI
+
+Open the real-time telemetry dashboard, semantic cache inspector, and model playground:
+
+```bash
+# Docker Compose (included in make up)
+http://localhost:3000
+
+# Standalone Development (Vite hot-reload)
+make console-dev        # or: cd console && npm install && npm run dev
+
+# Production Build & Preview Server
+make console-build
+make console-serve      # or: cd console && npm run preview
+```
 
 ---
 

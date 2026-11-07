@@ -25,7 +25,7 @@ services:
       - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
       - NETRA_DATA_PATH=data
       - NETRA_ADMIN_TOKEN=${NETRA_ADMIN_TOKEN:-netra-admin-demo}
-      - NETRA_SEED_DEMO_TENANTS=${NETRA_SEED_DEMO_TENANTS:-true}
+      - NETRA_SEED_DEMO_TENANTS
       # Model Aliases & Route Overrides (Forwarded without mock defaults)
       - NETRA_MODEL_ALIASES_FAST_PRIMARY
       - NETRA_MODEL_ALIASES_FAST_FALLBACK

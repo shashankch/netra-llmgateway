@@ -156,7 +156,7 @@ export default function Navbar({
         title: 'Production Gateway Operational',
         badgeText: 'ONLINE',
         badgeClass: 'badge-success',
-        desc: 'Serving live traffic with healthy health checks.',
+        desc: 'Control plane healthy · All endpoints responding normally.',
       };
     }
     return {
@@ -351,7 +351,7 @@ export default function Navbar({
 
           {/* Documentation Link */}
           <a
-            href="https://shashankch.github.io/netra-llmgateway/"
+            href="https://docs-netrallm.avadhanlabs.dev/"
             target="_blank"
             rel="noreferrer"
             className="btn btn-outline btn-sm"
@@ -537,9 +537,29 @@ export default function Navbar({
                   <label style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>
                     GATEWAY API ENDPOINT
                   </label>
-                  <span className={`badge ${gatewayUrlInput.trim() ? 'badge-primary' : 'badge-neutral'} font-mono`} style={{ fontSize: '0.65rem' }}>
-                    {gatewayUrlInput.trim() ? 'Custom Remote' : 'Same-Origin · Default'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {gatewayUrlInput && (
+                      <button
+                        type="button"
+                        onClick={() => setGatewayUrlInput('')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--accent-cyan)',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                        title="Reset to default same-origin host"
+                      >
+                        Use Default Origin
+                      </button>
+                    )}
+                    <span className={`badge ${gatewayUrlInput.trim() ? 'badge-primary' : 'badge-neutral'} font-mono`} style={{ fontSize: '0.65rem' }}>
+                      {gatewayUrlInput.trim() ? 'Custom Remote' : 'Same-Origin · Default'}
+                    </span>
+                  </div>
                 </div>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <div style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
@@ -573,20 +593,9 @@ export default function Navbar({
                     </button>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.35rem', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    Leave empty to connect through your origin host, or specify an external gateway URL.
-                  </span>
-                  {gatewayUrlInput && (
-                    <button
-                      type="button"
-                      onClick={() => setGatewayUrlInput('')}
-                      style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '0.72rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-                    >
-                      Use Default Origin
-                    </button>
-                  )}
-                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.35rem', display: 'block' }}>
+                  Leave empty to connect through your origin host, or specify an external gateway URL.
+                </span>
               </div>
 
               {/* Field 3: Gateway Health & Connectivity Status (Minimal & Solid Enterprise UI) */}
@@ -599,11 +608,6 @@ export default function Navbar({
                     <span className={`badge ${modalStatus.badgeClass} font-mono`} style={{ fontSize: '0.65rem' }}>
                       {modalStatus.badgeText}
                     </span>
-                    {isOnline && latencyMs && (
-                      <span className="badge badge-success font-mono" style={{ fontSize: '0.65rem' }}>
-                        {latencyMs}ms
-                      </span>
-                    )}
                   </div>
                 </div>
 

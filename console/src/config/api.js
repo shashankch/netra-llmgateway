@@ -110,6 +110,7 @@ let currentHealth = {
   version: '0.7.0',
 };
 
+let inFlightHealthPromise = null;
 const healthListeners = new Set();
 let healthPollTimer = null;
 
@@ -163,36 +164,52 @@ function scheduleNextProbe(delayMs) {
  * Respects timeout, parses version, measures latency, and triggers adaptive backoff.
  */
 export async function checkGatewayHealth() {
-  const url = getApiUrl('/health');
-  currentHealth = { ...currentHealth, isChecking: true };
-  notifyListeners();
+  if (inFlightHealthPromise) {
+    return inFlightHealthPromise;
+  }
 
-  const probeStart = performance.now();
-  try {
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
+  inFlightHealthPromise = (async () => {
+    const url = getApiUrl('/health');
+    currentHealth = { ...currentHealth, isChecking: true };
+    notifyListeners();
 
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      signal: controller ? controller.signal : undefined,
-    });
+    const probeStart = performance.now();
+    try {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
 
-    if (timeoutId) clearTimeout(timeoutId);
-    const roundTripMs = Math.round(performance.now() - probeStart);
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller ? controller.signal : undefined,
+      });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      currentHealth = {
-        isOnline: data.status === 'ok' || data.status === 'UP' || res.status === 200,
-        isChecking: false,
-        isPollingEnabled: isHealthPollingEnabled(),
-        lastChecked: Date.now(),
-        latencyMs: roundTripMs,
-        consecutiveFailures: 0,
-        version: data.version || '0.7.0',
-      };
-    } else {
+      if (timeoutId) clearTimeout(timeoutId);
+      const roundTripMs = Math.round(performance.now() - probeStart);
+
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        currentHealth = {
+          isOnline: data.status === 'ok' || data.status === 'UP' || res.status === 200,
+          isChecking: false,
+          isPollingEnabled: isHealthPollingEnabled(),
+          lastChecked: Date.now(),
+          latencyMs: roundTripMs,
+          consecutiveFailures: 0,
+          version: data.version || '0.7.0',
+        };
+      } else {
+        currentHealth = {
+          isOnline: false,
+          isChecking: false,
+          isPollingEnabled: isHealthPollingEnabled(),
+          lastChecked: Date.now(),
+          latencyMs: null,
+          consecutiveFailures: (currentHealth.consecutiveFailures || 0) + 1,
+          version: '0.7.0',
+        };
+      }
+    } catch (err) {
       currentHealth = {
         isOnline: false,
         isChecking: false,
@@ -202,29 +219,23 @@ export async function checkGatewayHealth() {
         consecutiveFailures: (currentHealth.consecutiveFailures || 0) + 1,
         version: '0.7.0',
       };
+    } finally {
+      inFlightHealthPromise = null;
     }
-  } catch (err) {
-    currentHealth = {
-      isOnline: false,
-      isChecking: false,
-      isPollingEnabled: isHealthPollingEnabled(),
-      lastChecked: Date.now(),
-      latencyMs: null,
-      consecutiveFailures: (currentHealth.consecutiveFailures || 0) + 1,
-      version: '0.7.0',
-    };
-  }
 
-  notifyListeners();
+    notifyListeners();
 
-  // Schedule next adaptive probe if enabled
-  if (isHealthPollingEnabled()) {
-    scheduleNextProbe();
-  } else {
-    stopPoller();
-  }
+    // Schedule next adaptive probe if enabled
+    if (isHealthPollingEnabled()) {
+      scheduleNextProbe();
+    } else {
+      stopPoller();
+    }
 
-  return currentHealth;
+    return currentHealth;
+  })();
+
+  return inFlightHealthPromise;
 }
 
 /**

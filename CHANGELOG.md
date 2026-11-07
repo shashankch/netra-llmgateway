@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.1] - 2026-11-08 — Enterprise Resilience, Console Modernization & Ingress Polish
+
+### 🚀 Added & Improved
+
+- **High-Precedence CORS Filter (`CorsFilter` Ordered.HIGHEST_PRECEDENCE)**:
+  - Registered dedicated `FilterRegistrationBean<CorsFilter>` intercepting preflight `OPTIONS` and cross-origin requests before Spring MVC or security dispatcher layers.
+  - Prevents browser CORS drops across disparate subdomains (`console-netrallm.avadhanlabs.dev` -> `gateway-netrallm.avadhanlabs.dev`).
+  - Fully exposes all `x-netra-*` canonical headers, IETF `RateLimit-*` draft headers, and pagination headers (`X-Total-Count`, `X-Page-Number`, `X-Page-Size`, `X-Total-Pages`).
+- **Modernized Prompt Playground Controls (`/playground`)**:
+  - Upgraded sidebar with 1-click model alias selection badges (`fast` ⚡ Sub-200ms, `smart` 🧠 Deep Reasoning, `auto` 🎯 Dynamic Arbiter) with active visual states.
+  - Introduced segmented "Stream" vs "JSON" slider pill switch.
+  - Added grouped evaluation benchmark scenarios: Semantic Cache Paraphrase Pairs (Pair A/B), Near-Miss Boundary Rejection, Complex Reasoning & Induction, and Direct Factual Lookup.
+  - Cleaned up prompt header by removing distorted preset badges and obsolete hero latency badges.
+- **Upstream Provider Fleet Telemetry & Executive Health Status**:
+  - Redesigned Overview provider fleet view with an Executive Health Status card for primary configurations.
+  - Added explicit upstream call telemetry (`upstream ok · err`) cleanly separating raw requests that hit the cache ($0) from requests requiring outbound model egress.
+  - Prioritized provider grid sorting by circuit state and volume.
+- **Hardened Streaming Semantic Cache Capture**:
+  - Enhanced SSE streaming relay parser in `StreamingRelayService` to recognize all EOF and `[DONE]` variants (`data: [DONE]`, `data:[DONE]`, suffix termination).
+  - Added clean socket closure fallback capturing streamed completions into pgvector semantic cache even when upstream providers terminate without an explicit `[DONE]` sentinel chunk.
+- **Sub-1% Spend Display Precision & Visual Visibility**:
+  - Added `<1%` spend badge in Virtual Keys table for non-zero micro-cent expenditures.
+  - Enforced a minimum 3% progress bar width for positive spend, ensuring immediate visual feedback.
+- **Health Probe Deduplication & Resilient State Management**:
+  - Deduplicated concurrent health check probes in `console/src/config/api.js` using a shared in-flight promise to prevent background request bursts across components.
+- **Safe Integer Pagination Bounds**:
+  - Implemented safe offset bounds calculation in `AdminController.java` (`Math.min(calcOffset, (long) Integer.MAX_VALUE - maxLimit)`) preventing arithmetic overflow on large cursor offsets.
+- **Cloudflare Universal SSL Single-Level Hyphenated Ingress**:
+  - Migrated cloud endpoints from double-level subdomains to single-level hyphenated hostnames (`gateway-netrallm.avadhanlabs.dev` and `console-netrallm.avadhanlabs.dev`) to ensure 100% compatibility with Cloudflare Free Tier wildcard SSL certificates.
+- **Cloud VM Automated Docker Compose Elevation**:
+  - Added automatic fallback to `sudo docker compose` in `setup-vps.sh` for fresh VM provisioning environments where group privileges have not refreshed in the active shell.
+- **Documentation Sovereign Custom Domain (`docs-netrallm.avadhanlabs.dev`)**:
+  - Configured sovereign custom domain via GitHub Pages CNAME (`docs-netrallm.avadhanlabs.dev`).
+  - Synchronized documentation links, OpenAPI servers, banner SVGs, and operations console links across all public and internal assets.
+- **Operations Console Port 3000 Enforcement & Dropdown Ergonomics**:
+  - Enforced deterministic port 3000 binding (`strictPort: true`) in Vite development configuration.
+  - Refined Playground select controls with proper vertical centering and aligned offline fallback models with production alias configurations.
+- **Cost Calculation Catalog Lookup Compilation Fix**:
+  - Added missing `java.util.List` import in `CostCalculationService.java` to resolve CI build failure during containerized compile.
+- **Operations Console UI Serving & Deployment Documentation**:
+  - Added concise, step-by-step UI deployment guides covering Docker Compose, standalone Vite development (`make console-dev`), production preview (`make console-serve`), and edge CDN hosting in README, documentation site, and self-hosting guides.
+
+---
+
 ## [0.7.0] - 2026-11-03 — Phase 7: Resilience, Two-Tier Cache & High-Load Hardening
 
 ### 🚀 Added

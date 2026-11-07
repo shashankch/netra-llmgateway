@@ -81,6 +81,9 @@ console-dev:
 console-build:
 	cd console && npm run build
 
+console-serve:
+	cd console && npm run preview -- --port 3000 --host 0.0.0.0
+
 docs-serve: ## Serve documentation locally via Zensical
 	uv run --with zensical zensical serve
 

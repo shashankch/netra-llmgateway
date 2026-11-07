@@ -221,6 +221,8 @@ Authorization: Bearer netra-admin-demo
     "retries": 0,
     "latency_ms": 32,
     "is_stream": false,
+    "escalated": false,
+    "cache_tier": "tier1_exact",
     "error_type": null,
     "created_at": "2026-10-24T15:00:00Z"
   }
@@ -277,7 +279,8 @@ Inspects stored semantic and exact cache completions, query prompts, models, hit
 | `key` | string | No | Tenant virtual key namespace (e.g. `netra-sk-search-1a2b3c`) |
 | `search` | string | No | Search query matching prompt text or model alias |
 | `limit` | integer | No | Maximum entries returned (default: 50, max: 200) |
-| `page` | integer | No | Zero-based page offset (default: 0) |
+| `page` | integer | No | Zero-based page number (default: 0) |
+| `offset` | integer | No | Zero-based cursor offset (takes precedence over page) |
 
 #### Response (200 OK)
 ```json

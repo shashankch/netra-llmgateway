@@ -78,8 +78,15 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
   });
   const [copiedResponse, setCopiedResponse] = useState(false);
 
-  // Dynamic Gateway Catalog & Virtual Key Configuration
-  const [catalog, setCatalog] = useState(null);
+  // Dynamic Gateway Catalog & Virtual Key Configuration with localStorage caching
+  const [catalog, setCatalog] = useState(() => {
+    try {
+      const cached = localStorage.getItem('netra_pricing_catalog');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [tenantKeys, setTenantKeys] = useState([]);
 
   const abortControllerRef = useRef(null);
@@ -105,7 +112,10 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
 
         if (pricingRes.status === 'fulfilled' && pricingRes.value.ok) {
           const pricingJson = await pricingRes.value.json();
-          if (isMounted) setCatalog(pricingJson);
+          if (isMounted) {
+            setCatalog(pricingJson);
+            try { localStorage.setItem('netra_pricing_catalog', JSON.stringify(pricingJson)); } catch (e) {}
+          }
         }
         if (keysRes.status === 'fulfilled' && keysRes.value.ok) {
           const keysJson = await keysRes.value.json();
@@ -237,45 +247,53 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
         { label: 'Budget Demo', key: 'netra-sk-budget-demo-0j1k2l', model: 'fast', desc: 'Strict monthly limit demonstration ($0.00001 cap)' },
       ];
 
-  // Quick prompt templates
+  // Grouped Benchmark Scenarios with explicit Pair A, Pair B, Guardrails, and Dynamic Routing proofs
   const promptTemplates = [
     {
-      label: 'Paraphrase Pair A (Original)',
+      group: 'Semantic Vector Cache — Pair A (Distributed Web Systems)',
+      label: 'Pair A · Step 1 (Seed Cache): "What is a load balancer and why is it needed?"',
       text: 'What is a load balancer and why is it needed?',
       model: 'fast'
     },
     {
-      label: 'Paraphrase Pair A (Paraphrase)',
+      group: 'Semantic Vector Cache — Pair A (Distributed Web Systems)',
+      label: 'Pair A · Step 2 (Semantic Hit): "Explain what load balancers do in distributed web systems."',
       text: 'Explain what load balancers do in distributed web systems.',
       model: 'fast'
     },
     {
-      label: 'Paraphrase Pair B (Original)',
+      group: 'Semantic Vector Cache — Pair B (Commercial SaaS Policy)',
+      label: 'Pair B · Step 1 (Seed Cache): "What is the refund policy for annual subscription plans?"',
       text: 'What is the refund policy for annual subscription plans?',
       model: 'fast'
     },
     {
-      label: 'Paraphrase Pair B (Paraphrase)',
+      group: 'Semantic Vector Cache — Pair B (Commercial SaaS Policy)',
+      label: 'Pair B · Step 2 (Semantic Hit): "If I bought an annual tier, can I request a full refund?"',
       text: 'If I bought an annual tier, can I request a full refund?',
       model: 'fast'
     },
     {
-      label: 'Near-Miss Prompt (Rejection)',
+      group: 'Cache Boundary & Threshold Guardrails',
+      label: 'Near-Miss Guard (Rejection): "What are the configuration steps for 2FA on Linux?"',
       text: 'What are the configuration steps for two-factor authentication on Linux?',
       model: 'fast'
     },
     {
-      label: 'Complex Auto Router',
-      text: 'Design a distributed rate limiter for 10M RPS and prove its correctness with mathematical bounds.',
-      model: 'auto'
-    },
-    {
-      label: 'Simple Auto Router',
+      group: 'Dynamic Adaptive Router Proofs',
+      label: 'Auto → Fast Tier (Low Complexity): "What is the capital of France?"',
       text: 'What is the capital of France?',
       model: 'auto'
     },
     {
-      label: 'OpenRouter Upstream (GPT-4o Mini)',
+      group: 'Dynamic Adaptive Router Proofs',
+      label: 'Auto → Smart Tier (High Complexity): "Design a distributed rate limiter for 10M RPS"',
+      text: 'Design a distributed rate limiter for 10M RPS and prove its correctness with mathematical bounds.',
+      model: 'auto'
+    },
+    {
+      group: 'Direct Upstream Model Execution',
+      label: 'Direct Frontier: "Explain quantum computing in 2 concise sentences."',
       text: 'Explain quantum computing in 2 concise sentences.',
       model: 'openai/gpt-4o-mini'
     }
@@ -283,6 +301,56 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
 
   const activeTemplate = promptTemplates.find(t => t.text === prompt);
   const isCustomPrompt = !activeTemplate && prompt.trim().length > 0;
+
+  // Real-time transaction pricing resolver matching active catalog rates
+  const resolveModelPricing = (modelKey, providerTarget) => {
+    if (!catalog) return { inputRate: 0.14, outputRate: 0.28 };
+
+    // 1. Check explicit alias config in catalog
+    if (modelKey === 'fast' && catalog.aliases?.fast) {
+      const a = catalog.aliases.fast;
+      const input = a.input_per_1m ?? a.inputPer1m ?? 0.14;
+      const output = a.output_per_1m ?? a.outputPer1m ?? (input * 2);
+      return { inputRate: input, outputRate: output };
+    }
+    if (modelKey === 'smart' && catalog.aliases?.smart) {
+      const a = catalog.aliases.smart;
+      const input = a.input_per_1m ?? a.inputPer1m ?? 0.75;
+      const output = a.output_per_1m ?? a.outputPer1m ?? (input * 2);
+      return { inputRate: input, outputRate: output };
+    }
+
+    // 2. Target from providerTarget (e.g. openrouter/deepseek-chat or openrouter/google/gemini-3.6-flash)
+    const targetKey = (providerTarget || modelKey || '').toLowerCase();
+    if (catalog.models && Array.isArray(catalog.models)) {
+      const match = catalog.models.find(m => {
+        const mn = (m.model || '').toLowerCase();
+        return mn === targetKey || targetKey.endsWith('/' + mn) || mn.endsWith('/' + targetKey) || targetKey.includes(mn);
+      });
+      if (match) {
+        const input = match.input_per_1m ?? match.inputPer1m ?? 0.14;
+        const output = match.output_per_1m ?? match.outputPer1m ?? (input * 2);
+        return { inputRate: input, outputRate: output };
+      }
+    }
+
+    // 3. Fallback based on tier heuristics
+    if (targetKey.includes('gemini') || targetKey.includes('flash') || targetKey.includes('deepseek') || targetKey.includes('small')) {
+      return { inputRate: 0.14, outputRate: 0.28 };
+    }
+    if (targetKey.includes('claude') || targetKey.includes('gpt-4') || targetKey.includes('sonnet') || targetKey.includes('large') || targetKey.includes('smart')) {
+      return { inputRate: 0.75, outputRate: 1.50 };
+    }
+
+    return { inputRate: 0.14, outputRate: 0.28 };
+  };
+
+  const computeInferenceCost = (modelKey, providerTarget, pTokens, cTokens) => {
+    const { inputRate, outputRate } = resolveModelPricing(modelKey, providerTarget);
+    const pCost = (pTokens * inputRate) / 1000000;
+    const cCost = (cTokens * outputRate) / 1000000;
+    return pCost + cCost;
+  };
 
   const handleSend = async () => {
     if (!prompt.trim() || executing) return;
@@ -328,7 +396,10 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
         routeReason: response.headers.get('x-netra-route-reason') || 'direct',
         retries: response.headers.get('x-netra-retries') || '0',
         latencyMs,
-        status: response.status
+        status: response.status,
+        promptTokens: 0,
+        completionTokens: 0,
+        isFinalized: false
       };
       setTelemetry(tele);
 
@@ -346,6 +417,7 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
         let chunks = 0;
         let streamBuffer = '';
         let hasStreamError = false;
+        let streamUsage = { prompt_tokens: 0, completion_tokens: 0 };
 
         while (!hasStreamError) {
           const { done, value } = await reader.read();
@@ -369,6 +441,10 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
                 setTelemetry(prev => ({ ...prev, status: 502 }));
                 hasStreamError = true;
                 break;
+              }
+              if (parsed.usage) {
+                if (parsed.usage.prompt_tokens) streamUsage.prompt_tokens = parsed.usage.prompt_tokens;
+                if (parsed.usage.completion_tokens) streamUsage.completion_tokens = parsed.usage.completion_tokens;
               }
               const delta = parsed.choices?.[0]?.delta?.content || '';
               if (delta) {
@@ -394,6 +470,10 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
                 setErrorInfo(parsed.error);
                 setTelemetry(prev => ({ ...prev, status: 502 }));
               } else {
+                if (parsed.usage) {
+                  if (parsed.usage.prompt_tokens) streamUsage.prompt_tokens = parsed.usage.prompt_tokens;
+                  if (parsed.usage.completion_tokens) streamUsage.completion_tokens = parsed.usage.completion_tokens;
+                }
                 const delta = parsed.choices?.[0]?.delta?.content || '';
                 if (delta) {
                   accumulated += delta;
@@ -407,10 +487,55 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
             // ignore malformed trailing fragment
           }
         }
+
+        // Finalize streaming metrics & dynamic cost calculation
+        const promptText = (prompt || '') + ' ' + (systemPrompt || '');
+        const pTokens = streamUsage.prompt_tokens > 0
+          ? streamUsage.prompt_tokens
+          : Math.max(1, Math.round(promptText.trim().split(/\s+/).length * 1.3));
+        const cTokens = streamUsage.completion_tokens > 0
+          ? streamUsage.completion_tokens
+          : Math.max(1, Math.round(accumulated.trim().split(/\s+/).length * 1.3));
+
+        let finalCost = 0;
+        if (tele.cache !== 'hit') {
+          finalCost = computeInferenceCost(model, tele.provider, pTokens, cTokens);
+        }
+
+        setTelemetry(prev => ({
+          ...prev,
+          latencyMs: Math.round(performance.now() - startTime),
+          promptTokens: pTokens,
+          completionTokens: cTokens,
+          costUsd: finalCost.toFixed(6),
+          isFinalized: true
+        }));
       } else {
         const json = await response.json();
         const content = json.choices?.[0]?.message?.content || JSON.stringify(json, null, 2);
         setResponseContent(content);
+
+        const promptText = (prompt || '') + ' ' + (systemPrompt || '');
+        const pTokens = json.usage?.prompt_tokens ?? Math.max(1, Math.round(promptText.trim().split(/\s+/).length * 1.3));
+        const cTokens = json.usage?.completion_tokens ?? Math.max(1, Math.round((content || '').trim().split(/\s+/).length * 1.3));
+
+        let finalCost = 0;
+        if (tele.cache !== 'hit') {
+          if (tele.costUsd && Number(tele.costUsd) > 0) {
+            finalCost = Number(tele.costUsd);
+          } else {
+            finalCost = computeInferenceCost(model, tele.provider, pTokens, cTokens);
+          }
+        }
+
+        setTelemetry(prev => ({
+          ...prev,
+          latencyMs: Math.round(performance.now() - startTime),
+          promptTokens: pTokens,
+          completionTokens: cTokens,
+          costUsd: finalCost.toFixed(6),
+          isFinalized: true
+        }));
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
@@ -511,13 +636,24 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
 
             {/* Model & Streaming Toggle */}
             {(() => {
-              const fastTargetModel = catalog?.aliases?.fast?.primary ? catalog.aliases.fast.primary.replace(/^[a-zA-Z0-9_-]+:/, '') : null;
-              const smartTargetModel = catalog?.aliases?.smart?.primary ? catalog.aliases.smart.primary.replace(/^[a-zA-Z0-9_-]+:/, '') : null;
-              const catalogModels = (catalog?.models || []).map(m => m.model).filter(Boolean);
+              const fastTargetModel = catalog?.aliases?.fast?.primary ? catalog.aliases.fast.primary.replace(/^[a-zA-Z0-9_-]+:/, '').trim() : null;
+              const smartTargetModel = catalog?.aliases?.smart?.primary ? catalog.aliases.smart.primary.replace(/^[a-zA-Z0-9_-]+:/, '').trim() : null;
+              
+              // Dynamic models from database catalog (split on commas in case composite entries exist)
+              const catalogModels = (catalog?.models || [])
+                .map(m => m.model)
+                .flatMap(s => (typeof s === 'string' ? s.split(',') : [s]))
+                .map(s => String(s).trim().replace(/^[a-zA-Z0-9_-]+:/, ''))
+                .filter(Boolean);
+
+              // Fallback models from alias config (properly split comma-delimited strings from env vars)
               const aliasFallbackModels = [
                 ...(catalog?.aliases?.fast?.fallbacks || []),
                 ...(catalog?.aliases?.smart?.fallbacks || [])
-              ].map(s => s.replace(/^[a-zA-Z0-9_-]+:/, '')).filter(Boolean);
+              ]
+                .flatMap(s => (typeof s === 'string' ? s.split(',') : [s]))
+                .map(s => String(s).trim().replace(/^[a-zA-Z0-9_-]+:/, ''))
+                .filter(Boolean);
 
               const availableConcreteModels = Array.from(new Set([
                 ...(fastTargetModel ? [fastTargetModel] : []),
@@ -531,216 +667,195 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
               const isAllowed = keyAllowlist.length === 0 || keyAllowlist.includes(model);
 
               return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {/* Row 1: Router Classification Badges + Stream / JSON Slider */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: '0.65rem', alignItems: 'flex-start' }}>
+                    {/* Dynamic Router Badges */}
+                    <div>
+                      <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem', letterSpacing: '0.03em' }}>
+                        ROUTER CLASSIFICATION
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        {[
+                          { id: 'fast', label: 'fast', icon: Zap, color: 'var(--accent-cyan)', bg: 'rgba(6, 182, 212, 0.12)', border: 'rgba(6, 182, 212, 0.35)', title: 'Fast (Latency Optimized: DeepSeek / Nemotron)' },
+                          { id: 'smart', label: 'smart', icon: Sparkles, color: 'var(--accent-lime)', bg: 'rgba(163, 230, 53, 0.12)', border: 'rgba(163, 230, 53, 0.35)', title: 'Smart (Reasoning Frontier: Gemini / Claude / GPT)' },
+                          { id: 'auto', label: 'auto', icon: Cpu, color: 'var(--accent-emerald)', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.35)', title: 'Auto (Syntactic Intent Classifier)' }
+                        ].map(tier => {
+                          const IconComponent = tier.icon;
+                          const isActive = model === tier.id;
+                          return (
+                            <button
+                              key={tier.id}
+                              type="button"
+                              onClick={() => setModel(tier.id)}
+                              style={{
+                                flex: 1,
+                                height: 32,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.35rem',
+                                fontSize: '0.75rem',
+                                fontWeight: isActive ? 700 : 500,
+                                fontFamily: 'var(--font-mono)',
+                                borderRadius: 6,
+                                border: `1px solid ${isActive ? tier.border : 'var(--border-subtle)'}`,
+                                background: isActive ? tier.bg : 'var(--bg-card)',
+                                color: isActive ? tier.color : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                boxShadow: isActive ? `0 0 10px ${tier.bg}` : 'none'
+                              }}
+                              title={tier.title}
+                            >
+                              <IconComponent size={12} style={{ color: isActive ? tier.color : 'var(--text-muted)' }} />
+                              <span>{tier.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Stream / JSON Slider */}
+                    <div>
+                      <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem', letterSpacing: '0.03em' }}>
+                        STREAMING MODE
+                      </label>
+                      <div style={{
+                        display: 'flex',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 6,
+                        padding: 2,
+                        height: 32
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setStream(true)}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.35rem',
+                            fontSize: '0.72rem',
+                            fontWeight: stream ? 700 : 500,
+                            borderRadius: 4,
+                            border: 'none',
+                            background: stream ? 'var(--accent-lime)' : 'transparent',
+                            color: stream ? '#000000' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <Zap size={11} style={{ fill: stream ? '#000000' : 'none' }} />
+                          <span>Stream</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStream(false)}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.35rem',
+                            fontSize: '0.72rem',
+                            fontWeight: !stream ? 700 : 500,
+                            borderRadius: 4,
+                            border: 'none',
+                            background: !stream ? 'var(--accent-lime)' : 'transparent',
+                            color: !stream ? '#000000' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <Terminal size={11} />
+                          <span>JSON</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Concrete Model Dropdown (for testing specific models directly) */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                      <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                        ROUTER / MODEL
+                      <label style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        DIRECT MODEL OVERRIDE
                       </label>
-                      {keyAllowlist.length > 0 && (
-                        <span style={{ fontSize: '0.625rem', fontWeight: 600, color: isAllowed ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
-                          {isAllowed ? 'Permitted' : 'Outside List'}
+                      {!['fast', 'smart', 'auto'].includes(model) && (
+                        <span className="badge font-mono" style={{ fontSize: '0.625rem', padding: '0.1rem 0.35rem', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-cyan)', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
+                          Direct Upstream Active
                         </span>
                       )}
                     </div>
                     <select
-                      className="select-input"
-                      value={model}
-                      onChange={e => setModel(e.target.value)}
+                      className="select-input font-mono"
+                      value={['fast', 'smart', 'auto'].includes(model) ? '' : model}
+                      onChange={e => {
+                        if (e.target.value) setModel(e.target.value);
+                      }}
                       style={{
                         fontSize: '0.78rem',
-                        height: 32,
-                        borderColor: (!isAllowed && keyAllowlist.length > 0) ? 'var(--accent-amber)' : undefined
+                        height: 38,
+                        lineHeight: '1.4',
+                        padding: '0.4rem 0.65rem',
+                        boxSizing: 'border-box',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        borderColor: !['fast', 'smart', 'auto'].includes(model) ? 'var(--accent-cyan)' : 'var(--border-subtle)'
                       }}
                     >
-                      <optgroup label="Gateway Virtual Aliases">
-                        <option value="fast">fast {fastTargetModel ? `(${fastTargetModel})` : '(Latency Optimized)'}</option>
-                        <option value="smart">smart {smartTargetModel ? `(${smartTargetModel})` : '(Reasoning Frontier)'}</option>
-                        <option value="auto">auto (Syntactic Classifier)</option>
-                      </optgroup>
-
+                      <option value="">— Use Router Alias Above ({model}) —</option>
                       {availableConcreteModels.length > 0 ? (
-                        <optgroup label="Configured Upstream Models">
-                          {availableConcreteModels.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </optgroup>
+                        <>
+                          {keyAllowlist.length > 0 && availableConcreteModels.some(m => keyAllowlist.includes(m)) && (
+                            <optgroup label="Allowed for Current Key">
+                              {availableConcreteModels.filter(m => keyAllowlist.includes(m)).map(m => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label={keyAllowlist.length > 0 ? "All Configured Upstream Models" : "Available Models"}>
+                            {availableConcreteModels.filter(m => !keyAllowlist.includes(m)).map(m => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </optgroup>
+                        </>
                       ) : (
-                        <optgroup label="Upstream Frontier Models">
-                          <option value="deepseek/deepseek-chat">deepseek/deepseek-chat</option>
-                          <option value="nvidia/nemotron-3.5-lightning">nvidia/nemotron-3.5-lightning</option>
-                          <option value="openai/gpt-3.5-turbo-0613">openai/gpt-3.5-turbo-0613</option>
-                          <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
-                          <option value="openai/gpt-4o">openai/gpt-4o</option>
-                          <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>
-                          <option value="google/gemini-2.5-flash-lite">google/gemini-2.5-flash-lite</option>
-                          <option value="google/gemini-3.6-flash">google/gemini-3.6-flash</option>
-                          <option value="google/gemini-3.8-flash">google/gemini-3.8-flash</option>
-                          <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet</option>
-                          <option value="anthropic/claude-sonnet-4.6">anthropic/claude-sonnet-4.6</option>
-                        </optgroup>
+                        <>
+                          <optgroup label="Upstream Production Models">
+                            <option value="deepseek/deepseek-chat">deepseek/deepseek-chat</option>
+                            <option value="nvidia/nemotron-3.5-lightning">nvidia/nemotron-3.5-lightning</option>
+                            <option value="openai/gpt-3.5-turbo-0613">openai/gpt-3.5-turbo-0613</option>
+                            <option value="google/gemini-3.6-flash">google/gemini-3.6-flash</option>
+                            <option value="google/gemini-3.8-flash">google/gemini-3.8-flash</option>
+                            <option value="anthropic/claude-sonnet-4.6">anthropic/claude-sonnet-4.6</option>
+                          </optgroup>
+                        </>
                       )}
                     </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>
-                      STREAMING MODE
-                    </label>
-                    <div style={{ display: 'flex', gap: '0.25rem', height: 32 }}>
-                      <button
-                        type="button"
-                        onClick={() => setStream(true)}
-                        className={`btn btn-sm ${stream ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ flex: 1, padding: '0.2rem', fontSize: '0.72rem' }}
-                      >
-                        SSE Stream
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStream(false)}
-                        className={`btn btn-sm ${!stream ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ flex: 1, padding: '0.2rem', fontSize: '0.72rem' }}
-                      >
-                        JSON
-                      </button>
-                    </div>
                   </div>
                 </div>
               );
             })()}
 
-            {/* Benchmark Test Presets (Spacious Scenario Blocks & Dropdown) */}
+            {/* Benchmark Test Scenarios Dropdown */}
             <div>
-              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-                BENCHMARK TEST PRESETS
+              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem', letterSpacing: '0.03em' }}>
+                BENCHMARK TEST SCENARIOS
               </label>
 
-              {/* 4 Spacious Scenario Blocks */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.35rem', marginBottom: '0.45rem' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = promptTemplates[0];
-                    setPrompt(t.text);
-                    setModel(t.model);
-                  }}
-                  className={`btn btn-sm font-mono ${prompt === promptTemplates[0].text ? 'btn-secondary' : 'btn-outline'}`}
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '0.4rem 0.55rem',
-                    justifyContent: 'flex-start',
-                    textAlign: 'left',
-                    height: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    borderRadius: 6,
-                    borderColor: prompt === promptTemplates[0].text ? 'var(--accent-emerald)' : 'var(--border-subtle)',
-                    background: prompt === promptTemplates[0].text ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-                    color: prompt === promptTemplates[0].text ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Load semantic cache original prompt (Pair A)"
-                >
-                  <Sparkles size={12} style={{ color: 'var(--accent-emerald)', flexShrink: 0 }} />
-                  <span style={{ fontWeight: prompt === promptTemplates[0].text ? 700 : 500 }}>Cache Hit (Pair A)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = promptTemplates[1];
-                    setPrompt(t.text);
-                    setModel(t.model);
-                  }}
-                  className={`btn btn-sm font-mono ${prompt === promptTemplates[1].text ? 'btn-secondary' : 'btn-outline'}`}
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '0.4rem 0.55rem',
-                    justifyContent: 'flex-start',
-                    textAlign: 'left',
-                    height: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    borderRadius: 6,
-                    borderColor: prompt === promptTemplates[1].text ? 'var(--accent-cyan)' : 'var(--border-subtle)',
-                    background: prompt === promptTemplates[1].text ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
-                    color: prompt === promptTemplates[1].text ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Load semantic paraphrase query to verify cache hit without token spend"
-                >
-                  <Database size={12} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
-                  <span style={{ fontWeight: prompt === promptTemplates[1].text ? 700 : 500 }}>Paraphrase Hit</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = promptTemplates[4];
-                    setPrompt(t.text);
-                    setModel(t.model);
-                  }}
-                  className={`btn btn-sm font-mono ${prompt === promptTemplates[4].text ? 'btn-secondary' : 'btn-outline'}`}
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '0.4rem 0.55rem',
-                    justifyContent: 'flex-start',
-                    textAlign: 'left',
-                    height: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    borderRadius: 6,
-                    borderColor: prompt === promptTemplates[4].text ? 'var(--accent-rose)' : 'var(--border-subtle)',
-                    background: prompt === promptTemplates[4].text ? 'rgba(244, 63, 94, 0.12)' : 'transparent',
-                    color: prompt === promptTemplates[4].text ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Test strict similarity threshold rejection (<0.900) to defend cache against drift"
-                >
-                  <ShieldAlert size={12} style={{ color: 'var(--accent-rose)', flexShrink: 0 }} />
-                  <span style={{ fontWeight: prompt === promptTemplates[4].text ? 700 : 500 }}>Near-Miss Guard</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = promptTemplates[5];
-                    setPrompt(t.text);
-                    setModel(t.model);
-                  }}
-                  className={`btn btn-sm font-mono ${prompt === promptTemplates[5].text ? 'btn-secondary' : 'btn-outline'}`}
-                  style={{
-                    fontSize: '0.72rem',
-                    padding: '0.4rem 0.55rem',
-                    justifyContent: 'flex-start',
-                    textAlign: 'left',
-                    height: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    borderRadius: 6,
-                    borderColor: prompt === promptTemplates[5].text ? 'var(--accent-amber)' : 'var(--border-subtle)',
-                    background: prompt === promptTemplates[5].text ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
-                    color: prompt === promptTemplates[5].text ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title="Complex query routed to frontier smart tier via syntactic classifier"
-                >
-                  <Cpu size={12} style={{ color: 'var(--accent-amber)', flexShrink: 0 }} />
-                  <span style={{ fontWeight: prompt === promptTemplates[5].text ? 700 : 500 }}>Auto Classifier</span>
-                </button>
-              </div>
-
-              {/* Benchmark Template Dropdown */}
               <select
                 className="select-input font-mono"
                 style={{ 
-                  fontSize: '0.75rem', 
-                  height: 32, 
-                  padding: '0 0.5rem',
+                  fontSize: '0.78rem', 
+                  height: 38, 
+                  lineHeight: '1.4',
+                  padding: '0.4rem 0.65rem',
+                  boxSizing: 'border-box',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
                   borderColor: isCustomPrompt ? 'rgba(245, 158, 11, 0.35)' : 'var(--border-subtle)',
                   background: isCustomPrompt ? 'rgba(245, 158, 11, 0.04)' : 'transparent',
                   color: isCustomPrompt ? 'var(--text-primary)' : 'inherit',
@@ -759,19 +874,25 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
                 {isCustomPrompt ? (
                   <option value="__custom__">✍️ Custom Prompt (Active)</option>
                 ) : (
-                  <option value="" disabled>Select a benchmark template...</option>
+                  <option value="" disabled>Select a benchmark scenario...</option>
                 )}
-                <optgroup label={isCustomPrompt ? "— Load a Benchmark Template —" : "Semantic Vector Cache Scenarios"}>
-                  <option value="Paraphrase Pair A (Original)">Pair A (Original): What is a load balancer?</option>
-                  <option value="Paraphrase Pair A (Paraphrase)">Pair A (Paraphrase): Explain what load balancers do</option>
-                  <option value="Paraphrase Pair B (Original)">Pair B (Original): What is the refund policy?</option>
-                  <option value="Paraphrase Pair B (Paraphrase)">Pair B (Paraphrase): If I bought annual tier, full refund?</option>
-                  <option value="Near-Miss Prompt (Rejection)">Near-Miss Rejection: 2FA configuration on Linux</option>
+                <optgroup label="Semantic Vector Cache — Pair A (Distributed Web Systems)">
+                  <option value={promptTemplates[0].label}>Pair A · Step 1 (Seed Cache): What is a load balancer?</option>
+                  <option value={promptTemplates[1].label}>Pair A · Step 2 (Semantic Hit): Explain what load balancers do</option>
                 </optgroup>
-                <optgroup label="Dynamic Router Classification">
-                  <option value="Complex Auto Router">Complex Auto: Distributed rate limiter proof</option>
-                  <option value="Simple Auto Router">Simple Auto: Capital of France</option>
-                  <option value="OpenRouter Upstream (GPT-4o Mini)">Frontier Direct: Quantum computing in 2 sentences</option>
+                <optgroup label="Semantic Vector Cache — Pair B (Commercial SaaS Policy)">
+                  <option value={promptTemplates[2].label}>Pair B · Step 1 (Seed Cache): What is the refund policy?</option>
+                  <option value={promptTemplates[3].label}>Pair B · Step 2 (Semantic Hit): If I bought annual tier, full refund?</option>
+                </optgroup>
+                <optgroup label="Cache Boundary &amp; Threshold Guardrails">
+                  <option value={promptTemplates[4].label}>Near-Miss Guard (Rejection): 2FA configuration on Linux</option>
+                </optgroup>
+                <optgroup label="Dynamic Adaptive Router Intent Proofs">
+                  <option value={promptTemplates[5].label}>Auto → Fast Tier (Low Complexity): Capital of France</option>
+                  <option value={promptTemplates[6].label}>Auto → Smart Tier (High Complexity): Distributed rate limiter</option>
+                </optgroup>
+                <optgroup label="Direct Upstream Frontier">
+                  <option value={promptTemplates[7].label}>Frontier Direct: Quantum computing in 2 sentences</option>
                 </optgroup>
               </select>
             </div>
@@ -794,58 +915,32 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
             {/* User Prompt */}
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 85 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.04em' }}>
                   USER PROMPT
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  {activeTemplate ? (
-                    <span 
-                      className="badge font-mono" 
-                      style={{ 
-                        fontSize: '0.625rem', 
-                        padding: '0.1rem 0.4rem',
-                        background: 'rgba(14, 165, 233, 0.12)',
-                        color: 'var(--accent-cyan)',
-                        border: '1px solid rgba(14, 165, 233, 0.25)'
-                      }}
-                      title={`Active preset: ${activeTemplate.label}`}
-                    >
-                      PRESET: {activeTemplate.label.split(':')[0].replace('Paraphrase ', '')}
-                    </span>
-                  ) : prompt.trim() ? (
-                    <span 
-                      className="badge font-mono" 
-                      style={{ 
-                        fontSize: '0.625rem', 
-                        padding: '0.1rem 0.4rem',
-                        background: 'rgba(245, 158, 11, 0.12)',
-                        color: '#d97706',
-                        border: '1px solid rgba(245, 158, 11, 0.25)'
-                      }}
-                    >
-                      CUSTOM ({prompt.length} chars)
-                    </span>
-                  ) : null}
-
-                  {prompt && (
-                    <button
-                      type="button"
-                      onClick={() => setPrompt('')}
-                      className="btn btn-outline btn-sm font-mono"
-                      style={{ 
-                        padding: '0.1rem 0.35rem', 
-                        fontSize: '0.65rem', 
-                        height: 18, 
-                        border: 'none', 
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer' 
-                      }}
-                      title="Clear prompt text"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
+                {prompt && (
+                  <button
+                    type="button"
+                    onClick={() => setPrompt('')}
+                    className="btn btn-outline btn-sm font-mono"
+                    style={{ 
+                      padding: '0.1rem 0.45rem', 
+                      fontSize: '0.68rem', 
+                      height: 20, 
+                      border: '1px solid var(--border-subtle)', 
+                      color: 'var(--text-muted)',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                    title="Clear prompt text"
+                  >
+                    <RotateCcw size={10} />
+                    <span>Clear</span>
+                  </button>
+                )}
               </div>
               <textarea
                 className="textarea-input"
@@ -1018,10 +1113,25 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
                       alignItems: 'center', 
                       gap: '0.3rem' 
                     }}
-                    title="Accounting Cost for Transaction"
+                    title={
+                      telemetry.cache === 'hit'
+                        ? 'Cached Response — $0.00 Incurred (Upstream token cost eliminated)'
+                        : `Total Transaction Cost: ${formatCurrency(telemetry.costUsd)} (${telemetry.promptTokens || 0} prompt + ${telemetry.completionTokens || 0} completion tokens)`
+                    }
                   >
-                    <Coins size={11} />
-                    <span>{formatCurrency(telemetry.costUsd)}</span>
+                    <Coins size={11} style={{ color: telemetry.cache === 'hit' ? 'var(--accent-emerald)' : 'var(--accent-amber)' }} />
+                    {executing && !telemetry.isFinalized ? (
+                      <span style={{ color: 'var(--accent-cyan)' }}>Streaming...</span>
+                    ) : (
+                      <span>
+                        {formatCurrency(telemetry.costUsd)}
+                        {telemetry.cache === 'hit' && (
+                          <span style={{ fontSize: '0.625rem', color: 'var(--accent-emerald)', marginLeft: '0.25rem', fontWeight: 700 }}>
+                            (Cached)
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </span>
 
                   {telemetry.fallback && (

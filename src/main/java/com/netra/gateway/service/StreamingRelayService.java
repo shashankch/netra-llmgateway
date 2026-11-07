@@ -155,14 +155,15 @@ public class StreamingRelayService {
         servletResponse.setHeader("x-netra-cost-usd", "0.000000");
         servletResponse.setHeader("x-netra-route-reason", "semantic_cache_hit");
         servletResponse.setHeader("x-netra-retries", "0");
-        int limit = admission != null && admission.limit() > 0 ? admission.limit() : tenant.getRpmLimit();
-        int remaining = admission != null ? admission.remaining() : Math.max(0, tenant.getRpmLimit() - 1);
-        int reset = admission != null && admission.resetSeconds() > 0 ? admission.resetSeconds() : 60;
-        String policy = admission != null && admission.policy() != null ? admission.policy() : (limit + ";w=60");
-        servletResponse.setHeader("RateLimit-Limit", String.valueOf(limit));
-        servletResponse.setHeader("RateLimit-Remaining", String.valueOf(remaining));
-        servletResponse.setHeader("RateLimit-Reset", String.valueOf(reset));
-        servletResponse.setHeader("RateLimit-Policy", policy);
+        if (admission != null) {
+            servletResponse.setHeader("RateLimit-Limit", String.valueOf(admission.limit()));
+            servletResponse.setHeader("RateLimit-Remaining", String.valueOf(admission.remaining()));
+            servletResponse.setHeader("RateLimit-Reset", String.valueOf(admission.resetSeconds()));
+            servletResponse.setHeader("RateLimit-Policy", admission.policy() != null ? admission.policy() : (admission.limit() + ";w=60"));
+        } else if (tenant.getRpmLimit() > 0) {
+            servletResponse.setHeader("RateLimit-Limit", String.valueOf(tenant.getRpmLimit()));
+            servletResponse.setHeader("RateLimit-Policy", tenant.getRpmLimit() + ";w=60");
+        }
 
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(60_000L);
 
@@ -513,14 +514,15 @@ public class StreamingRelayService {
         }
         servletResponse.setHeader("x-netra-retries", String.valueOf(totalRetries));
         // Issue 15 fix: Dynamic IETF RateLimit protocol headers from Redis token-bucket admission
-        int limit = admission != null && admission.limit() > 0 ? admission.limit() : tenant.getRpmLimit();
-        int remaining = admission != null ? admission.remaining() : Math.max(0, tenant.getRpmLimit() - 1);
-        int reset = admission != null && admission.resetSeconds() > 0 ? admission.resetSeconds() : 60;
-        String policy = admission != null && admission.policy() != null ? admission.policy() : (limit + ";w=60");
-        servletResponse.setHeader("RateLimit-Limit", String.valueOf(limit));
-        servletResponse.setHeader("RateLimit-Remaining", String.valueOf(remaining));
-        servletResponse.setHeader("RateLimit-Reset", String.valueOf(reset));
-        servletResponse.setHeader("RateLimit-Policy", policy);
+        if (admission != null) {
+            servletResponse.setHeader("RateLimit-Limit", String.valueOf(admission.limit()));
+            servletResponse.setHeader("RateLimit-Remaining", String.valueOf(admission.remaining()));
+            servletResponse.setHeader("RateLimit-Reset", String.valueOf(admission.resetSeconds()));
+            servletResponse.setHeader("RateLimit-Policy", admission.policy() != null ? admission.policy() : (admission.limit() + ";w=60"));
+        } else if (tenant.getRpmLimit() > 0) {
+            servletResponse.setHeader("RateLimit-Limit", String.valueOf(tenant.getRpmLimit()));
+            servletResponse.setHeader("RateLimit-Policy", tenant.getRpmLimit() + ";w=60");
+        }
 
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(STREAM_TIMEOUT_MS);
         AtomicBoolean clientDisconnected = new AtomicBoolean(false);
@@ -594,7 +596,7 @@ public class StreamingRelayService {
                             break;
                         }
 
-                        if ("data: [DONE]".equals(trimmed)) {
+                        if ("data: [DONE]".equals(trimmed) || "data:[DONE]".equals(trimmed) || trimmed.endsWith("[DONE]")) {
                             sawDone = true;
                             break;
                         }
@@ -634,10 +636,16 @@ public class StreamingRelayService {
                                                     String reasoningText = deltaNode.get("reasoning_content").asText();
                                                     if (!reasoningText.isEmpty()) {
                                                         hasNonEmptyOutput = true;
+                                                        inferredCompletionTokens += estimateTokenCount(reasoningText);
                                                     }
                                                 }
                                                 if (deltaNode.has("tool_calls") && deltaNode.get("tool_calls").isArray() && !deltaNode.get("tool_calls").isEmpty()) {
-                                                    hasNonEmptyOutput = true;
+                                                    for (JsonNode tc : deltaNode.get("tool_calls")) {
+                                                        if (tc.has("function") && (tc.get("function").has("name") || tc.get("function").has("arguments"))) {
+                                                            hasNonEmptyOutput = true;
+                                                            break;
+                                                        }
+                                                    }
                                                 }
 
                                                 // Record TTFT at the first non-empty output delta (empty role headers do not count as output)

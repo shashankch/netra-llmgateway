@@ -190,12 +190,17 @@ public class ChatCompletionController {
                     BigDecimal prevCost = costService.calculateCost(prevAccountingModel, prevPromptTokens, prevCompletionTokens);
 
                     UpstreamClientService.UpstreamResult escalatedResult = refusalEscalationService.escalate(request);
-                    result = escalatedResult;
-                    response = result.getResponse();
-                    initialPromptTokens = prevPromptTokens;
-                    initialCompletionTokens = prevCompletionTokens;
-                    initialCost = prevCost;
-                    isEscalated = true;
+                    if (escalatedResult != null && escalatedResult.getStatusCode() < 400 && escalatedResult.getResponse() != null) {
+                        result = escalatedResult;
+                        response = result.getResponse();
+                        initialPromptTokens = prevPromptTokens;
+                        initialCompletionTokens = prevCompletionTokens;
+                        initialCost = prevCost;
+                        isEscalated = true;
+                    } else {
+                        log.warn("Escalation to smart tier returned unviable result (status {}); keeping original response",
+                                escalatedResult != null ? escalatedResult.getStatusCode() : "null");
+                    }
                 } catch (Exception escEx) {
                     log.warn("Auto-escalation attempt failed, proceeding with original response: {}", escEx.getMessage());
                     initialPromptTokens = 0;

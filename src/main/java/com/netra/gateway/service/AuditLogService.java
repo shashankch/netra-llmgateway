@@ -238,7 +238,7 @@ public class AuditLogService {
                 .requestedModel(requestedModel != null ? requestedModel : "unknown")
                 .resolvedProvider(resolvedProvider)
                 .resolvedModel(resolvedModel)
-                .status(status != null ? status : "ok")
+                .status(status != null ? status : (statusCode >= 200 && statusCode < 300 ? "ok" : "error"))
                 .statusCode(statusCode)
                 .promptTokens(promptTokens)
                 .completionTokens(completionTokens)
@@ -410,7 +410,11 @@ public class AuditLogService {
                 log.warn("Preserving {} transiently failed audit records for retry with {}ms backoff (attempt {}): {}",
                         retryList.size(), backoffMs, failures, e.getMessage());
                 for (AuditLogItem retryItem : retryList) {
-                    batchQueue.offer(retryItem);
+                    if (!batchQueue.offer(retryItem)) {
+                        long dropped = droppedLogsCounter.incrementAndGet();
+                        log.error("Failed to requeue retry audit record [{}] because queue is full; record dropped.",
+                                retryItem.logEntry() != null ? retryItem.logEntry().getRequestId() : "unknown");
+                    }
                 }
             } else {
                 consecutiveFailures.set(0);

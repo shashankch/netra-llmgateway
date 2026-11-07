@@ -2,7 +2,7 @@
 site_name = "NETRA Documentation"
 site_description = "Production-Grade AI-First LLM Gateway & Semantic Vector Cache"
 site_author = "Shashank Chandel"
-site_url = "https://shashankch.github.io/netra-llmgateway/"
+site_url = "https://docs-netrallm.avadhanlabs.dev/"
 
 repo_url = "https://github.com/shashankch/netra-llmgateway"
 repo_name = "shashankch/netra-llmgateway"
@@ -32,7 +32,7 @@ nav = [
 variant = "modern"
 language = "en"
 logo = "assets/netra-logo.svg"
-favicon = "assets/netra-logo.svg"
+favicon = "assets/favicon.svg"
 features = [
   "content.code.annotate",
   "content.code.copy",

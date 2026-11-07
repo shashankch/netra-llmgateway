@@ -8,7 +8,7 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
 
 1. **Fork & Clone:** Fork the repository on GitHub and clone your fork locally.
 
-2. **Environment Setup:** Ensure you have Java 25 LTS, Gradle 9, Docker, and Python 3.9+ installed.
+2. **Environment Setup:** Ensure you have Java 25 LTS, Gradle 9, Docker, Node.js 20+ & npm, and Python 3.9+ installed.
 
 3. **Branching Model:** Create a descriptive branch from `main`:
 

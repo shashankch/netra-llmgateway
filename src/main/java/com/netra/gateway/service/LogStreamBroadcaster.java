@@ -68,8 +68,10 @@ public class LogStreamBroadcaster {
         if (redisTemplate != null && objectMapper != null) {
             try {
                 String json = objectMapper.writeValueAsString(logEntry);
-                redisTemplate.convertAndSend("netra:logs:broadcast", json);
-                return;
+                Long subscribers = redisTemplate.convertAndSend("netra:logs:broadcast", json);
+                if (subscribers != null && subscribers > 0) {
+                    return;
+                }
             } catch (Exception e) {
                 log.debug("Redis live log broadcast failed; broadcasting locally: {}", e.getMessage());
             }

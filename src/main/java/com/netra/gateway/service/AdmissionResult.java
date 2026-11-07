@@ -16,6 +16,9 @@ public record AdmissionResult(
     }
 
     public static AdmissionResult defaultAdmitted(int limit) {
+        if (limit <= 0) {
+            return new AdmissionResult(429, limit, 0, 60, "0;w=60");
+        }
         return new AdmissionResult(200, limit, Math.max(0, limit - 1), 60, limit + ";w=60");
     }
 }

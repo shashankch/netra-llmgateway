@@ -137,8 +137,8 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
   const totalTokens = promptTokens + completionTokens;
   const avgTokensPerReq = totalRequests > 0 ? Math.round(totalTokens / totalRequests) : 0;
 
-  // Stream metrics
-  const streamLogs = logs.filter(l => l.stream === true || l.is_stream === true || (l.completion_tokens || 0) > 0);
+  // Stream metrics: accurately isolate true SSE stream traffic from standard JSON completions
+  const streamLogs = logs.filter(l => l.stream === true || l.is_stream === true);
   const streamCount = streamLogs.length;
   const streamPct = logs.length > 0 ? Math.round((streamCount / logs.length) * 100) : 0;
 
@@ -149,53 +149,79 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
   const p99 = latencies.length ? latencies[Math.floor(latencies.length * 0.99)] : 0;
   const avgLatency = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
 
-  // Disambiguate requested virtual aliases from resolved foundation models (Issue: prevents double counting)
-  const modelBreakdown = {
-    fast: logs.filter(l => l.requested_model === 'fast').length,
-    smart: logs.filter(l => l.requested_model === 'smart').length,
-    auto: logs.filter(l => l.requested_model === 'auto').length,
-    direct: logs.filter(l => l.requested_model && !['fast', 'smart', 'auto'].includes(l.requested_model)).length,
-  };
-  const totalModelCalls = modelBreakdown.fast + modelBreakdown.smart + modelBreakdown.auto + modelBreakdown.direct || logs.length;
-
-  // Resolved tier execution distribution (Smart Router Arbitrage)
-  const isFastResolved = (l) => {
-    const rm = (l.resolved_model || '').toLowerCase();
-    const target = (l.provider_target || l.target || '').toLowerCase();
-    const reason = (l.route_reason || '').toLowerCase();
-    return (
-      rm === (fastModelName || '').toLowerCase() ||
-      rm.includes('flash') || rm.includes('mini') || rm.includes('small') ||
-      rm.includes('nano') || rm.includes('lite') || rm.includes('8b') || rm.includes('7b') ||
-      target.includes('flash') || target.includes('mini') ||
-      reason.includes('simple') || reason.includes('fast')
-    );
-  };
-
-  const isSmartResolved = (l) => {
-    if (isFastResolved(l)) return false;
-    const rm = (l.resolved_model || '').toLowerCase();
-    const target = (l.provider_target || l.target || '').toLowerCase();
-    const reason = (l.route_reason || '').toLowerCase();
-    return (
-      rm === (smartModelName || '').toLowerCase() ||
-      rm.includes('deepseek') || rm.includes('sonnet') || rm.includes('opus') ||
-      rm.includes('gpt-4') || rm.includes('o1') || rm.includes('o3') ||
-      rm.includes('large') || rm.includes('70b') || rm.includes('r1') ||
-      target.includes('deepseek') || target.includes('sonnet') ||
-      reason.includes('complex') || reason.includes('smart') ||
-      l.requested_model === 'smart' ||
-      (l.requested_model === 'auto' && !isFastResolved(l))
-    );
-  };
-
+  // Disambiguate requested virtual aliases vs dynamic classifier-routed execution
+  const directFast = logs.filter(l => l.requested_model === 'fast').length;
+  const directSmart = logs.filter(l => l.requested_model === 'smart').length;
+  const directOther = logs.filter(l => l.requested_model && !['fast', 'smart', 'auto'].includes(l.requested_model)).length;
   const autoLogs = logs.filter(l => l.requested_model === 'auto');
-  const autoRoutedFast = autoLogs.filter(isFastResolved).length;
-  const autoRoutedSmart = autoLogs.filter(isSmartResolved).length;
+
+  // Authoritative execution tier resolver
+  const getLogExecutionTier = (l) => {
+    const reason = (l.route_reason || '').toLowerCase();
+    // 1. Authoritative classifier decision recorded by Netra Gateway
+    if (reason.includes('-> smart') || reason.includes('to smart') || reason.includes('auto -> smart') || reason.includes('routed to smart')) {
+      return 'smart';
+    }
+    if (reason.includes('-> fast') || reason.includes('to fast') || reason.includes('auto -> fast') || reason.includes('routed to fast')) {
+      return 'fast';
+    }
+
+    // 2. Exact match against configured active tier model names
+    const rm = (l.resolved_model || '').toLowerCase();
+    const target = (l.provider_target || l.target || '').toLowerCase();
+    const fastPrimary = (fastModelName || '').toLowerCase();
+    const smartPrimary = (smartModelName || '').toLowerCase();
+
+    if (smartPrimary && (rm === smartPrimary || rm.endsWith('/' + smartPrimary) || target.includes(smartPrimary))) {
+      return 'smart';
+    }
+    if (fastPrimary && (rm === fastPrimary || rm.endsWith('/' + fastPrimary) || target.includes(fastPrimary))) {
+      return 'fast';
+    }
+
+    // 3. Fallback based on requested model if direct
+    if (l.requested_model === 'smart') return 'smart';
+    if (l.requested_model === 'fast') return 'fast';
+
+    // 4. Well-known heuristic keywords
+    if (rm.includes('deepseek-reasoner') || rm.includes('r1') || rm.includes('o1') || rm.includes('o3') ||
+        rm.includes('sonnet') || rm.includes('opus') || rm.includes('gpt-4') || rm.includes('70b') || rm.includes('large')) {
+      return 'smart';
+    }
+    if (rm.includes('flash') || rm.includes('mini') || rm.includes('small') || rm.includes('nano') || rm.includes('lite') || rm.includes('8b')) {
+      return 'fast';
+    }
+
+    return 'fast';
+  };
+
+  const isFastResolved = (l) => getLogExecutionTier(l) === 'fast';
+  const isSmartResolved = (l) => getLogExecutionTier(l) === 'smart';
+
+  const autoFast = autoLogs.filter(isFastResolved).length;
+  const autoSmart = autoLogs.filter(isSmartResolved).length;
+  const totalAuto = autoLogs.length;
+
+  // Effective tier execution volumes (Direct requested + Arbitraged via auto-routing)
+  const effectiveFast = directFast + autoFast;
+  const effectiveSmart = directSmart + autoSmart;
+  const totalExecutions = effectiveFast + effectiveSmart + directOther || logs.length;
+
+  const modelBreakdown = {
+    fast: directFast,
+    smart: directSmart,
+    auto: totalAuto,
+    direct: directOther,
+    effectiveFast,
+    effectiveSmart,
+    autoFast,
+    autoSmart
+  };
+  const totalModelCalls = totalExecutions;
 
   const resolvedTierBreakdown = {
-    fast: logs.filter(isFastResolved).length,
-    smart: logs.filter(isSmartResolved).length,
+    fast: effectiveFast,
+    smart: effectiveSmart,
   };
 
   const formatCalls = (n) => {
@@ -241,8 +267,10 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
   }, [logs, fastModelName, smartModelName]);
 
   // Chart 2: Smart Router Arbitrage Efficiency (Resolved Execution Tier)
-  const totalDiverted = resolvedTierBreakdown.fast + resolvedTierBreakdown.smart;
-  const fastPct = totalDiverted > 0 ? Math.round((resolvedTierBreakdown.fast / totalDiverted) * 100) : 0;
+  const totalDiverted = totalAuto > 0 ? totalAuto : (effectiveFast + effectiveSmart);
+  const fastPct = totalDiverted > 0
+    ? Math.round(((totalAuto > 0 ? autoFast : effectiveFast) / totalDiverted) * 100)
+    : 0;
   const smartPct = totalDiverted > 0 ? (100 - fastPct) : 0;
   const arbitrageSavingsPct = (smartRate > fastRate && smartRate > 0)
     ? (((smartRate - fastRate) / smartRate) * 100).toFixed(1)
@@ -263,19 +291,40 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
   // Issue 2 fix: Real upstream provider health data only — never fabricate health on failure
   const isHealthAvailable = !providerHealthError && providerHealth !== null;
   const allProviders = (isHealthAvailable && Array.isArray(providerHealth)) ? providerHealth : [];
-  
-  const filteredProviders = allProviders.filter(p => {
-    const matchesSearch = !providerSearch || p.provider.toLowerCase().includes(providerSearch.toLowerCase());
-    const isClosed = p.circuit_state === 'CLOSED';
-    const isOpen = p.circuit_state === 'OPEN';
-    const isHalfOpen = p.circuit_state === 'HALF_OPEN';
 
-    let matchesStatus = true;
-    if (providerFilter === 'HEALTHY') matchesStatus = isClosed && (p.failure_rate || 0) < 10;
-    else if (providerFilter === 'DEGRADED') matchesStatus = (p.failure_rate || 0) >= 10 || isHalfOpen;
-    else if (providerFilter === 'TRIPPED') matchesStatus = isOpen;
-    return matchesSearch && matchesStatus;
-  });
+  // Sort providers so degraded/tripped providers or highest volume providers are prioritized
+  const sortedProviders = React.useMemo(() => {
+    return [...allProviders].sort((a, b) => {
+      // 1. Prioritize open/half-open circuits or high failure rate
+      const aIsBad = a.circuit_state === 'OPEN' || a.circuit_state === 'HALF_OPEN' || (a.failure_rate || 0) >= 10;
+      const bIsBad = b.circuit_state === 'OPEN' || b.circuit_state === 'HALF_OPEN' || (b.failure_rate || 0) >= 10;
+      if (aIsBad && !bIsBad) return -1;
+      if (!aIsBad && bIsBad) return 1;
+
+      // 2. Sort by total calls (usage)
+      const aCalls = (a.successful_calls || 0) + (a.failed_calls || 0);
+      const bCalls = (b.successful_calls || 0) + (b.failed_calls || 0);
+      if (bCalls !== aCalls) return bCalls - aCalls;
+
+      // 3. Fallback alphabetically
+      return (a.provider || '').localeCompare(b.provider || '');
+    });
+  }, [allProviders]);
+  
+  const filteredProviders = React.useMemo(() => {
+    return sortedProviders.filter(p => {
+      const matchesSearch = !providerSearch || p.provider.toLowerCase().includes(providerSearch.toLowerCase());
+      const isClosed = p.circuit_state === 'CLOSED';
+      const isOpen = p.circuit_state === 'OPEN';
+      const isHalfOpen = p.circuit_state === 'HALF_OPEN';
+
+      let matchesStatus = true;
+      if (providerFilter === 'HEALTHY') matchesStatus = isClosed && (p.failure_rate || 0) < 10;
+      else if (providerFilter === 'DEGRADED') matchesStatus = (p.failure_rate || 0) >= 10 || isHalfOpen;
+      else if (providerFilter === 'TRIPPED') matchesStatus = isOpen;
+      return matchesSearch && matchesStatus;
+    });
+  }, [sortedProviders, providerSearch, providerFilter]);
 
   const healthyCount = allProviders.filter(p => p.circuit_state === 'CLOSED' && (p.failure_rate || 0) < 10).length;
   const degradedCount = allProviders.filter(p => (p.failure_rate || 0) >= 10 || p.circuit_state === 'HALF_OPEN').length;
@@ -289,10 +338,8 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
     matrixPage * matrixPageSize
   );
 
-  const paginatedGridProviders = filteredProviders.slice(
-    (providerGridPage - 1) * providerGridPageSize,
-    providerGridPage * providerGridPageSize
-  );
+  // Overview dashboard displays top active providers (up to 4)
+  const overviewDisplayProviders = sortedProviders.slice(0, 4);
 
   const getModelContextWindow = (modelName) => {
     if (!modelName) return '128k';
@@ -608,47 +655,187 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
           </div>
 
           {modelViewMode === 'alias' ? (
-            /* Alias Tier Bar Chart */
-            <div style={{ height: 180, display: 'flex', alignItems: 'flex-end', gap: '2rem', padding: '1rem 2rem', background: 'var(--bg-canvas)', borderRadius: 8 }}>
-              {/* Fast Bar */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', height: '100%', justifyContent: 'flex-end' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>{formatCalls(modelBreakdown.fast)}</div>
-                <div style={{
-                  width: '100%',
-                  height: `${totalModelCalls > 0 ? Math.max(12, (modelBreakdown.fast / totalModelCalls) * 140) : 12}px`,
-                  background: 'linear-gradient(180deg, var(--accent-cyan) 0%, rgba(6,182,212,0.4) 100%)',
-                  borderRadius: '6px 6px 0 0',
-                  transition: 'height 0.3s ease'
-                }} />
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>fast</div>
-              </div>
+            /* Enterprise Stacked Tier Execution Bar Chart */
+            (() => {
+              const maxTierVolume = Math.max(effectiveFast, effectiveSmart, totalAuto, 1);
+              const chartHeightPx = 130;
+              const fastHeight = Math.max(16, Math.round((effectiveFast / maxTierVolume) * chartHeightPx));
+              const smartHeight = Math.max(16, Math.round((effectiveSmart / maxTierVolume) * chartHeightPx));
+              const autoHeight = Math.max(16, Math.round((totalAuto / maxTierVolume) * chartHeightPx));
 
-              {/* Smart Bar */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', height: '100%', justifyContent: 'flex-end' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>{formatCalls(modelBreakdown.smart)}</div>
-                <div style={{
-                  width: '100%',
-                  height: `${totalModelCalls > 0 ? Math.max(12, (modelBreakdown.smart / totalModelCalls) * 140) : 12}px`,
-                  background: 'linear-gradient(180deg, var(--accent-primary) 0%, rgba(99,102,241,0.4) 100%)',
-                  borderRadius: '6px 6px 0 0',
-                  transition: 'height 0.3s ease'
-                }} />
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>smart</div>
-              </div>
+              // Fast stacked percentages (direct on bottom, auto on top)
+              const fastDirectPct = effectiveFast > 0 ? Math.round((directFast / effectiveFast) * 100) : 0;
+              const fastAutoPct = effectiveFast > 0 ? (100 - fastDirectPct) : 0;
 
-              {/* Auto Bar */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', height: '100%', justifyContent: 'flex-end' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>{formatCalls(modelBreakdown.auto)}</div>
+              // Smart stacked percentages (direct on bottom, auto on top)
+              const smartDirectPct = effectiveSmart > 0 ? Math.round((directSmart / effectiveSmart) * 100) : 0;
+              const smartAutoPct = effectiveSmart > 0 ? (100 - smartDirectPct) : 0;
+
+              // Auto router split percentages (fast share on bottom, smart share on top)
+              const autoFastPct = totalAuto > 0 ? Math.round((autoFast / totalAuto) * 100) : 50;
+              const autoSmartPct = totalAuto > 0 ? (100 - autoFastPct) : 50;
+
+              return (
                 <div style={{
-                  width: '100%',
-                  height: `${totalModelCalls > 0 ? Math.max(12, (modelBreakdown.auto / totalModelCalls) * 140) : 12}px`,
-                  background: 'linear-gradient(180deg, var(--accent-emerald) 0%, rgba(16,185,129,0.4) 100%)',
-                  borderRadius: '6px 6px 0 0',
-                  transition: 'height 0.3s ease'
-                }} />
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>auto</div>
-              </div>
-            </div>
+                  height: 180,
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: '1.75rem',
+                  padding: '1rem 2rem 0.75rem 2rem',
+                  background: 'var(--bg-canvas)',
+                  borderRadius: 8,
+                  position: 'relative'
+                }}>
+                  {/* Fast Tier Pillar */}
+                  <div
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', height: '100%', justifyContent: 'flex-end' }}
+                    title={`Fast Tier: ${effectiveFast} total executed (${directFast} direct, ${autoFast} auto-routed)`}
+                  >
+                    <div style={{ textAlign: 'center', lineHeight: 1.15 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+                        {formatCalls(effectiveFast)}
+                      </div>
+                      <div style={{ fontSize: '0.625rem', color: autoFast > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
+                        {autoFast > 0 ? `${autoFast} via auto` : (directFast > 0 ? 'direct' : 'idle')}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      width: '100%',
+                      height: `${fastHeight}px`,
+                      display: 'flex',
+                      flexDirection: 'column-reverse',
+                      borderRadius: '6px 6px 0 0',
+                      overflow: 'hidden',
+                      transition: 'height 0.3s ease',
+                      border: '1px solid rgba(6, 182, 212, 0.35)',
+                      boxShadow: effectiveFast > 0 ? '0 0 12px rgba(6, 182, 212, 0.15)' : 'none',
+                      background: 'rgba(6, 182, 212, 0.05)'
+                    }}>
+                      {/* Direct Fast Base Segment */}
+                      {directFast > 0 && (
+                        <div style={{
+                          height: `${fastDirectPct}%`,
+                          background: 'linear-gradient(180deg, rgba(6,182,212,0.95) 0%, rgba(6,182,212,0.7) 100%)',
+                          transition: 'height 0.3s ease'
+                        }} />
+                      )}
+                      {/* Auto-Routed Fast Segment */}
+                      {autoFast > 0 && (
+                        <div style={{
+                          height: `${fastAutoPct}%`,
+                          background: 'linear-gradient(180deg, #22d3ee 0%, rgba(16, 185, 129, 0.85) 100%)',
+                          backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0, rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px)',
+                          transition: 'height 0.3s ease'
+                        }} />
+                      )}
+                      {effectiveFast === 0 && (
+                        <div style={{ height: '100%', background: 'rgba(6,182,212,0.15)' }} />
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>fast</div>
+                  </div>
+
+                  {/* Smart Tier Pillar */}
+                  <div
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', height: '100%', justifyContent: 'flex-end' }}
+                    title={`Smart Tier: ${effectiveSmart} total executed (${directSmart} direct, ${autoSmart} auto-routed)`}
+                  >
+                    <div style={{ textAlign: 'center', lineHeight: 1.15 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+                        {formatCalls(effectiveSmart)}
+                      </div>
+                      <div style={{ fontSize: '0.625rem', color: autoSmart > 0 ? 'var(--accent-primary)' : 'var(--text-muted)' }}>
+                        {autoSmart > 0 ? `${autoSmart} via auto` : (directSmart > 0 ? 'direct' : 'idle')}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      width: '100%',
+                      height: `${smartHeight}px`,
+                      display: 'flex',
+                      flexDirection: 'column-reverse',
+                      borderRadius: '6px 6px 0 0',
+                      overflow: 'hidden',
+                      transition: 'height 0.3s ease',
+                      border: '1px solid rgba(99, 102, 241, 0.35)',
+                      boxShadow: effectiveSmart > 0 ? '0 0 12px rgba(99, 102, 241, 0.15)' : 'none',
+                      background: 'rgba(99, 102, 241, 0.05)'
+                    }}>
+                      {/* Direct Smart Base Segment */}
+                      {directSmart > 0 && (
+                        <div style={{
+                          height: `${smartDirectPct}%`,
+                          background: 'linear-gradient(180deg, rgba(99,102,241,0.95) 0%, rgba(99,102,241,0.7) 100%)',
+                          transition: 'height 0.3s ease'
+                        }} />
+                      )}
+                      {/* Auto-Routed Smart Segment */}
+                      {autoSmart > 0 && (
+                        <div style={{
+                          height: `${smartAutoPct}%`,
+                          background: 'linear-gradient(180deg, #a5b4fc 0%, rgba(99, 102, 241, 0.85) 100%)',
+                          backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0, rgba(255,255,255,0.08) 6px, transparent 6px, transparent 12px)',
+                          transition: 'height 0.3s ease'
+                        }} />
+                      )}
+                      {effectiveSmart === 0 && (
+                        <div style={{ height: '100%', background: 'rgba(99,102,241,0.15)' }} />
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary)' }}>smart</div>
+                  </div>
+
+                  {/* Auto Classifier Hub Pillar (Dual-Split Routing Visualizer) */}
+                  <div
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', height: '100%', justifyContent: 'flex-end' }}
+                    title={`Adaptive Auto Router: ${totalAuto} total queries evaluated (${autoFast} routed to fast [${autoFastPct}%], ${autoSmart} routed to smart [${autoSmartPct}%])`}
+                  >
+                    <div style={{ textAlign: 'center', lineHeight: 1.15 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+                        {formatCalls(totalAuto)}
+                      </div>
+                      <div style={{ fontSize: '0.625rem', color: totalAuto > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
+                        {totalAuto > 0 ? `${autoFast}F · ${autoSmart}S` : '0 routed'}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      width: '100%',
+                      height: `${autoHeight}px`,
+                      display: 'flex',
+                      flexDirection: 'column-reverse',
+                      borderRadius: '6px 6px 0 0',
+                      overflow: 'hidden',
+                      transition: 'height 0.3s ease',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      boxShadow: totalAuto > 0 ? '0 0 12px rgba(16, 185, 129, 0.15)' : 'none',
+                      background: 'rgba(16, 185, 129, 0.05)'
+                    }}>
+                      {totalAuto > 0 ? (
+                        <>
+                          {/* Fast Route Portion */}
+                          <div style={{
+                            height: `${autoFastPct}%`,
+                            background: 'linear-gradient(180deg, rgba(6,182,212,0.85) 0%, rgba(16,185,129,0.7) 100%)',
+                            transition: 'height 0.3s ease'
+                          }} />
+                          {/* Smart Route Portion */}
+                          <div style={{
+                            height: `${autoSmartPct}%`,
+                            background: 'linear-gradient(180deg, rgba(99,102,241,0.85) 0%, rgba(16,185,129,0.8) 100%)',
+                            transition: 'height 0.3s ease'
+                          }} />
+                        </>
+                      ) : (
+                        <div style={{ height: '100%', background: 'rgba(16,185,129,0.15)' }} />
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-emerald)' }}>auto</div>
+                  </div>
+                </div>
+              );
+            })()
           ) : (
             /* Concrete Model Horizontal Bars View */
             <div style={{
@@ -702,6 +889,17 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                   </div>
                 );
               })}
+              {concreteModelStats.length > 4 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingTop: '0.25rem', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span>Showing top 4 of {concreteModelStats.length} models (sorted by usage)</span>
+                  <button
+                    onClick={() => setSelectedChartModal('trends')}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontSize: '0.6875rem', fontWeight: 600, padding: 0 }}
+                  >
+                    View all in expanded table &rarr;
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -744,6 +942,22 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
               }} title={fastModelName}>
                 {fastModelName}
               </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.6875rem',
+                marginTop: '0.15rem',
+                paddingTop: '0.25rem',
+                borderTop: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{formatCalls(effectiveFast)}</span>
+                {autoFast > 0 ? (
+                  <span style={{ color: 'var(--accent-cyan)', fontSize: '0.625rem', fontWeight: 600 }}>{autoFast} via auto</span>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.625rem' }}>{directFast > 0 ? `${directFast} direct` : '0 calls'}</span>
+                )}
+              </div>
             </div>
 
             {/* Smart Tier */}
@@ -776,6 +990,22 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
               }} title={smartModelName}>
                 {smartModelName}
               </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.6875rem',
+                marginTop: '0.15rem',
+                paddingTop: '0.25rem',
+                borderTop: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{formatCalls(effectiveSmart)}</span>
+                {autoSmart > 0 ? (
+                  <span style={{ color: 'var(--accent-primary)', fontSize: '0.625rem', fontWeight: 600 }}>{autoSmart} via auto</span>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.625rem' }}>{directSmart > 0 ? `${directSmart} direct` : '0 calls'}</span>
+                )}
+              </div>
             </div>
 
             {/* Auto Tier */}
@@ -806,6 +1036,22 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                 textOverflow: 'ellipsis'
               }} title="Dynamic Margin Gating & Syntactic Complexity Steering (<0.2ms)">
                 Adaptive Classifier
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.6875rem',
+                marginTop: '0.15rem',
+                paddingTop: '0.25rem',
+                borderTop: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{formatCalls(totalAuto)}</span>
+                {totalAuto > 0 ? (
+                  <span style={{ color: 'var(--accent-emerald)', fontSize: '0.625rem', fontWeight: 600 }}>{autoFast}F · {autoSmart}S</span>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.625rem' }}>0 routed</span>
+                )}
               </div>
             </div>
           </div>
@@ -923,11 +1169,11 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>Routed Volume</span>
                 <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
-                  {autoLogs.length > 0 ? autoLogs.length : totalDiverted} calls
+                  {totalAuto} calls
                 </span>
               </div>
               <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-                {logs.length > 0 ? Math.round(((autoLogs.length > 0 ? autoLogs.length : totalDiverted) / logs.length) * 100) : 0}% of fleet traffic
+                {logs.length > 0 ? Math.round((totalAuto / logs.length) * 100) : 0}% of fleet traffic
               </div>
             </div>
 
@@ -949,7 +1195,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                 </span>
               </div>
               <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-                {resolvedTierBreakdown.fast} routed to fast tier
+                {totalAuto > 0 ? `${autoFast} auto-routed to fast` : `${effectiveFast} total fast executions`}
               </div>
             </div>
 
@@ -971,7 +1217,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                 </span>
               </div>
               <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-                {resolvedTierBreakdown.smart} routed to frontier tier
+                {totalAuto > 0 ? `${autoSmart} escalated to frontier` : `${effectiveSmart} total smart executions`}
               </div>
             </div>
           </div>
@@ -1106,7 +1352,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
           </div>
         </div>
 
-        {/* Scalability Filter Strip: Global KPI Bar + Search & Status Filter Chips */}
+        {/* Fleet KPI Summary & Direct Link to Failover Matrix */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -1148,116 +1394,30 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
             </span>
           </div>
 
-          {/* Search & Filter Tabs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
-            <div style={{
+          {/* Action Link to Full Matrix Modal */}
+          <button
+            onClick={() => setSelectedChartModal('providerHealth')}
+            className="btn btn-secondary btn-sm"
+            style={{
+              fontSize: '0.75rem',
               display: 'inline-flex',
-              background: 'var(--bg-card)',
-              borderRadius: 6,
-              padding: 2,
-              border: '1px solid var(--border-subtle)',
-              height: 32,
-              alignItems: 'center'
-            }}>
-              {['ALL', 'HEALTHY', 'DEGRADED', 'TRIPPED'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setProviderFilter(tab);
-                    setMatrixPage(1);
-                    setProviderGridPage(1);
-                  }}
-                  style={{
-                    border: 'none',
-                    height: '100%',
-                    background: providerFilter === tab ? 'var(--bg-surface)' : 'transparent',
-                    color: providerFilter === tab ? 'var(--text-primary)' : 'var(--text-muted)',
-                    padding: '0 0.65rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    boxShadow: providerFilter === tab ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
-                >
-                  {tab === 'ALL' ? `All (${allProviders.length})` :
-                   tab === 'HEALTHY' ? `Healthy (${healthyCount})` :
-                   tab === 'DEGRADED' ? `Degraded (${degradedCount})` :
-                   `Tripped (${trippedCount})`}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-              <Search size={14} style={{ position: 'absolute', left: '0.65rem', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-              <input
-                type="text"
-                placeholder="Filter providers by name..."
-                value={providerSearch}
-                onChange={e => {
-                  setProviderSearch(e.target.value);
-                  setMatrixPage(1);
-                  setProviderGridPage(1);
-                }}
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 6,
-                  height: 32,
-                  padding: providerSearch ? '0 1.8rem 0 2rem' : '0 0.75rem 0 2rem',
-                  fontSize: '0.8125rem',
-                  color: 'var(--text-primary)',
-                  width: 220,
-                  outline: 'none',
-                  transition: 'border-color 0.15s ease, width 0.2s ease, box-shadow 0.15s ease'
-                }}
-                onFocus={e => {
-                  e.target.style.borderColor = 'var(--accent-primary)';
-                  e.target.style.boxShadow = '0 0 0 2px var(--accent-primary-subtle)';
-                  e.target.style.width = '260px';
-                }}
-                onBlur={e => {
-                  e.target.style.borderColor = 'var(--border-subtle)';
-                  e.target.style.boxShadow = 'none';
-                  if (!providerSearch) e.target.style.width = '220px';
-                }}
-              />
-              {providerSearch && (
-                <button
-                  onClick={() => {
-                    setProviderSearch('');
-                    setMatrixPage(1);
-                    setProviderGridPage(1);
-                  }}
-                  style={{
-                    position: 'absolute',
-                    right: '0.45rem',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: 2
-                  }}
-                  title="Clear search"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          </div>
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.3rem 0.65rem'
+            }}
+          >
+            <Activity size={13} style={{ color: 'var(--accent-emerald)' }} />
+            <span>View Full Fleet ({allProviders.length}) &rarr;</span>
+          </button>
         </div>
 
-        {/* Scalable Provider Grid (Gracefully handles 4 to 100+ Providers without layout blowout) */}
+        {/* Scalable Provider Grid (Displays top active providers on dashboard; full search in expanded table) */}
         <div style={{
           maxHeight: 380,
           overflowY: 'auto',
-          paddingRight: filteredProviders.length > 4 ? 4 : 0
+          paddingRight: overviewDisplayProviders.length > 4 ? 4 : 0
         }}>
-          {filteredProviders.length === 0 ? (
+          {overviewDisplayProviders.length === 0 ? (
             <div style={{
               padding: '2.5rem 1.5rem',
               textAlign: 'center',
@@ -1267,25 +1427,252 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
               margin: '0.5rem 0'
             }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
-                {!isHealthAvailable ? 'Provider Telemetry Offline' : (providerSearch ? 'No Providers Found' : 'No Providers Configured')}
+                {!isHealthAvailable ? 'Provider Telemetry Offline' : 'No Providers Configured'}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 {!isHealthAvailable 
                   ? 'Unable to connect to gateway health monitors. Ensure the gateway service is running and your admin credentials are configured.'
-                  : (providerSearch ? 'No providers matched your search filter.' : 'No upstream provider endpoints are currently registered in this environment.')}
+                  : 'No upstream provider endpoints are currently registered in this environment.'}
               </div>
             </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-              {paginatedGridProviders.map(p => {
+          ) : overviewDisplayProviders.length === 1 ? (() => {
+            const p = overviewDisplayProviders[0];
+            const isClosed = p.circuit_state === 'CLOSED';
+            const isOpen = p.circuit_state === 'OPEN';
+            const isHalfOpen = p.circuit_state === 'HALF_OPEN';
+            const stateBadgeColor = isClosed ? 'badge-success' : (isOpen ? 'badge-danger' : 'badge-warning');
+            const stateDotColor = isClosed ? 'var(--accent-emerald)' : (isOpen ? 'var(--accent-rose)' : 'var(--accent-amber)');
+            const failureRate = p.failure_rate || 0;
+            const availabilityRate = Math.max(0, Math.min(100, 100 - failureRate)).toFixed(1);
+            const totalCalls = (p.successful_calls ?? 0) + (p.failed_calls ?? 0);
+            const formattedLatency = p.p95_latency_ms != null && p.p95_latency_ms > 0
+              ? (p.p95_latency_ms >= 1000 ? `${(p.p95_latency_ms / 1000).toFixed(2)}s` : `${p.p95_latency_ms}ms`)
+              : '—';
+            const rawLatencyStr = p.p95_latency_ms != null && p.p95_latency_ms > 0 ? `${p.p95_latency_ms.toLocaleString()}ms` : null;
+
+            return (
+              <div
+                style={{
+                  background: 'var(--bg-canvas)',
+                  border: `1px solid ${isOpen ? 'var(--accent-rose)' : 'var(--border-subtle)'}`,
+                  borderRadius: 12,
+                  padding: '1.25rem 1.5rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.25rem'
+                }}
+              >
+                {/* Header: Provider Brand + Tier Identity + Circuit Status Pill */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  paddingBottom: '1rem',
+                  borderBottom: '1px solid var(--border-subtle)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent-emerald)'
+                    }}>
+                      <Cpu size={20} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 800, fontSize: '1.05rem', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                          {p.provider}
+                        </span>
+                        <span style={{
+                          fontSize: '0.6875rem',
+                          fontWeight: 700,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: 4,
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'var(--text-secondary)',
+                          border: '1px solid var(--border-subtle)'
+                        }}>
+                          Primary Upstream Egress
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Active inference gateway target • Automated circuit protection &amp; sub-millisecond failover
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className={`badge ${stateBadgeColor}`} style={{
+                    fontSize: '0.75rem',
+                    padding: '0.35rem 0.75rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    letterSpacing: '0.04em'
+                  }}>
+                    <span style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background: stateDotColor,
+                      boxShadow: `0 0 6px ${stateDotColor}`
+                    }} />
+                    <span>
+                      {isClosed ? 'CIRCUIT CLOSED (OPERATIONAL)' : (isOpen ? 'CIRCUIT TRIPPED (FAILOVER ACTIVE)' : 'CIRCUIT HALF-OPEN (PROBING)')}
+                    </span>
+                  </span>
+                </div>
+
+                {/* Balanced 4-KPI Metric Rail */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '0.85rem'
+                }}>
+                  {/* KPI 1: Availability */}
+                  <div style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    padding: '0.85rem 1rem'
+                  }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Availability
+                    </div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)', margin: '0.25rem 0' }}>
+                      {availabilityRate}%
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      {failureRate === 0 ? 'Zero service dropouts' : `${failureRate.toFixed(1)}% error rate`}
+                    </div>
+                  </div>
+
+                  {/* KPI 2: Failure Rate */}
+                  <div style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    padding: '0.85rem 1rem'
+                  }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Failure Rate
+                    </div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: failureRate > 20 ? 'var(--accent-rose)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)', margin: '0.25rem 0' }}>
+                      {failureRate.toFixed(1)}%
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      Trip threshold &gt; 50%
+                    </div>
+                  </div>
+
+                  {/* KPI 3: p95 Latency */}
+                  <div style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    padding: '0.85rem 1rem'
+                  }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      p95 Latency
+                    </div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', margin: '0.25rem 0' }}>
+                      {formattedLatency}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                      {rawLatencyStr ? `Raw: ${rawLatencyStr}` : 'Awaiting traffic'}
+                    </div>
+                  </div>
+
+                  {/* KPI 4: Total Calls & Ok/Err Breakdown */}
+                  <div style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 8,
+                    padding: '0.85rem 1rem'
+                  }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Execution Volume
+                    </div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', margin: '0.25rem 0' }}>
+                      {totalCalls} <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-muted)' }}>calls</span>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>{p.successful_calls ?? 0} ok</span>
+                      <span style={{ color: 'var(--text-muted)' }}>•</span>
+                      <span style={{ color: (p.failed_calls ?? 0) > 0 ? 'var(--accent-rose)' : 'var(--text-muted)', fontWeight: (p.failed_calls ?? 0) > 0 ? 600 : 400 }}>
+                        {p.failed_calls ?? 0} err
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Health Integrity & Circuit Protection Bar */}
+                <div style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 8,
+                  padding: '0.85rem 1.15rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap', gap: '0.35rem' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 600 }}>
+                      <ShieldCheck size={14} style={{ color: isClosed ? 'var(--accent-emerald)' : 'var(--accent-rose)' }} />
+                      <span>Circuit Protection Engine:</span>
+                      <strong style={{ color: isClosed ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                        {isOpen ? 'TRIPPED — Bypassing upstream' : (isHalfOpen ? 'HALF-OPEN — Probing recovery' : 'HEALTHY — Active pass-through')}
+                      </strong>
+                    </span>
+                    <span className="font-mono" style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                      Health Index: <strong style={{ color: 'var(--accent-emerald)' }}>{availabilityRate}%</strong>
+                    </span>
+                  </div>
+
+                  <div style={{ width: '100%', height: 6, background: 'var(--border-strong)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${availabilityRate}%`,
+                        height: '100%',
+                        background: isClosed ? 'linear-gradient(90deg, #10b981 0%, #06b6d4 100%)' : (isOpen ? 'var(--accent-rose)' : 'var(--accent-amber)'),
+                        borderRadius: 3,
+                        transition: 'width 0.3s ease'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '0.35rem' }}>
+                    <span>Failover Trip Rule: 5 consecutive upstream timeouts or 5xx faults</span>
+                    <span>Probing Recovery Interval: 10 seconds</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })() : (
+            /* Multi-Provider Grid (Polished, proportional cards that don't blow out) */
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+              {overviewDisplayProviders.map(p => {
                 const isClosed = p.circuit_state === 'CLOSED';
                 const isOpen = p.circuit_state === 'OPEN';
+                const isHalfOpen = p.circuit_state === 'HALF_OPEN';
                 const stateBadgeColor = isClosed ? 'badge-success' : (isOpen ? 'badge-danger' : 'badge-warning');
                 const stateDotColor = isClosed ? 'var(--accent-emerald)' : (isOpen ? 'var(--accent-rose)' : 'var(--accent-amber)');
+                const failureRate = p.failure_rate || 0;
+                const availabilityRate = Math.max(0, Math.min(100, 100 - failureRate)).toFixed(1);
+                const formattedLatency = p.p95_latency_ms != null && p.p95_latency_ms > 0
+                  ? (p.p95_latency_ms >= 1000 ? `${(p.p95_latency_ms / 1000).toFixed(2)}s` : `${p.p95_latency_ms}ms`)
+                  : '—';
 
                 return (
-                  <div 
-                    key={p.provider} 
+                  <div
+                    key={p.provider}
                     style={{
                       background: 'var(--bg-canvas)',
                       border: `1px solid ${isOpen ? 'var(--accent-rose)' : 'var(--border-subtle)'}`,
@@ -1293,7 +1680,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                       padding: '1rem',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '0.75rem'
+                      gap: '0.85rem'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1302,38 +1689,45 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                         <span style={{ fontWeight: 700, fontSize: '0.9375rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{p.provider}</span>
                       </div>
                       <span className={`badge ${stateBadgeColor}`} style={{ fontSize: '0.65rem' }}>
-                        {p.circuit_state}
+                        {isClosed ? 'CLOSED (NORMAL)' : p.circuit_state}
                       </span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', fontSize: '0.75rem' }}>
                       <div>
-                        <div style={{ color: 'var(--text-muted)' }}>Failure Rate</div>
-                        <div style={{ fontWeight: 700, fontSize: '1rem', color: p.failure_rate > 20 ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
-                          {(p.failure_rate || 0).toFixed(1)}%
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Availability</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
+                          {availabilityRate}%
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: 'var(--text-muted)' }}>p95 Latency</div>
-                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--accent-cyan)' }}>
-                          {p.p95_latency_ms != null && p.p95_latency_ms > 0 ? `${p.p95_latency_ms}ms` : '—'}
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Failure</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: failureRate > 20 ? 'var(--accent-rose)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                          {failureRate.toFixed(1)}%
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>p95 Latency</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                          {formattedLatency}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ width: '100%', height: 6, background: 'var(--border-strong)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div 
-                        style={{ 
-                          width: `${Math.max(5, Math.min(100, 100 - (p.failure_rate || 0)))}%`, 
-                          height: '100%', 
-                          background: isClosed ? 'var(--accent-emerald)' : (isOpen ? 'var(--accent-rose)' : 'var(--accent-amber)') 
-                        }} 
+                    <div style={{ width: '100%', height: 5, background: 'var(--border-strong)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${availabilityRate}%`,
+                          height: '100%',
+                          background: isClosed ? 'linear-gradient(90deg, #10b981 0%, #06b6d4 100%)' : (isOpen ? 'var(--accent-rose)' : 'var(--accent-amber)'),
+                          borderRadius: 3
+                        }}
                       />
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-                      <span>Circuit Protection: {isOpen ? 'Tripped (< 0.05ms)' : 'Healthy'}</span>
-                      <span>{p.successful_calls ?? 0} ok / {p.failed_calls ?? 0} err</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      <span>Protection: {isOpen ? 'Tripped' : 'Healthy'}</span>
+                      <span>{p.successful_calls ?? 0} upstream ok · {p.failed_calls ?? 0} err</span>
                     </div>
                   </div>
                 );
@@ -1343,41 +1737,17 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <span>
-              Showing {filteredProviders.length === 0 ? 0 : (providerGridPage - 1) * providerGridPageSize + 1}–{Math.min(providerGridPage * providerGridPageSize, filteredProviders.length)} of {allProviders.length} configured upstream providers
-            </span>
-            {Math.ceil(filteredProviders.length / providerGridPageSize) > 1 && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                <button
-                  onClick={() => setProviderGridPage(p => Math.max(1, p - 1))}
-                  disabled={providerGridPage === 1}
-                  className="btn btn-secondary btn-sm"
-                  style={{ padding: '0.15rem 0.4rem', height: 22, fontSize: '0.7rem' }}
-                  title="Previous page"
-                >
-                  &larr;
-                </button>
-                <span style={{ fontSize: '0.725rem', fontWeight: 600, color: 'var(--text-primary)', padding: '0 0.2rem' }}>
-                  {providerGridPage} / {Math.ceil(filteredProviders.length / providerGridPageSize)}
-                </span>
-                <button
-                  onClick={() => setProviderGridPage(p => Math.min(Math.ceil(filteredProviders.length / providerGridPageSize), p + 1))}
-                  disabled={providerGridPage === Math.ceil(filteredProviders.length / providerGridPageSize)}
-                  className="btn btn-secondary btn-sm"
-                  style={{ padding: '0.15rem 0.4rem', height: 22, fontSize: '0.7rem' }}
-                  title="Next page"
-                >
-                  &rarr;
-                </button>
-              </div>
-            )}
-          </div>
+          <span>
+            {allProviders.length <= 4 
+              ? `Showing all ${allProviders.length} configured upstream provider${allProviders.length === 1 ? '' : 's'}`
+              : `Showing top 4 of ${allProviders.length} active providers (sorted by execution volume & priority)`
+            }
+          </span>
           <button 
             onClick={() => setSelectedChartModal('providerHealth')} 
             style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontSize: '0.75rem', padding: 0, fontWeight: 600 }}
           >
-            View all in expanded table &rarr;
+            {allProviders.length > 4 ? `Search and inspect all ${allProviders.length} in expanded table \u2192` : 'View full metrics matrix \u2192'}
           </button>
         </div>
       </div>
@@ -1657,9 +2027,11 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
               .map(k => {
                 const budget = Number(k.monthly_budget_usd) || 0;
                 const spend = Number(k.current_spend_usd) || 0;
-                const pct = budget > 0 ? Math.min(100, Math.round((spend / budget) * 100)) : 0;
-                const barColor = pct > 90 ? 'var(--accent-rose)' : (pct > 70 ? 'var(--accent-amber)' : 'var(--accent-emerald)');
-                const badgeColorClass = pct > 90 ? 'badge-danger' : (pct > 70 ? 'badge-warning' : 'badge-neutral');
+                const rawPct = budget > 0 ? (spend / budget) * 100 : 0;
+                const displayPct = rawPct > 0 && rawPct < 1 ? '<1%' : `${Math.min(100, Math.round(rawPct))}%`;
+                const visualBarWidth = spend > 0 ? Math.max(2, Math.min(100, rawPct)) : 0;
+                const barColor = rawPct > 90 ? 'var(--accent-rose)' : (rawPct > 70 ? 'var(--accent-amber)' : 'var(--accent-emerald)');
+                const badgeColorClass = rawPct > 90 ? 'badge-danger' : (rawPct > 70 ? 'badge-warning' : 'badge-neutral');
 
                 return (
                   <div key={k.virtual_key} style={{
@@ -1713,7 +2085,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                           fontWeight: 600,
                           lineHeight: 1
                         }}>
-                          {pct}%
+                          {displayPct}
                         </span>
                       </div>
                     </div>
@@ -1721,7 +2093,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                     {/* Progress Bar */}
                     <div style={{ width: '100%', height: 6, background: 'var(--border-subtle)', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{
-                        width: `${Math.max(1, pct)}%`,
+                        width: `${visualBarWidth}%`,
                         height: '100%',
                         background: barColor,
                         borderRadius: 3,
@@ -1839,8 +2211,10 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Input: ${fastRate.toFixed(2)}/1M · Cost-optimized for conversational chat &amp; extraction</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700 }}>{modelBreakdown.fast.toLocaleString()} calls</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{totalModelCalls > 0 ? ((modelBreakdown.fast / totalModelCalls) * 100).toFixed(1) : '0.0'}% of total</div>
+                  <div style={{ fontWeight: 700 }}>{effectiveFast.toLocaleString()} calls executed</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {totalModelCalls > 0 ? ((effectiveFast / totalModelCalls) * 100).toFixed(1) : '0.0'}% of fleet ({directFast} direct, {autoFast} via auto)
+                  </div>
                 </div>
               </div>
 
@@ -1850,8 +2224,10 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Input: ${smartRate.toFixed(2)}/1M · Advanced reasoning, code synthesis &amp; analysis</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700 }}>{modelBreakdown.smart.toLocaleString()} calls</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{totalModelCalls > 0 ? ((modelBreakdown.smart / totalModelCalls) * 100).toFixed(1) : '0.0'}% of total</div>
+                  <div style={{ fontWeight: 700 }}>{effectiveSmart.toLocaleString()} calls executed</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {totalModelCalls > 0 ? ((effectiveSmart / totalModelCalls) * 100).toFixed(1) : '0.0'}% of fleet ({directSmart} direct, {autoSmart} via auto)
+                  </div>
                 </div>
               </div>
 
@@ -1861,8 +2237,10 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Intelligent query classification with up to ~{arbitrageSavingsPct}% cost reduction</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700 }}>{modelBreakdown.auto.toLocaleString()} calls</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{totalModelCalls > 0 ? ((modelBreakdown.auto / totalModelCalls) * 100).toFixed(1) : '0.0'}% of total</div>
+                  <div style={{ fontWeight: 700 }}>{totalAuto.toLocaleString()} calls arbitrated</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {totalModelCalls > 0 ? ((totalAuto / totalModelCalls) * 100).toFixed(1) : '0.0'}% of fleet ({autoFast} fast / {autoSmart} smart)
+                  </div>
                 </div>
               </div>
             </div>
@@ -1932,12 +2310,16 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
               <div style={{ padding: '0.85rem', background: 'var(--bg-canvas)', borderRadius: 8 }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Routed to Fast Tier ({fastModelName})</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{fastPct}%</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{resolvedTierBreakdown.fast.toLocaleString()} simple queries</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                  {totalAuto > 0 ? `${autoFast.toLocaleString()} queries routed to fast` : `${effectiveFast.toLocaleString()} simple queries executed`}
+                </div>
               </div>
               <div style={{ padding: '0.85rem', background: 'var(--bg-canvas)', borderRadius: 8 }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Escalated to Frontier Tier ({smartModelName})</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-primary)', fontFamily: 'var(--font-mono)' }}>{smartPct}%</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{resolvedTierBreakdown.smart.toLocaleString()} complex reasoning tasks</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                  {totalAuto > 0 ? `${autoSmart.toLocaleString()} queries escalated to frontier` : `${effectiveSmart.toLocaleString()} complex reasoning tasks`}
+                </div>
               </div>
             </div>
 
@@ -2572,7 +2954,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
                             {p.p95_latency_ms != null && p.p95_latency_ms > 0 ? `${p.p95_latency_ms}ms` : '—'}
                           </td>
                           <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-                            {p.successful_calls || 0} ok / {p.failed_calls || 0} err
+                            {p.successful_calls || 0} upstream ok · {p.failed_calls || 0} err
                           </td>
                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                             {isOpen ? 'Fast-fail (< 0.05ms) rerouted' : 'Primary active route'}

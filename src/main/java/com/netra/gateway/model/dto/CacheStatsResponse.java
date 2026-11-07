@@ -69,6 +69,6 @@ public class CacheStatsResponse {
 
         @JsonProperty("cache_enabled")
         @Builder.Default
-        private boolean cacheEnabled = true;
+        private boolean cacheEnabled = false;
     }
 }
