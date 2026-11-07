@@ -92,9 +92,9 @@ Deploy the React 19 Ops Console to Vercel's global CDN with automatic reverse-pr
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/v1/:path*", "destination": "https://gateway.netrallm.avadhanlabs.dev/v1/:path*" },
-    { "source": "/admin/:path*", "destination": "https://gateway.netrallm.avadhanlabs.dev/admin/:path*" },
-    { "source": "/health", "destination": "https://gateway.netrallm.avadhanlabs.dev/health" },
+    { "source": "/v1/:path*", "destination": "https://gateway-netrallm.avadhanlabs.dev/v1/:path*" },
+    { "source": "/admin/:path*", "destination": "https://gateway-netrallm.avadhanlabs.dev/admin/:path*" },
+    { "source": "/health", "destination": "https://gateway-netrallm.avadhanlabs.dev/health" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
@@ -106,13 +106,13 @@ When deploying to production with a custom domain (e.g. registered via Name.com)
 
 | Component | Target URL | Ingress Routing | Health Verification |
 |---|---|---|---|
-| **Core Gateway API** | `https://gateway.netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Reverse Proxy &rarr; Port `8080` | `curl -f https://gateway.netrallm.avadhanlabs.dev/health` |
-| **Operations Console** | `https://console.netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Vercel &rarr; Port `3000` | Browser or `curl -I https://console.netrallm.avadhanlabs.dev` |
+| **Core Gateway API** | `https://gateway-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Reverse Proxy &rarr; Port `8080` | `curl -f https://gateway-netrallm.avadhanlabs.dev/health` |
+| **Operations Console** | `https://console-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Vercel &rarr; Port `3000` | Browser or `curl -I https://console-netrallm.avadhanlabs.dev` |
 | **Documentation Site** | `https://shashankch.github.io/netra-llmgateway/` | GitHub Pages | `curl -I https://shashankch.github.io/netra-llmgateway/` |
 
 **DNS Configuration (Name.com / Cloudflare Zero Trust):**
-* `gateway.netrallm` (CNAME) &rarr; Cloudflare Tunnel UUID target or VPS public IP.
-* `console.netrallm` (CNAME) &rarr; Cloudflare Tunnel target or `cname.vercel-dns.com`.
+* `gateway-netrallm` (CNAME) &rarr; Cloudflare Tunnel UUID target or VPS public IP.
+* `console-netrallm` (CNAME) &rarr; Cloudflare Tunnel target or `cname.vercel-dns.com`.
 
 ---
 

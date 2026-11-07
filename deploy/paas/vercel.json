@@ -7,15 +7,15 @@
   "rewrites": [
     {
       "source": "/v1/:path*",
-      "destination": "https://gateway.netrallm.avadhanlabs.dev/v1/:path*"
+      "destination": "https://gateway-netrallm.avadhanlabs.dev/v1/:path*"
     },
     {
       "source": "/admin/:path*",
-      "destination": "https://gateway.netrallm.avadhanlabs.dev/admin/:path*"
+      "destination": "https://gateway-netrallm.avadhanlabs.dev/admin/:path*"
     },
     {
       "source": "/health",
-      "destination": "https://gateway.netrallm.avadhanlabs.dev/health"
+      "destination": "https://gateway-netrallm.avadhanlabs.dev/health"
     },
     {
       "source": "/(.*)",
