@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added missing `java.util.List` import in `CostCalculationService.java` to resolve CI build failure during containerized compile.
 - **Operations Console UI Serving & Deployment Documentation**:
   - Added concise, step-by-step UI deployment guides covering Docker Compose, standalone Vite development (`make console-dev`), production preview (`make console-serve`), and edge CDN hosting in README, documentation site, and self-hosting guides.
+- **Documentation CI CNAME Preservation & DNS Guidance**:
+  - Ensured `docs/CNAME` is explicitly copied to `site/CNAME` in the documentation build workflow (`.github/workflows/docs.yml`).
+  - Added Cloudflare DNS Only guidance to prevent SSL Handshake Error 525 during GitHub Pages TLS certificate issuance.
 
 ---
 

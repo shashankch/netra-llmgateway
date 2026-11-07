@@ -139,7 +139,7 @@ When deploying to production with a custom domain (e.g. registered via Name.com)
 **DNS Configuration (Name.com / Cloudflare Zero Trust):**
 * `gateway-netrallm` (CNAME) -> Cloudflare Tunnel UUID target or VPS public IP.
 * `console-netrallm` (CNAME) -> Cloudflare Tunnel target or `cname.vercel-dns.com`.
-* `docs-netrallm` (CNAME) -> `shashankch.github.io.` (GitHub Pages custom domain).
+* `docs-netrallm` (CNAME) -> `shashankch.github.io.` (GitHub Pages custom domain — configure as **DNS Only / Gray Cloud** in Cloudflare so GitHub Pages can issue and terminate the Let's Encrypt SSL certificate directly without Error 525).
 
 ### 3.6 Ops Console Connectivity & Cloud Free-Tier Safeguards
 
