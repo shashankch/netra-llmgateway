@@ -206,13 +206,6 @@ export default function Navbar({
   const handleResetDemo = () => {
     setTokenInput('netra-admin-demo');
     setGatewayUrlInput('');
-    setGatewayBaseUrl('');
-    setHealthPollingEnabled(true);
-    if (onUpdateAdminToken) {
-      onUpdateAdminToken('netra-admin-demo');
-    }
-    checkNow();
-    setShowAdminModal(false);
   };
 
   const navItems = [

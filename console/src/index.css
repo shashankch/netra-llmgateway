@@ -108,6 +108,10 @@
   padding: 0;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-canvas);
@@ -538,6 +542,7 @@ tr:hover td {
 /* Modals & Responsive Dialogs */
 body.modal-open {
   overflow: hidden !important;
+  scrollbar-gutter: stable;
 }
 
 .modal-overlay,
