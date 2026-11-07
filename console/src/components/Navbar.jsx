@@ -536,7 +536,7 @@ export default function Navbar({
                     type="text"
                     value={gatewayUrlInput}
                     onChange={e => setGatewayUrlInput(e.target.value)}
-                    placeholder="https://gateway.netrallm.avadhanlabs.dev (or leave empty for default origin)"
+                    placeholder="https://gateway-netrallm.avadhanlabs.dev (or leave empty for default origin)"
                     className="font-mono input-text"
                     style={{
                       width: '100%',

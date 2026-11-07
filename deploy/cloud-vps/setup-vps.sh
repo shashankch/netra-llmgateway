@@ -151,6 +151,12 @@ chmod 600 .env 2>/dev/null || true
 # 6. Launch Stack via Containerized Docker Compose
 echo "Booting NETRA services via Docker Compose..."
 
+# Resolve docker compose binary (handles newly added group permissions in active shell)
+DOCKER_COMPOSE="docker compose"
+if ! docker info > /dev/null 2>&1; then
+    DOCKER_COMPOSE="sudo docker compose"
+fi
+
 if [ -n "$TUNNEL_TOKEN" ]; then
     # Inject tunnel token into .env if not already present
     if grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
@@ -168,25 +174,25 @@ if [ -n "$TUNNEL_TOKEN" ]; then
     fi
 
     # Boot stack with containerized cloudflared profile
-    docker compose --profile tunnel up -d --build
+    $DOCKER_COMPOSE --profile tunnel up -d --build
     echo "=========================================================="
     echo "✅ NETRA Gateway & Containerized Cloudflare Tunnel are LIVE!"
     echo "🔒 Zero Inbound Open Ports: Port 8080 is blocked from the internet."
     echo "🌐 Ingress Hostnames (avadhanlabs.dev):"
-    echo "   - API Gateway: https://gateway.netrallm.avadhanlabs.dev -> http://gateway:8080"
-    echo "   - Ops Console: https://console.netrallm.avadhanlabs.dev -> http://console:3000"
+    echo "   - API Gateway: https://gateway-netrallm.avadhanlabs.dev -> http://gateway:8080"
+    echo "   - Ops Console: https://console-netrallm.avadhanlabs.dev -> http://console:3000"
     echo "Verify local container health: curl -f http://localhost:8080/health"
-    echo "Check tunnel logs: docker compose logs -f cloudflared"
+    echo "Check tunnel logs: $DOCKER_COMPOSE logs -f cloudflared"
     echo "=========================================================="
 else
     # Standard boot
-    docker compose up -d --build
+    $DOCKER_COMPOSE up -d --build
     echo "=========================================================="
     echo "✅ NETRA Gateway provisioned and running!"
     echo "Verify status: curl -f http://localhost:8080/health"
     echo "----------------------------------------------------------"
     echo "💡 Optional Zero-Cost Upgrade: Zero-Open-Port Cloudflare Tunnel"
     echo "Run cloudflared natively in Docker with zero host installs:"
-    echo "  CLOUDFLARE_TUNNEL_TOKEN=\"<TOKEN>\" docker compose --profile tunnel up -d"
+    echo "  CLOUDFLARE_TUNNEL_TOKEN=\"<TOKEN>\" $DOCKER_COMPOSE --profile tunnel up -d"
     echo "=========================================================="
 fi

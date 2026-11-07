@@ -111,8 +111,8 @@ curl -i -X POST http://localhost:8080/v1/chat/completions \
 !!! info "Production Cloud Ingress (`avadhanlabs.dev`)"
     In production environments, requests route through the sovereign custom domain:
     
-    * **Gateway Data Plane:** `https://gateway.netrallm.avadhanlabs.dev/v1/chat/completions`
-    * **Operations Console:** `https://console.netrallm.avadhanlabs.dev`
+    * **Gateway Data Plane:** `https://gateway-netrallm.avadhanlabs.dev/v1/chat/completions`
+    * **Operations Console:** `https://console-netrallm.avadhanlabs.dev`
 
 ---
 

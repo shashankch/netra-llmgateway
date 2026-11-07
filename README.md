@@ -319,7 +319,7 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | **Tier 1: Local & Sandbox** | Docker Compose Engine | `docker-compose.yml` & `Makefile` | `http://localhost:8080` (API) • `http://localhost:3000` (Console) |
 | **Tier 2: Developer PaaS** | Railway, Render, Fly.io, Vercel | `deploy/paas/` (`railway.toml`, `render.yaml`, `fly.toml`, `vercel.json`) | Turnkey auto-assigned HTTPS edge routes |
 | **Tier 3: Production Cloud VM & VPS** | AWS EC2, GCP, OCI Compute, Hetzner | `deploy/cloud-vps/setup-vps.sh` | Zero-open-port Cloudflare Zero Trust tunnel |
-| **Production Cloud Ingress** | `avadhanlabs.dev` (Name.com) | Custom domain DNS / Tunnel mapping | `gateway.netrallm.avadhanlabs.dev` • `console.netrallm.avadhanlabs.dev` |
+| **Production Cloud Ingress** | `avadhanlabs.dev` (Name.com) | Custom domain DNS / Tunnel mapping | `gateway-netrallm.avadhanlabs.dev` • `console-netrallm.avadhanlabs.dev` |
 | **Documentation Site** | GitHub Pages (Zensical SSG) | `zensical.toml` | [shashankch.github.io/netra-llmgateway](https://shashankch.github.io/netra-llmgateway/) |
 
 ---

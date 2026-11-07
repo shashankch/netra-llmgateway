@@ -26,7 +26,7 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local Gateway (Docker & Development)
-  - url: https://gateway.netrallm.avadhanlabs.dev
+  - url: https://gateway-netrallm.avadhanlabs.dev
     description: Production Gateway Data Plane
   - url: https://shashankch.github.io/netra-llmgateway
     description: Documentation & Schema Reference (GitHub Pages)
