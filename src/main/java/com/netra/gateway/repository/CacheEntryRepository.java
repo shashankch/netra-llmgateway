@@ -22,12 +22,12 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
                    c.prompt_text AS promptText,
                    c.resolved_provider AS resolvedProvider,
                    c.response_json AS responseJson,
-                   (1 - (c.embedding <=> cast(:queryVector as vector))) AS similarity
+                   (1 - (c.embedding <=> cast(cast(:queryVector as text) as vector))) AS similarity
             FROM cache_entries c
-            WHERE c.virtual_key = :virtualKey
+            WHERE LOWER(c.virtual_key) = LOWER(:virtualKey)
               AND c.model_alias = :modelAlias
-              AND (1 - (c.embedding <=> cast(:queryVector as vector))) >= :threshold
-            ORDER BY c.embedding <=> cast(:queryVector as vector) ASC
+              AND (1 - (c.embedding <=> cast(cast(:queryVector as text) as vector))) >= :threshold
+            ORDER BY c.embedding <=> cast(cast(:queryVector as text) as vector) ASC
             LIMIT 1
             """, nativeQuery = true)
     Optional<CacheMatchProjection> findNearestMatch(
@@ -41,7 +41,7 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
     @Transactional
     @Query(value = """
             INSERT INTO cache_entries (id, virtual_key, model_alias, prompt_text, resolved_provider, embedding, response_json, hit_count, created_at)
-            VALUES (gen_random_uuid(), :virtualKey, :modelAlias, :promptText, :resolvedProvider, cast(:embedding as vector), cast(:responseJson as jsonb), 0, CURRENT_TIMESTAMP)
+            VALUES (gen_random_uuid(), :virtualKey, :modelAlias, :promptText, :resolvedProvider, cast(cast(:embedding as text) as vector), cast(cast(:responseJson as text) as jsonb), 0, CURRENT_TIMESTAMP)
             """, nativeQuery = true)
     void saveWithEmbedding(
             @Param("virtualKey") String virtualKey,
@@ -57,9 +57,10 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
     @Query("UPDATE CacheEntry c SET c.hitCount = c.hitCount + 1, c.lastHitAt = CURRENT_TIMESTAMP WHERE c.id = :id")
     void recordHit(@Param("id") UUID id);
 
-    long countByVirtualKey(String virtualKey);
+    @Query("SELECT COUNT(c) FROM CacheEntry c WHERE LOWER(c.virtualKey) = LOWER(:virtualKey)")
+    long countByVirtualKey(@Param("virtualKey") String virtualKey);
 
-    @Query("SELECT c FROM CacheEntry c WHERE (:virtualKey IS NULL OR c.virtualKey = :virtualKey) " +
+    @Query("SELECT c FROM CacheEntry c WHERE (:virtualKey IS NULL OR LOWER(c.virtualKey) = LOWER(:virtualKey)) " +
            "AND (:search IS NULL OR LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%'))) " +
            "ORDER BY c.createdAt DESC")
     java.util.List<CacheEntry> findCacheEntries(
@@ -68,7 +69,7 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
             org.springframework.data.domain.Pageable pageable
     );
 
-    @Query("SELECT COUNT(c) FROM CacheEntry c WHERE (:virtualKey IS NULL OR c.virtualKey = :virtualKey) " +
+    @Query("SELECT COUNT(c) FROM CacheEntry c WHERE (:virtualKey IS NULL OR LOWER(c.virtualKey) = LOWER(:virtualKey)) " +
            "AND (:search IS NULL OR LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%')))")
     long countCacheEntries(
             @Param("virtualKey") String virtualKey,

@@ -529,36 +529,64 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
                       {isExpanded && (
                         <tr>
                           <td colSpan="10" style={{ background: 'var(--bg-canvas)', padding: '1rem 1.5rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '0.75rem', fontSize: '0.8125rem' }}>
-                              <div>
-                                <span style={{ color: 'var(--text-muted)' }}>Full Request ID:</span>
-                                <div className="font-mono" style={{ fontWeight: 600 }}>{log.request_id}</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '0.75rem', fontSize: '0.8125rem' }}>
+                              <div style={{ minWidth: 0 }}>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Full Request ID:</span>
+                                <div className="font-mono" style={{ fontWeight: 600, wordBreak: 'break-all' }}>{log.request_id}</div>
                               </div>
-                              <div>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Route Reason:</span>
-                                <span className="badge badge-neutral font-mono" style={{ fontSize: '0.7rem', height: 22, padding: '0 0.5rem', display: 'inline-flex', alignItems: 'center' }}>
-                                  {log.route_reason || 'direct_ingress'}
-                                </span>
-                              </div>
-                              <div>
+                              <div style={{ minWidth: 0 }}>
                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Token Usage:</span>
                                 <span className="font-mono" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
                                   Prompt: <span style={{ color: 'var(--accent-cyan)' }}>{log.prompt_tokens ?? 0}</span> · Output: <span style={{ color: 'var(--accent-emerald)' }}>{log.completion_tokens ?? 0}</span>
                                 </span>
                               </div>
-                              <div>
+                              <div style={{ minWidth: 0 }}>
                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Failover &amp; Retries:</span>
                                 <span className={`badge ${log.fallback ? 'badge-warning' : 'badge-neutral'} font-mono`} style={{ fontSize: '0.7rem', height: 22, padding: '0 0.5rem', display: 'inline-flex', alignItems: 'center' }}>
                                   {log.fallback ? `Fallback Triggered (${log.retries || 0} retries)` : `Primary Route (${log.retries || 0} retries)`}
                                 </span>
                               </div>
                               {log.error_type && (
-                                <div>
-                                  <span style={{ color: 'var(--accent-rose)' }}>Error Type:</span>
+                                <div style={{ minWidth: 0 }}>
+                                  <span style={{ color: 'var(--accent-rose)', fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Error Type:</span>
                                   <div style={{ color: 'var(--accent-rose)', fontWeight: 600 }}>{log.error_type}</div>
                                 </div>
                               )}
                             </div>
+
+                            {/* Route Reason Bar (Dedicated full-width row so long classifier descriptions never collide) */}
+                            {log.route_reason && (
+                              <div style={{ 
+                                marginBottom: '0.75rem', 
+                                background: 'var(--bg-card)', 
+                                border: '1px solid var(--border-subtle)', 
+                                borderRadius: 6, 
+                                padding: '0.5rem 0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.65rem',
+                                flexWrap: 'wrap'
+                              }}>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>
+                                  Route Reason:
+                                </span>
+                                <span className="badge badge-neutral font-mono" style={{ 
+                                  fontSize: '0.7rem', 
+                                  height: 'auto', 
+                                  minHeight: 22, 
+                                  padding: '0.2rem 0.6rem', 
+                                  whiteSpace: 'normal', 
+                                  wordBreak: 'break-word', 
+                                  lineHeight: 1.4,
+                                  color: 'var(--accent-cyan)',
+                                  borderColor: 'rgba(6, 182, 212, 0.25)',
+                                  background: 'rgba(6, 182, 212, 0.06)'
+                                }}>
+                                  {log.route_reason}
+                                </span>
+                              </div>
+                            )}
+
                             <pre style={{
                               background: 'var(--bg-card)',
                               padding: '0.75rem',

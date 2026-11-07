@@ -50,6 +50,46 @@ export default function CacheContentModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const fetchKeyEntries = async () => {
+    if (!virtualKey) return;
+    try {
+      setLoading(true);
+      setError(null);
+
+      const targetKey = String(virtualKey).trim().toLowerCase();
+      const res = await fetch(getApiUrl(`/admin/cache/entries?key=${encodeURIComponent(targetKey)}&limit=100`), {
+        headers: adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {}
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setEntries(data);
+        } else if (DEMO_CACHE_ENTRIES[targetKey] || DEMO_CACHE_ENTRIES[virtualKey]) {
+          setEntries(DEMO_CACHE_ENTRIES[targetKey] || DEMO_CACHE_ENTRIES[virtualKey]);
+        } else {
+          setEntries([]);
+        }
+      } else {
+        if (DEMO_CACHE_ENTRIES[targetKey] || DEMO_CACHE_ENTRIES[virtualKey]) {
+          setEntries(DEMO_CACHE_ENTRIES[targetKey] || DEMO_CACHE_ENTRIES[virtualKey]);
+        } else {
+          setEntries([]);
+        }
+      }
+    } catch (err) {
+      const targetKey = String(virtualKey).trim().toLowerCase();
+      if (DEMO_CACHE_ENTRIES[targetKey] || DEMO_CACHE_ENTRIES[virtualKey]) {
+        setEntries(DEMO_CACHE_ENTRIES[targetKey] || DEMO_CACHE_ENTRIES[virtualKey]);
+      } else {
+        setError('Failed to fetch cache entries.');
+        setEntries([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen || !virtualKey) {
       setEntries([]);
@@ -57,55 +97,7 @@ export default function CacheContentModal({
       return;
     }
 
-    let isMounted = true;
-    const fetchKeyEntries = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const res = await fetch(getApiUrl(`/admin/cache/entries?key=${encodeURIComponent(virtualKey)}&limit=100`), {
-          headers: adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {}
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted) {
-            if (Array.isArray(data) && data.length > 0) {
-              setEntries(data);
-            } else if (DEMO_CACHE_ENTRIES[virtualKey]) {
-              setEntries(DEMO_CACHE_ENTRIES[virtualKey]);
-            } else {
-              setEntries([]);
-            }
-          }
-        } else {
-          if (isMounted) {
-            if (DEMO_CACHE_ENTRIES[virtualKey]) {
-              setEntries(DEMO_CACHE_ENTRIES[virtualKey]);
-            } else {
-              setEntries([]);
-            }
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          if (DEMO_CACHE_ENTRIES[virtualKey]) {
-            setEntries(DEMO_CACHE_ENTRIES[virtualKey]);
-          } else {
-            setError('Failed to fetch cache entries.');
-            setEntries([]);
-          }
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
     fetchKeyEntries();
-
-    return () => {
-      isMounted = false;
-    };
   }, [isOpen, virtualKey, adminToken]);
 
   // Handle ESC key to close
@@ -179,14 +171,34 @@ export default function CacheContentModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="btn btn-secondary btn-xs"
-            style={{ padding: '0.35rem', borderRadius: '6px' }}
-            title="Close"
-          >
-            <X size={16} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <button
+              onClick={fetchKeyEntries}
+              disabled={loading}
+              className="btn btn-secondary btn-xs"
+              style={{
+                padding: '0.3rem 0.6rem',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.75rem',
+                cursor: loading ? 'not-allowed' : 'pointer'
+              }}
+              title="Refresh cached content"
+            >
+              <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+              <span>Refresh</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="btn btn-secondary btn-xs"
+              style={{ padding: '0.35rem', borderRadius: '6px' }}
+              title="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}

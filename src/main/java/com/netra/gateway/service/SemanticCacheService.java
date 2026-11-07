@@ -464,7 +464,7 @@ public class SemanticCacheService {
      */
     public List<CacheEntryDetailDto> getCacheEntries(String virtualKey, String search, int limit, int offset) {
         String cleanKey = (virtualKey != null && !virtualKey.isBlank() && !"all".equalsIgnoreCase(virtualKey.trim()))
-                ? virtualKey.trim() : null;
+                ? virtualKey.trim().toLowerCase() : null;
         String cleanSearch = (search != null && !search.isBlank()) ? search.trim() : null;
 
         int safeLimit = Math.min(Math.max(limit, 1), 200);
