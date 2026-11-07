@@ -968,6 +968,20 @@ body.modal-open {
   text-decoration: none !important;
 }
 
+@media (max-width: 1240px) {
+  .author-nav-badge {
+    display: none !important;
+  }
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Tri-State Theme Segmented Control (OpenRouter Aesthetic) */
 .theme-segmented-control {
   display: inline-flex;

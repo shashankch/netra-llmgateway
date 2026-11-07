@@ -123,118 +123,79 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '0.5rem 0 3rem' }}>
       
-      {/* 1. OpenRouter-Style Top Organization Header */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1.25rem',
-        paddingBottom: '1.5rem',
-        borderBottom: '1px solid var(--border-subtle)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          {/* Organization Avatar */}
-          <NetraLogo size={56} showText={false} />
-
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-                NETRA
-              </h2>
-              <span 
-                onClick={onOpenAdminModal}
-                className={statusBadge.className} 
-                style={{ 
-                  fontSize: '0.65rem',
-                  cursor: onOpenAdminModal ? 'pointer' : 'default',
-                  transition: 'all 0.2s ease',
-                  ...(statusBadge.style || {})
-                }}
-                title={statusBadge.title}
-              >
-                {statusBadge.label}
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '0.2rem' }}>
-              The unified intelligent interface for LLMs. Find the best models & prices for your prompts.
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', marginTop: '0.5rem', fontSize: '0.8125rem' }}>
-              <a 
-                href="https://github.com/shashankch/netra-llmgateway" 
-                target="_blank" 
-                rel="noreferrer" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
-              >
-                <Github size={14} />
-                <span>shashankch/netra-llmgateway</span>
-              </a>
-              <a 
-                href="https://shashankch.github.io/netra-llmgateway/" 
-                target="_blank" 
-                rel="noreferrer" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
-              >
-                <BookOpen size={14} />
-                <span>Documentation</span>
-              </a>
-              <a 
-                href="https://github.com/shashankch" 
-                target="_blank" 
-                rel="noreferrer" 
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', textDecoration: 'none' }}
-              >
-                <Sparkles size={14} style={{ color: 'var(--accent-lime)' }} />
-                <span>Crafted by <strong>Shashank Chandel</strong></span>
-              </a>
-            </div>
+      {/* 1. Unified Hero & Gateway Overview (Single Cohesive OpenRouter-Style Frame) */}
+      <div className="openrouter-hero-container" style={{ margin: '0.5rem 0 1rem' }}>
+        {/* Top Window Bar */}
+        <div className="openrouter-tab-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-lime)' }} />
+            <span>NETRA ENTERPRISE GATEWAY</span>
           </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <button 
-            onClick={() => onNavigate('keys')} 
-            className="btn btn-cyan btn-sm"
-            style={{ padding: '0.5rem 1.15rem', fontSize: '0.8125rem' }}
+          <span 
+            onClick={onOpenAdminModal}
+            className={statusBadge.className} 
+            style={{ 
+              fontSize: '0.625rem',
+              cursor: onOpenAdminModal ? 'pointer' : 'default',
+              transition: 'all 0.2s ease',
+              ...(statusBadge.style || {})
+            }}
+            title={statusBadge.title}
           >
-            <Key size={14} />
-            <span>API Keys</span>
-          </button>
-          <button 
-            onClick={() => onNavigate('playground')} 
-            className="btn btn-primary btn-sm"
-            style={{ padding: '0.5rem 1.15rem', fontSize: '0.8125rem' }}
-          >
-            <Terminal size={14} />
-            <span>Open Playground</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. OpenRouter-Style README Card / Hero Banner */}
-      <div className="openrouter-hero-container">
-        {/* Top Tab Bar */}
-        <div className="openrouter-tab-bar">
-          <span>README.md</span>
+            {statusBadge.label}
+          </span>
         </div>
 
-        {/* Banner Body */}
-        <div className="openrouter-banner-body">
-          {/* Big Centerpiece Logo + Wordmark */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-            <NetraLogo size={64} showText={true} />
+        {/* Hero Body */}
+        <div className="openrouter-banner-body" style={{ padding: '2.75rem 2rem 2.25rem' }}>
+          {/* Centerpiece Logo + Wordmark */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+            <NetraLogo size={52} showText={true} />
           </div>
 
-          {/* Tagline & Subtitle */}
-          <div className="openrouter-tagline">
-            The unified interface for LLMs.
-          </div>
-          <div className="openrouter-subtext">
+          {/* Primary Tagline */}
+          <h1 className="openrouter-tagline" style={{ margin: 0, maxWidth: 840, fontSize: '1.85rem' }}>
+            The Unified Intelligent Interface for LLMs
+          </h1>
+
+          {/* Subtitle */}
+          <p className="openrouter-subtext" style={{ margin: 0 }}>
             Route dynamically across frontier models, eliminate redundant token spend with sub-5ms caching, and ensure zero-downtime inference with one drop-in OpenAI-compatible API.
+          </p>
+
+          {/* Repository & Attribution Links */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '1.25rem', fontSize: '0.8125rem' }}>
+            <a 
+              href="https://github.com/shashankch/netra-llmgateway" 
+              target="_blank" 
+              rel="noreferrer" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
+            >
+              <Github size={14} />
+              <span>shashankch/netra-llmgateway</span>
+            </a>
+            <a 
+              href="https://shashankch.github.io/netra-llmgateway/" 
+              target="_blank" 
+              rel="noreferrer" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
+            >
+              <BookOpen size={14} />
+              <span>Documentation</span>
+            </a>
+            <a 
+              href="https://github.com/shashankch" 
+              target="_blank" 
+              rel="noreferrer" 
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', textDecoration: 'none' }}
+            >
+              <Sparkles size={14} style={{ color: 'var(--accent-lime)' }} />
+              <span>Crafted by <strong>Shashank Chandel</strong></span>
+            </a>
           </div>
 
-          {/* 4 Stat Metric Cards (OpenRouter Aesthetic) */}
-          <div className="openrouter-stats-grid">
+          {/* 4 Stat Metric Cards */}
+          <div className="openrouter-stats-grid" style={{ marginTop: '0.75rem' }}>
             <div className="openrouter-stat-card">
               <div className="openrouter-stat-number" style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.45rem', letterSpacing: '-0.02em' }}>
                 <span style={{ color: 'var(--text-primary)' }}>ANY</span>
@@ -269,8 +230,8 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
             </div>
           </div>
 
-          {/* OpenRouter Pill Links Bar */}
-          <div className="openrouter-pill-bar">
+          {/* Action CTAs & Endpoint Info */}
+          <div className="openrouter-pill-bar" style={{ marginTop: '1.25rem' }}>
             <a 
               href="https://shashankch.github.io/netra-llmgateway/" 
               target="_blank" 
@@ -322,6 +283,23 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
             >
               <Terminal size={14} />
               <span>OPEN PLAYGROUND</span>
+            </button>
+            <button 
+              onClick={() => onNavigate('analytics')} 
+              className="btn btn-secondary"
+              style={{ 
+                fontSize: '0.8125rem', 
+                padding: '0.5rem 1.25rem', 
+                borderRadius: 9999, 
+                fontWeight: 700, 
+                letterSpacing: '0.03em', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '0.45rem',
+              }}
+            >
+              <Activity size={14} />
+              <span>VIEW ANALYTICS</span>
             </button>
           </div>
         </div>
