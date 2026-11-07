@@ -103,7 +103,8 @@ public class AdminController {
     ) {
         validateAdminAuth(authHeader);
         int maxLimit = Math.min(Math.max(limit, 1), 200);
-        int effectiveOffset = (offset != null) ? Math.max(0, offset) : Math.max(0, page) * maxLimit;
+        long calcOffset = (offset != null) ? Math.max(0L, offset.longValue()) : (long) Math.max(0, page) * maxLimit;
+        int effectiveOffset = (int) Math.min(calcOffset, (long) Integer.MAX_VALUE - maxLimit);
         return ResponseEntity.ok(semanticCacheService.getCacheEntries(key, search, maxLimit, effectiveOffset));
     }
 
@@ -263,7 +264,8 @@ public class AdminController {
         headers.set("X-Page-Size", String.valueOf(maxLimit));
         headers.set("X-Total-Pages", String.valueOf(totalPages));
         if (offset != null) {
-            headers.set("X-Offset", String.valueOf(offset));
+            long exactOffset = Math.max(0, offset.longValue());
+            headers.set("X-Offset", String.valueOf(exactOffset));
         }
 
         return ResponseEntity.ok()
@@ -591,7 +593,18 @@ public class AdminController {
                 GatewayConfigProperties.ModelAliasConfig cfg = entry.getValue();
                 Map<String, Object> aliasData = new java.util.LinkedHashMap<>();
                 aliasData.put("primary", cfg.getPrimary());
-                aliasData.put("fallbacks", cfg.getFallbacks());
+                List<String> cleanFallbacks = new ArrayList<>();
+                if (cfg.getFallbacks() != null) {
+                    for (String fb : cfg.getFallbacks()) {
+                        if (fb != null) {
+                            for (String part : fb.split(",")) {
+                                String clean = part.trim();
+                                if (!clean.isEmpty()) cleanFallbacks.add(clean);
+                            }
+                        }
+                    }
+                }
+                aliasData.put("fallbacks", cleanFallbacks);
                 if (cfg.getRouteByDifficulty() != null) {
                     aliasData.put("route_by_difficulty", cfg.getRouteByDifficulty());
                 }

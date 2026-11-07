@@ -127,6 +127,16 @@ public class ProviderCircuitBreakerService {
         }
         CircuitBreaker cb = registry.circuitBreaker(providerName);
         cb.onError(durationNanos, TimeUnit.NANOSECONDS, throwable);
+
+        long ms = TimeUnit.NANOSECONDS.toMillis(durationNanos);
+        if (ms > 0) {
+            ConcurrentLinkedDeque<Long> queue = rollingLatencies.computeIfAbsent(providerName, k -> new ConcurrentLinkedDeque<>());
+            queue.add(ms);
+            while (queue.size() > MAX_LATENCY_SAMPLES) {
+                queue.poll();
+            }
+        }
+
         log.warn("Recorded failure for provider [{}]: state={}, failureRate={}%",
                 providerName, cb.getState(), cb.getMetrics().getFailureRate());
     }

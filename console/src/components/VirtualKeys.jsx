@@ -303,7 +303,9 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
                   const isCopied = copiedKey === k.virtual_key;
                   const budgetNum = Number(k.monthly_budget_usd);
                   const spendNum = Number(k.current_spend_usd) || 0;
-                  const spendPercent = budgetNum > 0 ? Math.min(100, Math.round((spendNum / budgetNum) * 100)) : 0;
+                  const rawPercent = budgetNum > 0 ? (spendNum / budgetNum) * 100 : 0;
+                  const spendPercentDisplay = rawPercent > 0 && rawPercent < 1 ? '<1%' : `${Math.min(100, Math.round(rawPercent))}%`;
+                  const visualBarWidth = spendNum > 0 ? Math.max(3, Math.min(100, rawPercent)) : 0;
                   const isExhausted = k.status === 'EXHAUSTED' || (budgetNum > 0 && spendNum >= budgetNum);
 
                   return (
@@ -362,10 +364,17 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
                       {/* Monthly Budget & Progress Bar */}
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem' }}>
-                            <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                              {formatCurrency(k.current_spend_usd)}
-                            </span>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', gap: '0.4rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                                {formatCurrency(k.current_spend_usd)}
+                              </span>
+                              {budgetNum > 0 && spendNum > 0 && (
+                                <span className="badge badge-neutral font-mono" style={{ fontSize: '0.625rem', padding: '0.05rem 0.35rem', lineHeight: 1.2 }}>
+                                  {spendPercentDisplay}
+                                </span>
+                              )}
+                            </div>
                             <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>
                               {budgetNum < 0 ? 'Unlimited' : `/ ${formatCurrency(budgetNum)}`}
                             </span>
@@ -379,9 +388,9 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
                               overflow: 'hidden'
                             }}>
                               <div style={{
-                                width: `${spendPercent}%`,
+                                width: `${visualBarWidth}%`,
                                 height: '100%',
-                                background: spendPercent >= 90 ? 'var(--accent-rose)' : (spendPercent >= 70 ? 'var(--accent-amber)' : 'var(--accent-emerald)'),
+                                background: rawPercent >= 90 ? 'var(--accent-rose)' : (rawPercent >= 70 ? 'var(--accent-amber)' : 'var(--accent-emerald)'),
                                 transition: 'width 0.3s ease'
                               }} />
                             </div>

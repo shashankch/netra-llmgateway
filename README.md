@@ -28,7 +28,7 @@
     <a href="#-system-architecture--ingress-topology">Architecture</a> •
     <a href="#-key-architectural-capabilities">Capabilities</a> •
     <a href="#-telemetry-contract--accounting-invariants">Telemetry Contract</a> •
-    <a href="https://shashankch.github.io/netra-llmgateway/">Documentation</a> •
+    <a href="https://docs-netrallm.avadhanlabs.dev/">Documentation</a> •
     <a href="docs/api-reference.md">API Reference</a> •
     <a href="docs/openapi.yaml">OpenAPI Spec</a> •
     <a href="docs/SELF-HOSTING.md">Self-Hosting</a> •
@@ -80,6 +80,7 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 
 - Docker Engine & Docker Compose (v2.20+)
 - Python 3.9+ (for evaluation & smoke verification scripts)
+- Node.js 20+ & npm (for Operations Console UI)
 - Java 25 & Gradle 9 (optional for direct native execution)
 
 ### 1. Launch Backing Services & Gateway
@@ -248,6 +249,21 @@ make routing-eval
 make cache-eval
 ```
 
+### 7. Launch & Serve Operations Console UI
+Access the real-time telemetry dashboard, semantic cache inspector, and model playground:
+
+```bash
+# Docker Compose (included in make up)
+http://localhost:3000
+
+# Standalone Development (Vite hot-reload)
+make console-dev        # or: cd console && npm install && npm run dev
+
+# Production Build & Preview Server
+make console-build
+make console-serve      # or: cd console && npm run preview
+```
+
 ---
 
 ## 📡 Telemetry Contract & Accounting Invariants
@@ -307,6 +323,9 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | `make cache-fuzz` | Runs Enterprise v2 adversarial vector cache and privacy auditor |
 | `make stress` | Runs Enterprise v2 high-concurrency throughput and TTFT benchmark |
 | `make verify-all` | Executes complete end-to-end verification harness (v1 + v2) |
+| `make console-dev`| Starts React 19 Ops Console in Vite hot-reload development mode |
+| `make console-build`| Builds optimized production React 19 Ops Console bundle |
+| `make console-serve`| Serves production-built React 19 Ops Console bundle on port 3000 |
 | `make docs-serve`| Starts live-reloading Zensical developer documentation |
 | `make docs-build`| Builds strict static production documentation distribution |
 
@@ -319,14 +338,14 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | **Tier 1: Local & Sandbox** | Docker Compose Engine | `docker-compose.yml` & `Makefile` | `http://localhost:8080` (API) • `http://localhost:3000` (Console) |
 | **Tier 2: Developer PaaS** | Railway, Render, Fly.io, Vercel | `deploy/paas/` (`railway.toml`, `render.yaml`, `fly.toml`, `vercel.json`) | Turnkey auto-assigned HTTPS edge routes |
 | **Tier 3: Production Cloud VM & VPS** | AWS EC2, GCP, OCI Compute, Hetzner | `deploy/cloud-vps/setup-vps.sh` | Zero-open-port Cloudflare Zero Trust tunnel |
-| **Production Cloud Ingress** | `avadhanlabs.dev` (Name.com) | Custom domain DNS / Tunnel mapping | `gateway-netrallm.avadhanlabs.dev` • `console-netrallm.avadhanlabs.dev` |
-| **Documentation Site** | GitHub Pages (Zensical SSG) | `zensical.toml` | [shashankch.github.io/netra-llmgateway](https://shashankch.github.io/netra-llmgateway/) |
+| **Reference Cloud Ingress** | `avadhanlabs.dev` (Demo / Pre-Prod Reference) | Custom domain DNS / Tunnel mapping | `gateway-netrallm.avadhanlabs.dev` • `console-netrallm.avadhanlabs.dev` • `docs-netrallm.avadhanlabs.dev` |
+| **Documentation Site** | GitHub Pages (Zensical SSG) | `zensical.toml` | [docs-netrallm.avadhanlabs.dev](https://docs-netrallm.avadhanlabs.dev/) |
 
 ---
 
 ## 📚 Technical Documentation & Guides
 
-Comprehensive product documentation, API references, and deployment guides are available in [`docs/`](docs/) and on the [Documentation Site](https://shashankch.github.io/netra-llmgateway/):
+Comprehensive product documentation, API references, and deployment guides are available in [`docs/`](docs/) and on the [Documentation Site](https://docs-netrallm.avadhanlabs.dev/):
 
 - 🏛️ [System Architecture & Ingress Flow](docs/architecture.md)
 - 📋 [Architecture Decision Records (ADRs)](docs/adr.md)

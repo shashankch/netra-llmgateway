@@ -16,7 +16,7 @@ public class RateLimitException extends GatewayException {
                 "rate_limit_exceeded",
                 "rate_limit_exceeded");
         this.rpmLimit = rpmLimit;
-        this.retryAfterSeconds = retryAfterSeconds;
+        this.retryAfterSeconds = Math.max(1, retryAfterSeconds);
     }
 
     public int getRpmLimit() {

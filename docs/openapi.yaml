@@ -28,8 +28,8 @@ servers:
     description: Local Gateway (Docker & Development)
   - url: https://gateway-netrallm.avadhanlabs.dev
     description: Production Gateway Data Plane
-  - url: https://shashankch.github.io/netra-llmgateway
-    description: Documentation & Schema Reference (GitHub Pages)
+  - url: https://docs-netrallm.avadhanlabs.dev
+    description: Production Documentation Site & Schema Reference
 
 security:
   - BearerAuth: []
@@ -351,6 +351,12 @@ paths:
           schema:
             type: integer
             default: 0
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Zero-based cursor offset.
       responses:
         '200':
           description: List of cached prompt completion records.

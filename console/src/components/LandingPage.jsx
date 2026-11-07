@@ -11,7 +11,7 @@ import {
 export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken = 'netra-admin-demo' }) {
   const [copied, setCopied] = useState(false);
   const gatewayUrl = useGatewayUrl();
-  const { isOnline, isChecking, isPollingEnabled, latencyMs } = useGatewayHealth();
+  const { isOnline, isChecking, isPollingEnabled } = useGatewayHealth();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const gatewayHost = gatewayUrl || 'https://<YOUR_GATEWAY_URL>';
 
@@ -32,7 +32,7 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
     if (isDemoToken) {
       if (isOnline) {
         return {
-          label: latencyMs ? `SANDBOX · ONLINE · ${latencyMs}ms` : 'SANDBOX · ONLINE',
+          label: 'SANDBOX · ONLINE',
           className: 'badge font-mono',
           style: {
             background: 'rgba(245, 158, 11, 0.15)',
@@ -41,7 +41,7 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
             letterSpacing: '0.04em',
             fontWeight: 700
           },
-          title: `Developer Sandbox Connected (${latencyMs ? `${latencyMs}ms` : 'Healthy'}) • Click to configure`
+          title: 'Developer Sandbox Connected (ONLINE) • Click to configure'
         };
       }
       if (!isPollingEnabled) {
@@ -73,13 +73,13 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
     // Production Token Mode
     if (isOnline) {
       return {
-        label: latencyMs ? `PROD · ONLINE · ${latencyMs}ms` : 'PROD · ONLINE',
+        label: 'PROD · ONLINE',
         className: 'badge badge-success font-mono',
         style: {
           letterSpacing: '0.04em',
           fontWeight: 700
         },
-        title: `Production Gateway Operational (ONLINE · ${latencyMs ? `${latencyMs}ms` : 'Healthy'}) • Click to view settings`
+        title: 'Production Gateway Operational (ONLINE) • Click to view settings'
       };
     }
     if (!isPollingEnabled) {
@@ -175,7 +175,7 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
               <span>shashankch/netra-llmgateway</span>
             </a>
             <a 
-              href="https://shashankch.github.io/netra-llmgateway/" 
+              href="https://docs-netrallm.avadhanlabs.dev/" 
               target="_blank" 
               rel="noreferrer" 
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', textDecoration: 'none' }}
@@ -233,14 +233,14 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
           {/* Action CTAs & Endpoint Info */}
           <div className="openrouter-pill-bar" style={{ marginTop: '1.25rem' }}>
             <a 
-              href="https://shashankch.github.io/netra-llmgateway/" 
+              href="https://docs-netrallm.avadhanlabs.dev/" 
               target="_blank" 
               rel="noreferrer" 
               className="pill-link" 
               style={{ textDecoration: 'none' }}
             >
               <span className="pill-link-tag">DOCS</span>
-              <span className="pill-link-val">shashankch.github.io/netra-llmgateway</span>
+              <span className="pill-link-val">docs-netrallm.avadhanlabs.dev</span>
             </a>
 
             <div className="pill-link">
@@ -733,7 +733,7 @@ export default function LandingPage({ onNavigate, onOpenAdminModal, adminToken =
             </p>
           </div>
           <a
-            href="https://shashankch.github.io/netra-llmgateway/comparison/"
+            href="https://docs-netrallm.avadhanlabs.dev/comparison/"
             target="_blank"
             rel="noreferrer"
             className="btn btn-outline btn-sm"

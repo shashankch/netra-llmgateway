@@ -13,11 +13,11 @@ public class UpstreamException extends GatewayException {
     public UpstreamException(int statusCode, String message) {
         super(
                 message,
-                HttpStatus.resolve(statusCode) != null ? HttpStatus.resolve(statusCode) : HttpStatus.BAD_GATEWAY,
-                statusCode >= 400 && statusCode < 500 ? "invalid_request_error" : "upstream_error",
-                statusCode >= 400 && statusCode < 500 ? "upstream_bad_request" : "upstream_unavailable"
+                (statusCode >= 400 && HttpStatus.resolve(statusCode) != null) ? HttpStatus.resolve(statusCode) : HttpStatus.BAD_GATEWAY,
+                statusCode == 429 ? "rate_limit_error" : (statusCode >= 400 && statusCode < 500 ? "invalid_request_error" : "upstream_error"),
+                statusCode == 429 ? "upstream_throttled" : (statusCode >= 400 && statusCode < 500 ? "upstream_bad_request" : "upstream_unavailable")
         );
-        this.upstreamStatusCode = statusCode;
+        this.upstreamStatusCode = statusCode >= 400 ? statusCode : 502;
     }
 
     public int getUpstreamStatusCode() {

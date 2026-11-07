@@ -1,5 +1,6 @@
 package com.netra.gateway.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -9,6 +10,7 @@ import org.springframework.data.redis.core.script.RedisScript;
 
 import java.util.List;
 
+@Slf4j
 @Configuration
 public class RedisConfig {
 
@@ -41,7 +43,9 @@ public class RedisConfig {
             try {
                 String virtualKey = new String(message.getBody(), java.nio.charset.StandardCharsets.UTF_8);
                 tenantAuthService.invalidateLocal(virtualKey);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.error("Failed to process tenant invalidation message: {}", e.getMessage(), e);
+            }
         }, new org.springframework.data.redis.listener.ChannelTopic("netra:tenant:invalidation"));
 
         container.addMessageListener((message, pattern) -> {
@@ -49,7 +53,9 @@ public class RedisConfig {
                 String json = new String(message.getBody(), java.nio.charset.StandardCharsets.UTF_8);
                 com.netra.gateway.model.entity.RequestLog logEntry = objectMapper.readValue(json, com.netra.gateway.model.entity.RequestLog.class);
                 logStreamBroadcaster.broadcastLocally(logEntry);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.error("Failed to deserialize or broadcast log entry from Redis pub/sub: {}", e.getMessage(), e);
+            }
         }, new org.springframework.data.redis.listener.ChannelTopic("netra:logs:broadcast"));
 
         return container;

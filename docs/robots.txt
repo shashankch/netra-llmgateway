@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://shashankch.github.io/netra-llmgateway/sitemap.xml
+Sitemap: https://docs-netrallm.avadhanlabs.dev/sitemap.xml

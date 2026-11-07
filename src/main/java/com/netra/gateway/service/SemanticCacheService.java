@@ -415,12 +415,18 @@ public class SemanticCacheService {
             } catch (Exception ex) {
                 log.warn("Database request count lookup failed for [{}], using fallback: {}", vkey, ex.getMessage());
             }
+            long t1Hits = tenantTier1Hits.getOrDefault(vkey, new AtomicLong(0)).get();
+            long t2Hits = tenantTier2Hits.getOrDefault(vkey, new AtomicLong(0)).get();
+            long inProcTenantHits = t1Hits + t2Hits;
+            if (hits < inProcTenantHits) {
+                hits = inProcTenantHits;
+                if (totalReqs < hits) {
+                    totalReqs = hits;
+                }
+            }
             long misses = Math.max(0, totalReqs - hits);
 
             double hitRate = (hits + misses) > 0 ? (double) hits / (hits + misses) : 0.0;
-
-            long t1Hits = tenantTier1Hits.getOrDefault(vkey, new AtomicLong(0)).get();
-            long t2Hits = tenantTier2Hits.getOrDefault(vkey, new AtomicLong(0)).get();
 
             keyStatsMap.put(vkey, CacheStatsResponse.KeyCacheStats.builder()
                     .entries(entries)
@@ -485,8 +491,18 @@ public class SemanticCacheService {
         List<CacheEntryDetailDto> results = new ArrayList<>();
 
         try {
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(pageNumber, safeLimit);
-            List<com.netra.gateway.model.entity.CacheEntry> dbEntries = cacheEntryRepository.findCacheEntries(cleanKey, cleanSearch, pageable);
+            org.springframework.data.domain.Pageable pageable = new com.netra.gateway.model.dto.OffsetBasedPageRequest(safeOffset, safeLimit);
+            List<com.netra.gateway.model.entity.CacheEntry> dbEntries;
+            if (cleanKey != null && cleanSearch != null) {
+                dbEntries = cacheEntryRepository.findByVirtualKeyAndSearch(cleanKey, cleanSearch, pageable);
+            } else if (cleanKey != null) {
+                dbEntries = cacheEntryRepository.findByVirtualKeyIgnoreCaseOrderByCreatedAtDesc(cleanKey, pageable);
+            } else if (cleanSearch != null) {
+                dbEntries = cacheEntryRepository.findBySearch(cleanSearch, pageable);
+            } else {
+                dbEntries = cacheEntryRepository.findAllByOrderByCreatedAtDesc(pageable);
+            }
+
             for (com.netra.gateway.model.entity.CacheEntry c : dbEntries) {
                 results.add(mapToDetailDto(c, tenantThresholds));
             }
@@ -494,7 +510,7 @@ public class SemanticCacheService {
                 return results;
             }
         } catch (Exception ex) {
-            log.debug("Database query for cache entries fallback to in-memory: {}", ex.getMessage());
+            log.warn("Database query for cache entries failed, falling back to in-memory: {}", ex.getMessage(), ex);
         }
 
         // In-memory fallback
@@ -541,8 +557,17 @@ public class SemanticCacheService {
 
     private long countDbEntries(String cleanKey, String cleanSearch) {
         try {
-            return cacheEntryRepository.countCacheEntries(cleanKey, cleanSearch);
+            if (cleanKey != null && cleanSearch != null) {
+                return cacheEntryRepository.countByVirtualKeyAndSearch(cleanKey, cleanSearch);
+            } else if (cleanKey != null) {
+                return cacheEntryRepository.countByVirtualKeyIgnoreCase(cleanKey);
+            } else if (cleanSearch != null) {
+                return cacheEntryRepository.countBySearch(cleanSearch);
+            } else {
+                return cacheEntryRepository.count();
+            }
         } catch (Exception e) {
+            log.warn("Failed to count DB cache entries: {}", e.getMessage());
             return 0;
         }
     }
@@ -582,7 +607,7 @@ public class SemanticCacheService {
                 .createdAt(c.getCreatedAt())
                 .lastHitAt(c.getLastHitAt())
                 .similarityThreshold(threshold != null ? threshold : 0.850)
-                .tier(c.getHitCount() > 5 ? "tier1_exact" : "tier2_semantic")
+                .tier("tier2_semantic")
                 .build();
     }
 

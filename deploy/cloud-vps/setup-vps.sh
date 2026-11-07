@@ -107,18 +107,23 @@ else
     # Zero-Open-Port mode: ensure all inbound web ports are blocked
     sudo ufw delete allow 80/tcp 2>/dev/null || true
     sudo ufw delete allow 443/tcp 2>/dev/null || true
+    sudo ufw delete allow 3000/tcp 2>/dev/null || true
     sudo ufw delete allow 8080/tcp 2>/dev/null || true
 fi
 sudo ufw --force enable
 
-# 5. Clone NETRA Repository if not present
-if [ ! -d "netra-llmgateway" ]; then
-    echo "Cloning NETRA repository..."
-    git clone https://github.com/shashankch/netra-llmgateway.git
-    cd netra-llmgateway
+# 5. Clone or update NETRA Repository
+if [ ! -f "docker-compose.yml" ]; then
+    if [ ! -d "netra-llmgateway" ]; then
+        echo "Cloning NETRA repository..."
+        git clone https://github.com/shashankch/netra-llmgateway.git
+        cd netra-llmgateway
+    else
+        cd netra-llmgateway
+        git pull origin main
+    fi
 else
-    cd netra-llmgateway
-    git pull origin main
+    git pull origin main 2>/dev/null || true
 fi
 
 # Ensure .env file exists and configure hardened production profile
@@ -185,6 +190,11 @@ if [ -n "$TUNNEL_TOKEN" ]; then
     echo "Check tunnel logs: $DOCKER_COMPOSE logs -f cloudflared"
     echo "=========================================================="
 else
+    # Direct exposure mode: ensure NETRA_BIND_IP binds to all interfaces
+    if grep -q "NETRA_BIND_IP" .env; then
+        sed -i.bak "s|^NETRA_BIND_IP=.*|NETRA_BIND_IP=0.0.0.0|" .env && rm -f .env.bak
+    fi
+
     # Standard boot
     $DOCKER_COMPOSE up -d --build
     echo "=========================================================="

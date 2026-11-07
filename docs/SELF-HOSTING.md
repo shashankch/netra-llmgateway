@@ -45,6 +45,32 @@ make up
 !!! tip "Port Allocation & Local vLLM Drills"
     The Zensical documentation preview server (`make docs-serve`) binds to port 8000 by default. If testing with an in-VPC vLLM instance locally on port 8000, specify an alternate port (`zensical serve --dev-addr 127.0.0.1:8008`) or route to `VLLM_BASE_URL=http://localhost:8001/v1`.
 
+### 2.3 Operations Console UI Deployment & Serving
+
+The React 19 Ops Console (`console/`) can be served via Docker Compose, standalone Node/Vite, or static edge hosting:
+
+#### Option A: Docker Compose (Default Nginx Container)
+Packaged with a multi-stage Dockerfile and optimized `nginx:alpine` runtime on port 3000:
+```bash
+docker compose up -d console
+```
+
+#### Option B: Standalone Node.js & Vite
+```bash
+# Development with hot-reload (port 3000)
+make console-dev        # or: cd console && npm install && npm run dev
+
+# Production build & preview server
+make console-build
+make console-serve      # or: cd console && npm run preview
+```
+
+#### Option C: Edge Hosting (Vercel / Cloudflare Pages)
+Deploy directly from `console/` using the provided blueprint (`deploy/paas/vercel.json`):
+```bash
+cd console && vercel --prod
+```
+
 ---
 
 ## 3. Tier 2: Developer Platform-as-a-Service (PaaS)
@@ -108,11 +134,20 @@ When deploying to production with a custom domain (e.g. registered via Name.com)
 |---|---|---|---|
 | **Core Gateway API** | `https://gateway-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Reverse Proxy &rarr; Port `8080` | `curl -f https://gateway-netrallm.avadhanlabs.dev/health` |
 | **Operations Console** | `https://console-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Vercel &rarr; Port `3000` | Browser or `curl -I https://console-netrallm.avadhanlabs.dev` |
-| **Documentation Site** | `https://shashankch.github.io/netra-llmgateway/` | GitHub Pages | `curl -I https://shashankch.github.io/netra-llmgateway/` |
+| **Documentation Site** | `https://docs-netrallm.avadhanlabs.dev` | GitHub Pages | `curl -I https://docs-netrallm.avadhanlabs.dev` |
 
 **DNS Configuration (Name.com / Cloudflare Zero Trust):**
-* `gateway-netrallm` (CNAME) &rarr; Cloudflare Tunnel UUID target or VPS public IP.
-* `console-netrallm` (CNAME) &rarr; Cloudflare Tunnel target or `cname.vercel-dns.com`.
+* `gateway-netrallm` (CNAME) -> Cloudflare Tunnel UUID target or VPS public IP.
+* `console-netrallm` (CNAME) -> Cloudflare Tunnel target or `cname.vercel-dns.com`.
+* `docs-netrallm` (CNAME) -> `shashankch.github.io.` (GitHub Pages custom domain).
+
+### 3.6 Ops Console Connectivity & Cloud Free-Tier Safeguards
+
+The Ops Console includes native configuration controls to communicate across origins:
+- **Configurable Gateway Endpoint:** Supports both Same-Origin deployments (empty string, proxies `/v1` and `/admin`) and Custom Remote endpoints (e.g., `https://gateway-netrallm.avadhanlabs.dev`) with a 1-click "Use Default Origin" reset.
+- **High-Precedence CORS Filter:** The gateway runs a dedicated `FilterRegistrationBean<CorsFilter>` bean configured at `Ordered.HIGHEST_PRECEDENCE`, intercepting preflight `OPTIONS` requests before Spring security/servlet dispatchers to permit cross-subdomain API calls.
+- **Interactive Connectivity Probe:** Provides real-time gateway reachability and round-trip latency pings (`GET /health`) directly from the settings dialog.
+- **Free-Tier Friendly Health Polling:** Background health monitoring uses the Page Visibility API (suspends polling when the browser tab is hidden), adaptive exponential backoff (30s baseline to 120s backoff), and an operator toggle to avoid waking sleeping or scale-to-zero compute instances.
 
 ---
 

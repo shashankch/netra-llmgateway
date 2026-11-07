@@ -67,7 +67,7 @@ public class EmbeddingService {
                 .replace('\u202F', ' ')
                 .replace("\r\n", "\n")
                 .replace("\r", "\n")
-                .strip();
+                .stripTrailing();
     }
 
     /**
@@ -78,18 +78,14 @@ public class EmbeddingService {
         if (messages == null || messages.isEmpty()) {
             return "";
         }
-        if (messages.size() == 1) {
-            Object content = messages.get(0).getContent();
-            return content != null ? canonicalizeExactText(content.toString()) : "";
-        }
         StringBuilder sb = new StringBuilder();
         for (ChatMessage msg : messages) {
             String role = msg.getRole() != null ? msg.getRole().toLowerCase() : "user";
             Object content = msg.getContent();
             String text = content != null ? canonicalizeExactText(content.toString()) : "";
-            sb.append(role).append(": ").append(text).append("\n");
+            sb.append(role).append(":[").append(text.length()).append("]:").append(text).append("\n");
         }
-        return sb.toString().strip();
+        return sb.toString();
     }
 
     /**

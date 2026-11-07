@@ -123,7 +123,7 @@ export default function App() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
               <a 
-                href="https://shashankch.github.io/netra-llmgateway/" 
+                href="https://docs-netrallm.avadhanlabs.dev/" 
                 target="_blank" 
                 rel="noreferrer"
                 style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}

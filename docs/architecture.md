@@ -20,6 +20,7 @@ Every incoming HTTP request to `POST /v1/chat/completions` traverses five decoup
 
 ### Stage 1: Virtual Key Authentication & L1 Ingress Cache
 
+- Intercepts all requests via a high-precedence CORS filter (`Ordered.HIGHEST_PRECEDENCE`), safely handling cross-origin preflight `OPTIONS` calls across subdomains (`console-*` -> `gateway-*`) and exposing all `x-netra-*` and IETF `RateLimit-*` headers.
 - Binds Java 25 Scoped Values for zero-allocation, immutable context propagation across the request lifecycle and child virtual threads.
 - Evaluates the incoming HTTP `Authorization: Bearer netra-sk-*` header.
 - Validates the key against an in-memory Caffeine L1 cache (<50μs) to eliminate database read IOPS on the fast path.
@@ -48,6 +49,7 @@ Every incoming HTTP request to `POST /v1/chat/completions` traverses five decoup
         * Returns the cached response in **sub-5ms** with `$0.000000` upstream token cost (`x-netra-cache-tier: tier2_semantic`).
         * Automatically back-populates Tier 1 so subsequent exact repeats execute in <0.5ms.
         * Replays streaming completions progressively as Server-Sent Events (SSE) ending with `data: [DONE]`.
+    * **Bidirectional Streaming Cache Capture:** Upstream SSE token streams are aggregated in real time and automatically ingested into Tier-1 and Tier-2 pgvector caches upon stream completion (supporting `data: [DONE]` and clean socket EOF closures).
     * Upstream safety refusal suppression permanently prevents cache poisoning from guardrail rejections.
 
 ### Stage 4: Intelligent Model Routing, Circuit Breakers & Auto-Escalation
@@ -58,7 +60,7 @@ Every incoming HTTP request to `POST /v1/chat/completions` traverses five decoup
     * Decouples task instructions from data payloads and scores grammatical complexity signals in <0.2ms.
     * Steers simple queries to `fast` models and complex reasoning tasks to `smart` models, achieving ~72.4% cost savings.
 - **Resilience4j Circuit Breakers & Candidate Chain Failover:**
-    * Each upstream provider is guarded by an autonomous Resilience4j circuit breaker (sliding window of 10 calls, 50% failure rate).
+    * Each upstream provider is guarded by an autonomous Resilience4j circuit breaker (sliding window of 20 calls, minimum 5 calls, 50% failure rate threshold, 10s cooldown).
     * When a provider trips to OPEN, incoming requests fast-failover to partner providers in **<0.05ms** without making a network hop.
     * Enforces bounded exponential backoff retries and a strict total candidate chain deadline budget (`maxChainTimeoutMs: 15000ms`), preventing edge proxy timeouts.
     * Telemetry and circuit states are continuously exposed via `GET /admin/providers/health` and the Ops Console.

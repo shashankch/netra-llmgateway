@@ -18,9 +18,12 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       img.dataset.zoomAttached = "true";
+      img.setAttribute("tabindex", "0");
+      img.setAttribute("role", "button");
+      img.setAttribute("aria-label", (img.alt || "Image") + " (Press Enter or Space to enlarge)");
 
-      img.addEventListener("click", function (e) {
-        e.stopPropagation();
+      function openZoom(e) {
+        if (e) e.stopPropagation();
 
         const overlay = document.createElement("div");
         overlay.className = "netra-image-overlay";
@@ -54,6 +57,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         overlay.addEventListener("click", closeOverlay);
         document.addEventListener("keydown", onKeyDown);
+      }
+
+      img.addEventListener("click", openZoom);
+      img.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+          e.preventDefault();
+          openZoom(e);
+        }
       });
     });
   }

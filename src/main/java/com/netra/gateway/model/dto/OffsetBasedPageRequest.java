@@ -58,7 +58,11 @@ public class OffsetBasedPageRequest implements Pageable, Serializable {
     }
 
     public Pageable previous() {
-        return hasPrevious() ? new OffsetBasedPageRequest(getOffset() - getPageSize(), getPageSize(), getSort()) : this;
+        if (!hasPrevious()) {
+            return this;
+        }
+        long prevOffset = Math.max(0, getOffset() - getPageSize());
+        return new OffsetBasedPageRequest(prevOffset, getPageSize(), getSort());
     }
 
     @Override

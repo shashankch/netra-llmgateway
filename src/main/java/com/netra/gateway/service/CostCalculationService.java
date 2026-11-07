@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -40,10 +41,17 @@ public class CostCalculationService {
             if (direct.isPresent() || m.contains("/")) {
                 return direct;
             }
-            // Check if catalog has a provider-prefixed model ending with "/model"
-            return pricingRepository.findAll().stream()
+            // Deterministic catalog lookup: match provider-prefixed model ending with "/model"
+            List<ModelPricing> matches = pricingRepository.findAll().stream()
                     .filter(p -> p.getModel().endsWith("/" + m))
-                    .findFirst();
+                    .toList();
+            if (matches.size() == 1) {
+                return Optional.of(matches.get(0));
+            } else if (matches.size() > 1) {
+                log.warn("Ambiguous pricing suffix [{}] matched multiple models {}; requiring provider qualification",
+                        m, matches.stream().map(ModelPricing::getModel).toList());
+            }
+            return Optional.empty();
         });
         if (pricingOpt == null || pricingOpt.isEmpty()) {
             log.warn("No pricing found for model [{}], defaulting cost to 0.000000 USD", model);

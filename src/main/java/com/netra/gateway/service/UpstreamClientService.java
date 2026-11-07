@@ -196,7 +196,7 @@ public class UpstreamClientService {
             String providerCandidate = modelSpec.substring(0, colonIdx).trim();
             String innerModel = modelSpec.substring(colonIdx + 1).trim();
             GatewayConfigProperties.ProviderConfig providerCfg = configProperties.getProvider(providerCandidate);
-            if (providerCfg != null) {
+            if (isProviderActiveForDirectRouting(providerCfg)) {
                 // External paid aggregators require known pricing to enforce tenant budgets and prevent unmetered spend
                 if ("openrouter".equalsIgnoreCase(providerCfg.getName()) && pricingRepository.findByModel(innerModel).isEmpty() && pricingRepository.findByModel(modelSpec).isEmpty()) {
                     throw new ModelNotFoundException("Model '" + innerModel + "' on provider '" + providerCfg.getName()
@@ -508,7 +508,6 @@ public class UpstreamClientService {
                 || url.contains(".internal")
                 || url.contains(".vpc")
                 || url.contains(".cluster.local")
-                || url.startsWith("http://")
                 || name.contains("local")
                 || name.contains("vllm")
                 || name.contains("ollama")
@@ -531,7 +530,7 @@ public class UpstreamClientService {
             return;
         }
         try {
-            Thread.sleep(Math.max(10, cappedDelay));
+            Thread.sleep(Math.max(1, cappedDelay));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
