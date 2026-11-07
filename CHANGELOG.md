@@ -7,157 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.7.1] - 2026-11-08 — Enterprise Resilience, Console Modernization & Ingress Polish
+## [0.7.1] - 2026-11-08
 
-### 🚀 Gateway & Resilience
-- **High-Precedence CORS**: Registered `CorsFilter` bean (`Ordered.HIGHEST_PRECEDENCE`) to permit cross-subdomain API calls and expose all `x-netra-*` and IETF `RateLimit-*` headers.
-- **Circuit Breaker & Telemetry**: Exposed live provider health telemetry (`GET /admin/providers/health`) and separated cache hits ($0) from outbound model egress calls (`upstream ok · err`).
-- **Safe Pagination Bounds**: Capped offset calculations in `AdminController` to prevent integer overflow on large offsets.
-- **Compilation Fix**: Added missing `java.util.List` import in `CostCalculationService.java`.
+### Added
+- **Playground Ergonomics**: Added 1-click model alias selection (`fast`, `smart`, `auto`), segmented Stream/JSON slider, and grouped benchmark test scenarios.
+- **Spend Visibility**: Added sub-1% spend badge and progress visibility indicator for active virtual keys.
+- **Provider Telemetry**: Added upstream call telemetry separating zero-cost cache hits from outbound provider traffic.
+- **UI Deployment Workflows**: Added deployment guides for local Docker Compose, standalone Vite development, and edge CDN hosting.
 
-### 🖥️ Operations Console
-- **Playground Ergonomics**: Modernized sidebar with 1-click model alias badges (`fast`, `smart`, `auto`), segmented Stream/JSON slider, and grouped benchmark test scenarios.
-- **Dropdown Centering**: Fixed `<select>` vertical text clipping across Playground dropdowns (`height: 38px`, `lineHeight: 1.4`).
-- **Port 3000 Enforcement**: Configured deterministic port binding (`strictPort: true`) in Vite development configuration.
-- **Spend Visualization**: Added `<1%` spend badge and enforced 3% minimum progress bar visibility for non-zero micro-spend in Virtual Keys table.
-- **Health Probe Deduplication**: Merged concurrent background health checks via a shared in-flight promise.
+### Changed
+- **Unified Ingress Hostnames**: Migrated cloud endpoints to single-level hyphenated subdomains for wildcard SSL compatibility.
+- **Documentation Custom Domain**: Configured sovereign domain `docs-netrallm.avadhanlabs.dev` via GitHub Pages CNAME.
+- **Local Dev Port**: Enforced deterministic port 3000 binding for local console development.
 
-### 🌐 Ingress & Documentation
-- **Universal SSL Ingress**: Migrated cloud endpoints to single-level hyphenated hostnames (`gateway-netrallm.avadhanlabs.dev`, `console-netrallm.avadhanlabs.dev`, `docs-netrallm.avadhanlabs.dev`) for Cloudflare wildcard SSL compatibility.
-- **Documentation Custom Domain**: Configured `docs-netrallm.avadhanlabs.dev` via GitHub Pages CNAME with CI preservation in `.github/workflows/docs.yml`.
-- **UI Deployment Guides**: Documented step-by-step console serving workflows across Docker Compose, standalone Vite (`make console-dev`, `make console-serve`), and edge CDN hosting.
-- **Automated Sudo Elevation**: Added fallback to `sudo docker compose` in `setup-vps.sh` for non-root shell provisioning.
+### Fixed
+- **Cross-Origin Requests**: Added high-precedence CORS filter to allow cross-subdomain communication between console and gateway.
+- **Dropdown Clipping**: Fixed vertical text cutoff across model selection and benchmark scenario dropdowns.
+- **Health Check Deduplication**: Unified concurrent background health probes via a shared in-flight request.
+- **Pagination Safety**: Added safe upper bounds to prevent arithmetic overflow on large cursor offsets.
+- **Documentation Deployment**: Preserved CNAME configuration across automated documentation build artifacts.
 
 ---
 
-## [0.7.0] - 2026-11-03 — Phase 7: Resilience, Two-Tier Cache & High-Load Hardening
+## [0.7.0] - 2026-11-03
 
-### 🚀 Added & Improved
-- **Java 25 Scoped Values (JEP 506)**: Replaced `ThreadLocal` with immutable, thread-safe `ScopedValue` context propagation across virtual threads.
-- **PostgreSQL Connection Pool Protection**: Added an in-memory bounded batch buffer (10,000 capacity) for asynchronous audit logging, shielding HikariCP under high-concurrency bursts.
-- **Two-Tier Cache Hierarchy**: Sub-0.5ms exact hash near-cache (Tier 1: Caffeine + Redis) and sub-5ms semantic vector cache (Tier 2: PostgreSQL pgvector HNSW).
-- **IETF RateLimit Protocol**: Added compliance with `draft-ietf-httpapi-ratelimit-headers` (`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, `RateLimit-Policy`).
-- **Resilience4j Circuit Breakers**: Added fast-failover (<0.05ms) across providers and live health snapshot API (`GET /admin/providers/health`).
+### Added
+- **Scoped Values Context**: Replaced thread-local context with immutable, thread-safe scoped values across virtual threads.
+- **Connection Pool Protection**: Added an in-memory bounded batch buffer for asynchronous audit logging, shielding database pools under high-concurrency bursts.
+- **Two-Tier Cache Hierarchy**: Sub-0.5ms exact hash near-cache and sub-5ms semantic vector cache with automatic back-population.
+- **IETF RateLimit Protocol**: Added compliance with standardized sliding-window rate limit headers.
+- **Dynamic Circuit Breakers**: Added automated fast-failover across providers and live provider health telemetry.
 - **Refusal Auto-Escalation**: Automatically detects small-model refusals and transparently escalates requests to frontier reasoning models.
 - **Console Analytics Polish**: Added virtual key spend pagination, cache inspection modals, and live audit log stream viewer.
 
 ---
 
-## [0.6.0] - 2026-10-28 — Phase 6: Modern Ops Console UI, Multi-Tier PaaS & Verification Drills
+## [0.6.0] - 2026-10-28
 
-### 🚀 Added
-
-- **Modern React 19 / Vite 6 Operations Console (`console/`)**: High-performance, zero-flicker developer console providing OpenRouter-grade analytics, live request logging, virtual keys management, and interactive prompt testing.
-- **OpenRouter-Grade Analytics Suite**:
-  - 5 Headline KPI Cards: Total Spend (rendered in active currency), Total Request Count, Token Volume Distribution (Prompt, Completion, Total), Semantic Cache Hit Rate %, and Average Latency / Time-To-First-Token (TTFT).
-  - 4 Interactive SVG Visualizations: Model Spend & Volume Trends (stacked hourly/daily bars), Smart Router Arbitrage Efficiency (donut chart with complexity signal flows and net ~72.4% cost arbitrage savings), Semantic Cache Waterfall & Cumulative Savings (direct vs $0 instant vector hits), and Latency Percentiles (p50, p90, p99 TTFT and response durations).
-  - Tenant Virtual Key Leaderboard: Real-time table displaying tenant name, organization, active RPM gauge, monthly budget burn-down bar, and status badge (`ACTIVE`, `EXHAUSTED`, `REVOKED`).
-- **Seamless Dark & Light Theme System**:
-  - Native dual-theme engine detecting system `prefers-color-scheme` automatically and persisting choice in `localStorage` (`netra-theme`).
-  - Dark Theme default: Obsidian/slate palette (`#090d16` canvas, `#0f172a` cards, `#1e293b` borders, glowing neon accents).
-  - Light Theme: Crisp enterprise white/slate palette (`#ffffff` canvas, `#f8fafc` cards, `#e2e8f0` borders, slate typography).
-  - Zero-flicker Sun ☀️ / Moon 🌙 toggle in the top navbar.
-- **Single-Denomination Currency Engine (USD $ | INR ₹)**:
-  - Global navbar switcher converting all monetary figures dynamically via real-time Forex service with offline fallback (`85.00`).
-  - Strict database invariant: pure USD ledger persistence in PostgreSQL (`DECIMAL(12, 6)`), eliminating currency drift or schema duplication.
-- **Interactive Evaluation Sandbox & Prompt Playground (`/playground`)**:
-  - 1-Click Evaluation presets pre-seeded for Search Team (`netra-sk-search`), Research Team (`netra-sk-research`), Free Tier (`netra-sk-free`), and Budget Demo (`netra-sk-budget-demo`).
-  - Interactive chat form supporting model selection (`fast`, `smart`, `auto`), SSE streaming toggle, system prompt, and prompt templates (Paraphrase Pair A/B, Near-miss, Complex reasoning).
-  - Unbuffered SSE typewriter streaming token display with live chunk counter.
-  - Telemetry Badges Bar displaying `x-netra-provider`, `x-netra-cache` (green HIT / slate MISS), `x-netra-fallback`, `x-netra-cost-usd`, `x-netra-route-reason`, `x-netra-retries`, and latency (ms).
-- **Virtual Keys Manager (`/keys`)**:
-  - Provision and edit virtual keys with sliding RPM limits, monthly budget caps in USD/INR, model allowlists, semantic cache toggles, and similarity threshold sliders (0.75 - 0.99).
-  - Instantaneous L1 in-memory near-cache invalidation upon updates or revocation.
-- **Live Request Logs Inspector (`/logs`)**:
-  - Real-time audit log stream from `GET /admin/logs/stream` with pause/resume controls.
-  - Search and filter by virtual key, HTTP status codes (200, 429, 402, 401, 502), and request attributes.
-  - Expandable rows detailing full JSON payload, token counts, route reasons, and error types.
-- **Semantic Cache & Smart Match Inspector (`/cache`)**:
-  - Aggregate metrics for total entries, hits, misses, and hit rate %.
-  - Per-tenant cryptographic isolation table showing threshold metadata, entries, and zero cross-tenant data bleed.
-- **Multi-Tier Turnkey Deployment Blueprints**:
-  - 1-Click PaaS templates: `deploy/paas/railway.toml`, `deploy/paas/render.yaml`, `deploy/paas/fly.toml`, and `deploy/paas/vercel.json`.
-  - Cloud VPS zero-touch bootstrap script: `deploy/cloud-vps/setup-vps.sh` for OCI Always Free & AWS Free Tier (EC2 `t4g.small`).
-  - Containerized multi-service stack: updated `docker-compose.yml` incorporating `console` service container on port 3000 with reverse proxying.
-- [**Comprehensive E2E Verification Baseline Report**](docs/verification-report.md):
-  - Formal report covering all 6 verification sections: smoke test (17/17 passed, 1 warning), concurrency load test (zero over-admission), 100% exact financial ledger reconciliation, routing accuracy (20/20 cases), semantic cache evaluation, and added gateway latency SLO analysis.
+### Added
+- **Operations Console**: React 19 and Vite 6 operations console providing real-time analytics, request audit logs, virtual key management, and prompt playground.
+- **Analytics Suite**: KPI metrics for spend, request count, token volume distribution, cache hit rate, and latency percentiles.
+- **Dual-Theme Support**: Dark obsidian default theme and crisp enterprise light theme with persistent user preference.
+- **Multi-Currency Display**: Dynamic USD and INR currency switcher with live foreign exchange conversion.
+- **Turnkey Deployment**: Container orchestration and deployment blueprints for Docker Compose, PaaS, and cloud virtual machines.
 
 ---
 
-## [0.5.0] - 2026-10-27 — Phase 5: Tenant-Isolated Semantic Vector Cache & pgvector Integration
+## [0.5.0] - 2026-10-27
 
-### 🚀 Added
-
-- **In-JVM Dense Vector Embeddings**: Embedded quantized `all-MiniLM-L6-v2` model (384 dimensions) running directly in JVM memory via ONNX Runtime (`langchain4j-embeddings-all-minilm-l6-v2-q:0.36.2`). Generates normalized dense vector embeddings in ~5ms with zero external network hops or sidecar API costs.
-- **PostgreSQL 18 `pgvector` HNSW Nearest-Neighbor Retrieval**: Leverages native pgvector cosine distance operator `<=>` with cosine similarity projection `1 - (c.embedding <=> cast(:queryVector as vector))` accelerated by HNSW cosine indexing (`m=16, ef_construction=64`).
-- **Cryptographic Per-Tenant Vector Isolation**: Enforces tenant-isolated querying at the database layer (`WHERE virtual_key = :virtualKey AND model_alias = :modelAlias`), guaranteeing mathematical zero cross-tenant completion leakage or cache bleeding.
-- **Tenant-Specific Cache Policies**: Respects tenant settings `semantic_cache.enabled` (e.g. disabled for `research` and `budget-demo`) and per-tenant `similarity_threshold` (0.92 for `search`, 0.85 for `free-tier`).
-- **Paraphrase Matching & Near-Miss Rejection**: Successfully matches semantically equivalent paraphrase pairs (0.9632 cosine similarity vs 0.92 threshold) while rejecting near-miss prompts (0.7983 < 0.92) and unrelated queries (<0.10).
-- **Upstream Safety Refusal Suppression**: Automatically detects safety refusals (e.g. *"I'm sorry, but I can't assist with that request"*) and prevents temporary refusals from being persisted into the vector cache.
-- **Multi-Turn Conversation Context Keying**: For single-turn requests, keys on user prompt; for multi-turn conversations, canonicalizes complete message history across all roles and contents.
-- **Streaming Cache SSE Replay**: Emits instant Server-Sent Events containing delta chunks, terminal usage block, and sentinel `[DONE]` with full `x-netra-*` telemetry headers and `$0.000000` cost.
-- **Admin Cache Statistics API (`GET /admin/cache/stats`)**: Reports total entries, hits, misses, global hit rate, and per-key breakdown with tenant status and threshold metadata.
-- **Telemetry Observability Contract**: Injects canonical headers: `x-netra-cache: hit`, `x-netra-cost-usd: 0.000000`, `x-netra-provider`, `x-netra-fallback: false`, `x-netra-route-reason: semantic_cache_hit`, and `x-netra-retries: 0`.
-- **Cache Benchmark Evaluation CLI (`scripts/run_cache_eval.py`)**: Added `make cache-eval` CLI automation command and automated CI pipeline `.github/workflows/cache-ci.yml`.
+### Added
+- **In-JVM Dense Vector Embeddings**: Embedded quantized embedding model running in JVM memory for sub-5ms vector generation without external API dependencies.
+- **pgvector Cosine Retrieval**: Nearest-neighbor semantic retrieval with HNSW indexing for rapid similarity matching.
+- **Per-Tenant Vector Isolation**: Strict tenant isolation at the database layer preventing cross-tenant completion leakage.
+- **Semantic Cache Policies**: Configurable per-tenant cache enablement and similarity thresholds.
+- **Safety Refusal Suppression**: Prevents upstream safety refusals from polluting the persistent vector cache.
+- **Streaming Cache Replay**: Instant replay of cached completions over Server-Sent Events with zero upstream token cost.
 
 ---
 
-## [0.4.0] - 2026-10-26 — Phase 4: Multi-Provider Routing, Failover Chains & Intelligent Router
+## [0.4.0] - 2026-10-26
 
-### 🚀 Added
-
-- **Multi-Provider Fallback Chains**: Dynamic ordered candidate chains for model aliases (`fast`, `smart`) and direct concrete models. Maps `fast` to primary `alpha/alpha-small` and fallback `beta/beta-small`, and `smart` to primary `alpha/alpha-large` and fallback `beta/beta-large`. Direct models automatically resolve to partner fallbacks.
-- **Exponential Backoff Retries with Fast-Failover**: Automated retry loop (`max_attempts: 3`, `initial_backoff_ms: 200`, `multiplier: 2.0`) catching transient HTTP 5xx, 429, and socket exceptions before switching to fallback partner models.
-- **Intelligent Prompt Difficulty Classifier**: Two-stage task instruction classification engine using operative verb extraction to decouple user instructions from large text payloads (e.g. server logs, rosters). Scores proof, architecture design, Fermi estimation, systems reasoning, algorithmic complexity, and comparative evaluation signals against de-escalation patterns. Achieves 20/20 (100.00%) accuracy on `data/routing_eval.jsonl` benchmark.
-- **Failover in Streaming SSE Relay**: Establishes upstream connections synchronously before committing headers. Primary connection failures automatically retry and fail over to fallback providers before the first SSE chunk is emitted.
-- **All-Provider Exhaustion Guard**: When all candidates in a fallback chain are exhausted, cleanly rolls back admission slots and aborts with HTTP 502 Bad Gateway and OpenAI-compatible error payload (`upstream_unavailable`).
-- **Telemetry Observability Headers**: Injects `x-netra-route-reason` (explicit classifier score and signal attribution or alias name) and `x-netra-retries` (network retry attempts executed). Both metrics persisted in audit logs.
-- **Offline & Live Routing Verification CLI (`scripts/run_routing_eval.py`)**: Verification script evaluating accuracy against `data/routing_eval.jsonl` with support for both `--offline` local heuristic analysis and live gateway HTTP testing. Added `make routing-eval` command.
-- **Automated Routing CI Pipeline (`.github/workflows/routing-ci.yml`)**: GitHub Actions workflow executing In-JVM classifier benchmark, multi-provider routing unit/integration tests, and CLI routing evaluation. Added `Routing_CI` badge to `README.md`.
+### Added
+- **Multi-Provider Fallback Chains**: Configurable fallback routes for model aliases and direct model targets.
+- **Exponential Backoff**: Automated retries for transient upstream failures before switching to fallback providers.
+- **Prompt Difficulty Classifier**: Syntactic intent classification routing simple queries to fast models and complex queries to frontier reasoning models.
+- **Streaming Failover**: Synchronous connection establishment ensuring upstream failures trigger failover before committing streaming response headers.
+- **Provider Exhaustion Guard**: Graceful error handling and admission slot rollback when all fallback candidates are unavailable.
 
 ---
 
-## [0.3.0] - 2026-10-25 — Phase 3: Unbuffered Streaming SSE Relay & Usage Finalization
+## [0.3.0] - 2026-10-25
 
-### 🚀 Added
-
-- **Unbuffered Pass-Through SSE Relay**: Dedicated streaming engine spawning lightweight Java 25 Virtual Threads (`sse-relay-{requestId}`) to forward upstream Server-Sent Events line-by-line with 1KB read buffers for zero-delay token delivery (~20ms per token).
-- **Upfront Telemetry Header Injection**: Establishes streaming headers upfront before body chunks (`Content-Type: text/event-stream;charset=UTF-8`, `Cache-Control: no-cache`, `Connection: keep-alive`, `x-netra-provider`, `x-netra-cache: miss`, `x-netra-fallback: false`).
-- **Terminal Usage Object Parsing**: Automatically captures terminal `usage` block (`prompt_tokens`, `completion_tokens`, `total_tokens`) delivered in final SSE chunk per OpenAI streaming spec.
-- **Fallback Heuristic Token Estimator**: Added heuristic word-count token estimation for streaming providers that omit terminal `usage` blocks, ensuring no unbilled token leaks.
-- **Client Disconnect & Broken Pipe Detection**: Detects client connection terminations (`IOException: Broken pipe`), immediately halts upstream compute socket to stop LLM spend, records status `client_disconnected`, and settles spend for partial tokens delivered.
-- **Premature Upstream Severance Handling**: Detects unexpected upstream drops before `data: [DONE]`, emits error SSE chunk (`stream_severed`), records status `upstream_error` (HTTP 502), and rolls back rate limit slot if zero tokens delivered.
-- **Post-Stream Financial Settlement**: Asynchronously executes exact micro-USD cost calculation with `BigDecimal` and persists request logs and spend counters in PostgreSQL and Redis.
-- **Automated Streaming CI Pipeline**: Authored `.github/workflows/streaming-ci.yml` verifying streaming relay tests, mock provider orchestration, and progressive token assertions.
+### Added
+- **Unbuffered Streaming Relay**: Pass-through streaming engine forwarding Server-Sent Events on virtual threads with minimal latency.
+- **Client Disconnect Protection**: Detects client socket terminations, immediately severing upstream compute connections to prevent unbilled spend.
+- **Premature Severance Handling**: Detects unexpected upstream drops, marks errors cleanly, and restores rate-limit slots when zero tokens are delivered.
+- **Usage Finalization**: Parses terminal usage objects and provides fallback token estimation when usage blocks are omitted.
 
 ---
 
-## [0.2.0] - 2026-10-24 — Phase 2: Virtual Key Auth, Atomic Lua Admission & Request Logs
+## [0.2.0] - 2026-10-24
 
-### 🚀 Added
-
-- **Virtual Key Authentication & Caffeine L1 Near-Cache**: Implemented two-tier tenant auth with in-memory Caffeine cache (10,000 entries, 60s TTL) backed by PostgreSQL. Enforces tenant active status and model allowlists (HTTP 403 `model_not_allowed`).
-- **Atomic Redis 8.0 Lua Admission Engine**: Sliding-window rate limiting script (`admission.lua`) executing atomically in Redis. Guarantees Zero Over-Admission under concurrent bursts. Supports instant slot rollback (`ZREM`) if upstream provider fails.
-- **Tenant Monthly Budget Guardrails**: Dynamic monthly spend accounting with Redis atomic counter synchronization (`netra:spend:{vkey}:{yearMonth}`) and automatic HTTP 402 `budget_exceeded` rejection.
-- **Comprehensive Audit Trail & Rejection Logging**: Flyway migration `V3__flexible_request_logs_fkey.sql` enabling comprehensive request auditing for all outcomes, including unauthenticated keys (401), allowlist violations (403), rate limits (429), and budget rejections (402).
-- **Admin Usage & Reconciliation API**: Implemented `GET /admin/usage` returning aggregated token counts, spend in USD, and cache hits, perfectly reconciling against client load test counters.
-- **Admin Request Logs API**: Implemented `GET /admin/logs` with pagination and key filtering for chronological audit inspection.
-- **Live Dynamic Forex Engine**: Added foreign exchange rate engine featuring live Frankfurter open forex API integration, 6-hour Caffeine caching, and offline fallback (`85.00` INR/USD).
-- **CI Status Badges**: Added GitHub Actions workflow status badges to `README.md` for Backend CI, Docs CI, and OpenAPI 3.1.0 validation.
-- **OpenAPI 3.1 Specification & Documentation Sync**: Updated `docs/openapi.yaml`, `docs/api-reference.md`, and MkDocs site with complete Phase 2 Admin schemas and error contracts.
+### Added
+- **Virtual Key Authentication**: Two-tier tenant authentication with in-memory caching and model allowlist enforcement.
+- **Atomic Lua Admission**: Single-transaction Redis rate limiting guaranteeing zero over-admission under concurrent bursts.
+- **Budget Guardrails**: Dynamic monthly spend tracking with automatic rejection when budget limits are exceeded.
+- **Audit Logging**: Comprehensive audit trail recording request outcomes, token usage, and billing metadata.
+- **Admin APIs**: Management endpoints for usage reconciliation, audit logs, and cache inspection.
 
 ---
 
-## [0.1.0] - 2026-10-23 — Phase 1: Foundation & Core Pass-Through
+## [0.1.0] - 2026-10-23
 
-### 🚀 Added
-
-- **Core JVM Runtime**: Enterprise foundation initialized with Java 25 LTS, Spring Boot 4.1.1, and Gradle 9 Kotlin DSL on high-throughput Virtual Threads (`spring.threads.virtual.enabled: true`).
-- **Telemetry Header Contract**: Ingress enforcement strictly injecting canonical telemetry headers (`x-netra-provider`, `x-netra-cache`, `x-netra-fallback`, `x-netra-cost-usd`).
-- **OpenAI-Compatible Chat Completion**: Non-streaming pass-through API at `POST /v1/chat/completions` with streaming Server-Sent Events relay.
-- **Micro-Cost Accounting Engine**: Accurate cost computation service utilizing `java.math.BigDecimal` with 6-decimal rounding (`RoundingMode.HALF_UP`) against configured model pricing schedules.
-- **Canonical Data Ingestion**: Idempotent database seeder ingesting `model_pricing.json` and multi-tenant keys from `seed_keys.json`.
-- **Relational & Vector Persistence**: PostgreSQL 18 schema migration with `pgvector` v0.8.x extension and Flyway migrations for `tenants`, `model_pricing`, `request_logs`, `monthly_spend`, and `cache_entries`.
-- **Infrastructure Topology**: Multi-stage production `Dockerfile` and orchestration via `docker-compose.yml` for PostgreSQL 18, Redis 8.0, and Alpha/Beta mock LLM providers.
-- **Multi-Tier Deployment Architecture**: Developer tooling and deployment templates for local (`Makefile`), PaaS (`deploy/paas/`), and cloud VPS (`deploy/cloud-vps/setup-vps.sh`).
-- **Open-Source Documentation Suite**: MkDocs Material site scaffolding with dark/light mode toggle, AI agent indexing (`llms.txt`), and SEO configuration.
+### Added
+- **Core Runtime**: Java 25 LTS and Spring Boot on high-throughput virtual threads.
+- **OpenAI Compatibility**: Non-blocking proxy for chat completions supporting standard request payloads.
+- **Micro-Cost Accounting**: High-precision financial arithmetic calculating request spend in USD.
+- **Persistence Foundation**: Relational storage and vector indexing for tenants, model pricing, and audit records.
+- **Documentation Scaffolding**: Static documentation site and OpenAPI 3.1 specification.
