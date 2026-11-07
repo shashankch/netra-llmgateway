@@ -21,6 +21,9 @@ COPY data data
 # Build bootable executable JAR without tests
 RUN ./gradlew bootJar --no-daemon -x test
 
+# Extract Spring Boot layers using modern jarmode tools (Spring Boot 3.3+ / 4.x)
+RUN java -Djarmode=tools -jar build/libs/*.jar extract --layers --launcher --destination extracted
+
 # Runtime stage
 FROM eclipse-temurin:25-jre
 WORKDIR /app
@@ -31,12 +34,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 # Create non-root execution user
 RUN groupadd -r netra && useradd -r -g netra -u 10001 netra
 
-# Copy artifacts from builder
-COPY --from=builder /workspace/build/libs/netra-gateway-0.1.0.jar app.jar
-COPY --from=builder /workspace/data data
-
-# Set ownership
-RUN chown -R netra:netra /app
+# Copy layered artifacts from builder in order of change frequency (Docker layer caching)
+COPY --chown=netra:netra --from=builder /workspace/extracted/dependencies/ ./
+COPY --chown=netra:netra --from=builder /workspace/extracted/spring-boot-loader/ ./
+COPY --chown=netra:netra --from=builder /workspace/extracted/snapshot-dependencies/ ./
+COPY --chown=netra:netra --from=builder /workspace/extracted/application/ ./
+COPY --chown=netra:netra --from=builder /workspace/data /app/data/
+# Retain executable JAR for platforms/templates invoking java -jar app.jar
+COPY --chown=netra:netra --from=builder /workspace/build/libs/app.jar /app/app.jar
 
 USER netra
 
@@ -45,4 +50,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 --start-period=15s \
   CMD curl -f http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["java", "-XX:+UseZGC", "-XX:+EnableDynamicAgentLoading", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseZGC", "-XX:+EnableDynamicAgentLoading", "-Djava.security.egd=file:/dev/./urandom", "org.springframework.boot.loader.launch.JarLauncher"]

@@ -17,10 +17,14 @@ bin/
 .gradle/
 *.log
 site/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
 
 # Sensitive environment variables
 .env
 .env.local
 
-# Internal planning, starter references, and evaluation guides
+# Local development and workspace configuration
 internal/

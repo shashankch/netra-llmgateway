@@ -1,29 +1,41 @@
 # NETRA LLM Gateway
 
-> High-throughput, ultra-low latency intelligent gateway and semantic vector caching infrastructure for production Generative AI applications.
+> Sovereign AI gateway and tenant-isolated semantic vector cache with drop-in OpenAI API compatibility, dynamic cost arbitrage routing, and instant phantom spend reclamation.
 
 ## Technical Baseline
 - Core Runtime: Java 25 LTS, Spring Boot 4.1.1, Gradle 9 Kotlin DSL on Java Virtual Threads.
 - Storage: PostgreSQL 18 with pgvector extension (384-dimension vector index), Redis 8.0 Lua JIT.
-- Semantic Engine: In-JVM ONNX transformer models (all-MiniLM-L6-v2) for sub-4ms embedding generation.
+- Semantic Engine: Two-Tier Cache hierarchy (Tier-1 exact SHA-256 hash <0.5ms + Tier-2 In-JVM ONNX all-MiniLM-L6-v2 with pgvector HNSW <5ms).
 
 ## Key APIs
 - `POST /v1/chat/completions`: OpenAI-compatible endpoint supporting unbuffered streaming SSE, non-streaming responses, multi-provider failover, and intelligent routing.
-- `GET /health`: Health and readiness probe returning service status and version (0.5.0).
+- `GET /health`: Health and readiness probe returning service status and version.
+- `GET /health/live`: Liveness probe for container orchestration.
+- `GET /health/ready`: Synthetic readiness probe verifying PostgreSQL and Redis.
+- `GET /admin/providers/health`: Live provider resilience telemetry, circuit breaker states, and p95 latency.
 - `GET /admin/usage`: Aggregated token counts, spend in USD, and cache hits.
 - `GET /admin/logs`: Chronological audit logs for requests and rejections.
+- `POST /admin/logs/stream-ticket`: Ephemeral 60s stream tickets for secure browser EventSource authentication.
+- `GET /admin/logs/stream`: Real-time Server-Sent Events stream of incoming audit logs.
+- `GET /admin/keys`: Virtual key management and tenant quota status.
+- `GET /admin/currency/rate`: Dynamic live USD to INR exchange rate.
+- `GET /admin/pricing`: Dynamic model aliases, active pricing rates, and provider catalog.
 - `GET /admin/cache/stats`: Aggregate cache hit rate, total vector entries, and per-tenant breakdown.
+- `DELETE /admin/cache/entries/{id}`: Evicts a cached vector/exact completion entry by ID.
 
-## Telemetry Response Headers
-- `x-netra-provider`: Upstream provider identifier (e.g. alpha/alpha-small)
-- `x-netra-cache`: Cache outcome (hit or miss)
-- `x-netra-fallback`: Failover flag (true or false)
-- `x-netra-cost-usd`: Precise cost in micro-USD (0.000000 USD; omitted on streaming responses upfront)
-- `x-netra-route-reason`: Rationale for model selection (alias, direct model, or classifier score)
-- `x-netra-retries`: Upstream retry attempts executed before success (0, 1, 2, 3)
+## Operations Console (`console/`)
+- Modern React 19 / Vite 6 console with OpenRouter-grade analytics suite.
+- 5 Headline KPI cards, 4 interactive SVG charts, single-denomination USD/INR toggle, dark/light theme engine.
+- Developer Sandbox with 1-click demo profiles for Search, Research, Free Tier, and Budget demo.
 
 ## Documentation Links
-- System Overview: docs/index.md
-- Architecture Decision Records: docs/ADR.md
-- Public Roadmap: docs/ROADMAP.md
-- Self-Hosting: docs/SELF-HOSTING.md
+- System Overview & Ingress Topology: docs/index.md
+- System Architecture & Pipeline Stages: docs/architecture.md
+- Gateway Architectural Comparison: docs/comparison.md
+- Architecture Decision Records (ADRs): docs/adr.md
+- REST API Reference: docs/api-reference.md
+- Self-Hosting & Deployment Guide: docs/SELF-HOSTING.md
+- Verification & Benchmark Report: docs/verification-report.md
+- Public Product Roadmap: docs/ROADMAP.md
+- Security Policy: docs/SECURITY.md
+- Contributing Guidelines: docs/CONTRIBUTING.md

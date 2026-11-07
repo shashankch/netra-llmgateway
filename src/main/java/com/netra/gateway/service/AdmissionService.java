@@ -28,8 +28,9 @@ public class AdmissionService {
     /**
      * Executes atomic sliding-window RPM check and monthly spend check via Redis Lua.
      * Guarantees zero over-admission under concurrent bursts.
+     * Returns AdmissionResult containing IETF rate-limit parameters.
      */
-    public void checkAdmission(Tenant tenant, String requestId) {
+    public AdmissionResult checkAdmission(Tenant tenant, String requestId) {
         String virtualKey = tenant.getVirtualKey();
         String yearMonth = YearMonth.now().toString();
         String zsetKey = "netra:ratelimit:" + virtualKey;
@@ -75,13 +76,34 @@ public class AdmissionService {
             Number statusCodeNum = (Number) result.get(0);
             int statusCode = statusCodeNum.intValue();
             if (statusCode == 429) {
-                log.warn("Rate limit breached for key [{}]: limit={}", virtualKey, rpmLimit);
-                throw new RateLimitException(rpmLimit);
+                int retryAfter = 60;
+                if (result.size() >= 4) {
+                    try {
+                        retryAfter = Integer.parseInt(result.get(3).toString());
+                    } catch (Exception ignored) {}
+                }
+                log.warn("Rate limit breached for key [{}]: limit={}, retryAfter={}", virtualKey, rpmLimit, retryAfter);
+                throw new RateLimitException(rpmLimit, retryAfter);
             } else if (statusCode == 402) {
                 log.warn("Monthly budget exhausted for key [{}]: cap=${}", virtualKey, budgetCapStr);
                 throw new BudgetExceededException(budgetCap);
+            } else if (statusCode == 200) {
+                int resetSeconds = 60;
+                int remaining = Math.max(0, rpmLimit - 1);
+                if (result.size() >= 4) {
+                    try {
+                        resetSeconds = Integer.parseInt(result.get(3).toString());
+                    } catch (Exception ignored) {}
+                }
+                if (result.size() >= 5) {
+                    try {
+                        remaining = Integer.parseInt(result.get(4).toString());
+                    } catch (Exception ignored) {}
+                }
+                return AdmissionResult.admitted(rpmLimit, remaining, resetSeconds);
             }
         }
+        return AdmissionResult.defaultAdmitted(rpmLimit);
     }
 
     /**

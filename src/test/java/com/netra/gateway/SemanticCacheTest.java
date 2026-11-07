@@ -105,7 +105,7 @@ class SemanticCacheTest {
     @Test
     @DisplayName("Exact repeat prompt yields cache hit with high similarity")
     void testExactRepeatCacheHit() {
-        String prompt = "(salt123) How do I reset my password on the dashboard?";
+        String prompt = "(salt123) How do I reset my password on the console?";
         List<ChatMessage> messages = List.of(new ChatMessage("user", prompt));
         ChatCompletionResponse response = createSampleResponse("Go to Settings > Security > Reset Password.");
 
@@ -128,8 +128,8 @@ class SemanticCacheTest {
     @Test
     @DisplayName("Paraphrased prompt hits semantic cache above 0.92 threshold")
     void testParaphraseMatching() {
-        String originalPrompt = "(salt456) How do I reset my password on the dashboard?";
-        String paraphrasePrompt = "(salt456) What are the steps to reset my dashboard password?";
+        String originalPrompt = "(salt456) How do I reset my password on the console?";
+        String paraphrasePrompt = "(salt456) What are the steps to reset my console password?";
 
         List<ChatMessage> originalMessages = List.of(new ChatMessage("user", originalPrompt));
         List<ChatMessage> paraphraseMessages = List.of(new ChatMessage("user", paraphrasePrompt));
@@ -147,8 +147,8 @@ class SemanticCacheTest {
     @Test
     @DisplayName("Near-miss semantically related prompt is rejected below threshold")
     void testNearMissRejection() {
-        String originalPrompt = "(salt789) How do I reset my password on the dashboard?";
-        String nearMissPrompt = "(salt789) How do I configure two-factor authentication on the dashboard?";
+        String originalPrompt = "(salt789) How do I reset my password on the console?";
+        String nearMissPrompt = "(salt789) How do I configure two-factor authentication on the console?";
 
         List<ChatMessage> originalMessages = List.of(new ChatMessage("user", originalPrompt));
         List<ChatMessage> nearMissMessages = List.of(new ChatMessage("user", nearMissPrompt));
@@ -262,7 +262,8 @@ class SemanticCacheTest {
             @Override public BigDecimal getTotalCostUsd() { return BigDecimal.ZERO; }
             @Override public long getCacheHits() { return 40L; }
         };
-        when(requestLogRepository.aggregateUsage(anyString(), any(), any())).thenReturn(mockSummary);
+        when(requestLogRepository.countCacheHitsByVirtualKey(anyString())).thenReturn(40L);
+        when(requestLogRepository.countTotalRequestsByVirtualKey(anyString())).thenReturn(50L);
         when(cacheEntryRepository.countByVirtualKey(anyString())).thenReturn(50L);
 
         CacheStatsResponse stats = semanticCacheService.getCacheStats();

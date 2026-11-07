@@ -69,7 +69,7 @@ def main():
     parser = argparse.ArgumentParser(description="NETRA Semantic Cache Benchmark")
     parser.add_argument("--url", default="http://localhost:8080", help="Gateway URL")
     parser.add_argument("--key", default="netra-sk-search-1a2b3c", help="Valid tenant key with semantic cache enabled")
-    parser.add_argument("--alt-key", default="netra-sk-free-tier-7m8n9p", help="Alternate tenant key for isolation test")
+    parser.add_argument("--alt-key", default="netra-sk-free-7g8h9i", help="Alternate tenant key for isolation test")
     parser.add_argument("--admin-key", default="netra-admin-demo", help="Admin key")
     args = parser.parse_args()
 
@@ -80,7 +80,7 @@ def main():
 
     # 1. First request -> Miss
     print("\n[1] Cold Cache Miss")
-    p1 = f"({salt}) How do I reset my password on the user dashboard?"
+    p1 = f"({salt}) How do I cancel my subscription on the console?"
     body1 = {"model": "fast", "messages": [{"role": "user", "content": p1}]}
     status, headers, resp, lat1 = post_chat(args.url, args.key, body1)
     record("Cold request returns 200", status == 200, f"got {status}")
@@ -98,7 +98,7 @@ def main():
 
     # 3. Paraphrase Match -> Hit
     print("\n[3] Semantic Paraphrase Hit")
-    p_para = f"({salt}) What are the steps to reset my dashboard password?"
+    p_para = f"({salt}) What are the steps to cancel my console subscription?"
     body_para = {"model": "fast", "messages": [{"role": "user", "content": p_para}]}
     status, headers, resp, lat3 = post_chat(args.url, args.key, body_para)
     record("Paraphrase returns 200", status == 200, f"got {status}")
@@ -107,7 +107,7 @@ def main():
 
     # 4. Near-Miss Rejection -> Miss
     print("\n[4] Near-Miss Rejection")
-    p_near = f"({salt}) How do I configure two-factor authentication on the dashboard?"
+    p_near = f"({salt}) How do I upgrade my subscription on the console?"
     body_near = {"model": "fast", "messages": [{"role": "user", "content": p_near}]}
     status, headers, resp, _ = post_chat(args.url, args.key, body_near)
     record("Near-miss returns 200", status == 200, f"got {status}")

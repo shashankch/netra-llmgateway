@@ -27,6 +27,14 @@ public class CacheStatsResponse {
     @JsonProperty("hit_rate")
     private double hitRate;
 
+    @JsonProperty("tier1_exact_hits")
+    @Builder.Default
+    private long tier1ExactHits = 0;
+
+    @JsonProperty("tier2_semantic_hits")
+    @Builder.Default
+    private long tier2SemanticHits = 0;
+
     @JsonProperty("keys")
     @Builder.Default
     private Map<String, KeyCacheStats> keys = new HashMap<>();
@@ -47,5 +55,20 @@ public class CacheStatsResponse {
 
         @JsonProperty("hit_rate")
         private double hitRate;
+
+        @JsonProperty("tier1_exact_hits")
+        @Builder.Default
+        private long tier1ExactHits = 0;
+
+        @JsonProperty("tier2_semantic_hits")
+        @Builder.Default
+        private long tier2SemanticHits = 0;
+
+        @JsonProperty("similarity_threshold")
+        private java.math.BigDecimal similarityThreshold;
+
+        @JsonProperty("cache_enabled")
+        @Builder.Default
+        private boolean cacheEnabled = true;
     }
 }

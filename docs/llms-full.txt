@@ -1,7 +1,7 @@
-# NETRA — Comprehensive Developer & Agent Reference
+# NETRA: Comprehensive Developer & Agent Reference
 
 ## Mission & Architecture
-NETRA is a high-performance LLM gateway and semantic cache designed to provide enterprise reliability, predictable token economics, and intelligent multi-provider routing for Generative AI applications.
+NETRA is an enterprise-grade sovereign AI gateway and tenant-isolated semantic vector cache designed to provide predictable token economics, dynamic cost arbitrage routing, and intelligent multi-provider resilience for Generative AI applications.
 
 ## Technical Specifications
 - **Language & Runtime:** Java 25 (LTS) on GraalVM CE / Temurin OpenJDK.
@@ -16,16 +16,35 @@ NETRA is a high-performance LLM gateway and semantic cache designed to provide e
 - Injects mandatory telemetry headers:
   - `x-netra-provider`: Upstream provider and model (e.g. `alpha/alpha-small`)
   - `x-netra-cache`: `hit` or `miss`
+  - `x-netra-cache-tier`: `tier1_exact` or `tier2_semantic` (on cache hit)
   - `x-netra-fallback`: `true` if fallback chain activated, otherwise `false`
   - `x-netra-cost-usd`: Exact cost formatted to 6 decimal places (e.g. `0.000014`; omitted on streaming responses upfront)
   - `x-netra-route-reason`: Rationale for model selection (e.g. `alias_fast`, `auto -> smart (score +3.5): +3.5 proof`, `direct_model`)
   - `x-netra-retries`: Upstream network retries executed before success (0, 1, 2, 3)
+  - `x-netra-escalated`: `true` when auto-escalation from small-model refusal is triggered
+  - `RateLimit-*`: Standardized IETF sliding-window headers (`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, `RateLimit-Policy`)
 
 ## Administrative & Observability Contract
-- `GET /health`: System readiness probe returning status and version (`0.5.0`).
-- `GET /admin/usage?key=...&from=...&to=...`: Key-level token and spend reconciliation.
+- `GET /health`: System ping probe returning status and version.
+- `GET /health/live`: Container liveness probe.
+- `GET /health/ready`: Deep synthetic readiness probe verifying PostgreSQL and Redis connections.
+- `GET /admin/providers/health`: Resilience4j circuit breaker states and p95 latency percentiles.
+- `GET /admin/usage?key=...&from=...&to=...`: Key-level token and spend reconciliation (supports `key=all`).
 - `GET /admin/logs?key=...&limit=...`: Chronological audit trail (16 audit fields).
+- `POST /admin/logs/stream-ticket`: Issues single-use 60s stream tickets for EventSource SSE authentication.
+- `GET /admin/logs/stream`: Real-time Server-Sent Events stream of incoming audit logs.
+- `GET /admin/keys`: Virtual key management, quota tracking, and active status.
+- `GET /admin/currency/rate`: Active live USD/INR exchange rate.
+- `GET /admin/pricing`: Dynamic model aliases, active pricing rates, and provider catalog.
 - `GET /admin/cache/stats`: Aggregate cache hit rate, total vector entries, and per-tenant cryptographic isolation breakdown.
+- `DELETE /admin/cache/entries/{id}`: Evicts a cached vector/exact completion entry by ID.
+
+## Operations Console UI (`console/`)
+- Built on React 19, Vite 6, and Lucide React.
+- OpenRouter-grade analytics: Total Spend, Request Volume, Token Volume Distribution, Semantic Cache Hit Rate %, Average Latency / TTFT.
+- Seamless Dark & Light theme engine with OS preference auto-detection.
+- Single-denomination USD/INR toggle with dynamic live forex conversion.
+- Developer Sandbox with 1-click demo profiles for rapid testing and evaluation drills.
 
 ## Error Model
 Standard OpenAI JSON format:
@@ -33,7 +52,7 @@ Standard OpenAI JSON format:
 {
   "error": {
     "message": "Descriptive message",
-    "type": "authentication_error | model_not_allowed | rate_limit_exceeded | budget_exceeded | not_found_error | upstream_error",
+    "type": "invalid_request_error | authentication_error | model_not_allowed | rate_limit_exceeded | budget_exceeded | not_found_error | upstream_error | server_error",
     "code": "error_code"
   }
 }

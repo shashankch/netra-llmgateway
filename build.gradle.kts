@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.netra.gateway"
-version = "0.5.0"
+version = "0.7.0"
 
 java {
     toolchain {
@@ -37,8 +37,11 @@ dependencies {
     // In-JVM ONNX Embeddings (all-MiniLM-L6-v2)
     implementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2-q:0.36.2")
 
-    // In-Memory L1 Cache (AUD-02)
+    // In-Memory L1 Cache (High-Throughput Near-Cache)
     implementation("com.github.ben-manes.caffeine:caffeine")
+
+    // Resilience & Fault Tolerance (Phase 7)
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.2.0")
 
     // Jackson JSON
     implementation("com.fasterxml.jackson.core:jackson-databind")
@@ -58,6 +61,20 @@ dependencies {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(listOf("-parameters", "-Xlint:unchecked", "-Xlint:deprecation"))
+}
+
+tasks.named<ProcessResources>("processResources") {
+    from("data") {
+        into("data")
+    }
+}
+
+tasks.named<Jar>("jar") {
+    enabled = false
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    archiveFileName.set("app.jar")
 }
 
 tasks.withType<Test> {

@@ -1,7 +1,22 @@
 {
-  "_comment": "Prices in USD per 1M tokens. These are the source of truth for cost accounting against the mock providers. If you add a real provider, append its models here with current prices from the provider's pricing page.",
+  "_comment": "Prices in USD per 1M tokens. Source of truth for cost accounting and catalog exploration.",
   "alpha-small": { "input_per_1m": 0.15, "output_per_1m": 0.60 },
   "alpha-large": { "input_per_1m": 3.00, "output_per_1m": 15.00 },
   "beta-small":  { "input_per_1m": 0.10, "output_per_1m": 0.40 },
-  "beta-large":  { "input_per_1m": 2.50, "output_per_1m": 10.00 }
+  "beta-large":  { "input_per_1m": 2.50, "output_per_1m": 10.00 },
+  "openai/gpt-4o-mini": { "input_per_1m": 0.15, "output_per_1m": 0.60 },
+  "openai/gpt-4o": { "input_per_1m": 2.50, "output_per_1m": 10.00 },
+  "openai/gpt-4.1-nano": { "input_per_1m": 0.10, "output_per_1m": 0.40 },
+  "openai/gpt-3.5-turbo-0613": { "input_per_1m": 1.00, "output_per_1m": 2.00 },
+  "google/gemini-2.0-flash-001": { "input_per_1m": 0.10, "output_per_1m": 0.40 },
+  "google/gemini-2.5-flash-lite": { "input_per_1m": 0.10, "output_per_1m": 0.40 },
+  "google/gemini-3.6-flash": { "input_per_1m": 0.75, "output_per_1m": 3.75 },
+  "google/gemini-3.8-flash": { "input_per_1m": 0.75, "output_per_1m": 3.75 },
+  "anthropic/claude-3.5-sonnet": { "input_per_1m": 3.00, "output_per_1m": 15.00 },
+  "anthropic/claude-sonnet-4.6": { "input_per_1m": 3.00, "output_per_1m": 15.00 },
+  "deepseek/deepseek-chat": { "input_per_1m": 0.14, "output_per_1m": 0.28 },
+  "deepseek/deepseek-r1": { "input_per_1m": 0.55, "output_per_1m": 2.19 },
+  "nvidia/nemotron-3.5-lightning": { "input_per_1m": 0.07, "output_per_1m": 0.20 },
+  "openai/o3-mini": { "input_per_1m": 1.10, "output_per_1m": 4.40 },
+  "meta-llama/llama-3.3-70b-instruct": { "input_per_1m": 0.00, "output_per_1m": 0.00 }
 }

@@ -41,7 +41,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class StreamingRelayService {
 
     private final HttpClient httpClient;
@@ -50,8 +49,8 @@ public class StreamingRelayService {
     private final CostCalculationService costService;
     private final AdmissionService admissionService;
     private final AuditLogService auditLogService;
-    @org.springframework.context.annotation.Lazy
     private final SemanticCacheService semanticCacheService;
+    private final ProviderCircuitBreakerService circuitBreakerService;
 
     // 120s timeout for deep reasoning and long-context streaming
     private static final long STREAM_TIMEOUT_MS = 120_000L;
@@ -64,7 +63,40 @@ public class StreamingRelayService {
             AdmissionService admissionService,
             AuditLogService auditLogService
     ) {
-        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, null);
+        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, null, null);
+    }
+
+    public StreamingRelayService(
+            HttpClient httpClient,
+            ObjectMapper objectMapper,
+            GatewayConfigProperties configProperties,
+            CostCalculationService costService,
+            AdmissionService admissionService,
+            AuditLogService auditLogService,
+            SemanticCacheService semanticCacheService
+    ) {
+        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, semanticCacheService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public StreamingRelayService(
+            HttpClient httpClient,
+            ObjectMapper objectMapper,
+            GatewayConfigProperties configProperties,
+            CostCalculationService costService,
+            AdmissionService admissionService,
+            AuditLogService auditLogService,
+            @org.springframework.context.annotation.Lazy SemanticCacheService semanticCacheService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService
+    ) {
+        this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
+        this.configProperties = configProperties;
+        this.costService = costService;
+        this.admissionService = admissionService;
+        this.auditLogService = auditLogService;
+        this.semanticCacheService = semanticCacheService;
+        this.circuitBreakerService = circuitBreakerService;
     }
 
     /**
@@ -95,6 +127,21 @@ public class StreamingRelayService {
             long startTime,
             HttpServletResponse servletResponse
     ) {
+        return replayCachedStream(requestId, tenant, request, cacheHit, startTime, servletResponse, null);
+    }
+
+    /**
+     * Replays a cached completion response as Server-Sent Events (SSE).
+     */
+    public ResponseBodyEmitter replayCachedStream(
+            String requestId,
+            Tenant tenant,
+            ChatCompletionRequest request,
+            SemanticCacheService.CacheHitResult cacheHit,
+            long startTime,
+            HttpServletResponse servletResponse,
+            AdmissionResult admission
+    ) {
         String providerHeader = cacheHit.resolvedProvider() != null ? cacheHit.resolvedProvider() : "alpha/alpha-small";
 
         servletResponse.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
@@ -103,14 +150,24 @@ public class StreamingRelayService {
         servletResponse.setHeader("Connection", "keep-alive");
         servletResponse.setHeader("x-netra-provider", providerHeader);
         servletResponse.setHeader("x-netra-cache", "hit");
+        servletResponse.setHeader("x-netra-cache-tier", cacheHit.cacheTier() != null ? cacheHit.cacheTier() : "tier2_semantic");
         servletResponse.setHeader("x-netra-fallback", "false");
         servletResponse.setHeader("x-netra-cost-usd", "0.000000");
         servletResponse.setHeader("x-netra-route-reason", "semantic_cache_hit");
         servletResponse.setHeader("x-netra-retries", "0");
+        int limit = admission != null && admission.limit() > 0 ? admission.limit() : tenant.getRpmLimit();
+        int remaining = admission != null ? admission.remaining() : Math.max(0, tenant.getRpmLimit() - 1);
+        int reset = admission != null && admission.resetSeconds() > 0 ? admission.resetSeconds() : 60;
+        String policy = admission != null && admission.policy() != null ? admission.policy() : (limit + ";w=60");
+        servletResponse.setHeader("RateLimit-Limit", String.valueOf(limit));
+        servletResponse.setHeader("RateLimit-Remaining", String.valueOf(remaining));
+        servletResponse.setHeader("RateLimit-Reset", String.valueOf(reset));
+        servletResponse.setHeader("RateLimit-Policy", policy);
 
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(60_000L);
 
-        Thread.ofVirtual().name("sse-cache-replay-" + requestId).start(() -> {
+        com.netra.gateway.context.RequestContext ctx = com.netra.gateway.context.RequestContext.get();
+        Runnable replayTask = () -> {
             try {
                 ChatCompletionResponse resp = cacheHit.response();
                 String content = "";
@@ -205,13 +262,16 @@ public class StreamingRelayService {
                         0,
                         latencyMs,
                         true,
-                        null
+                        null,
+                        false,
+                        cacheHit.cacheTier() != null ? cacheHit.cacheTier() : "tier2_semantic"
                 );
             } catch (Exception e) {
                 log.warn("Error during SSE cache replay: {}", e.getMessage());
                 emitter.completeWithError(e);
             }
-        });
+        };
+        Thread.ofVirtual().name("sse-cache-replay-" + requestId).start(ctx != null ? ctx.wrap(replayTask) : replayTask);
 
         return emitter;
     }
@@ -227,14 +287,42 @@ public class StreamingRelayService {
             long startTime,
             HttpServletResponse servletResponse
     ) {
+        return streamChatCompletion(requestId, tenant, request, chain, startTime, servletResponse, null);
+    }
+
+    /**
+     * Initiates unbuffered SSE streaming with multi-provider failover across the candidate chain.
+     */
+    public ResponseBodyEmitter streamChatCompletion(
+            String requestId,
+            Tenant tenant,
+            ChatCompletionRequest request,
+            UpstreamClientService.CandidateChain chain,
+            long startTime,
+            HttpServletResponse servletResponse,
+            AdmissionResult admission
+    ) {
         InputStream upstreamStream = null;
         UpstreamClientService.ResolvedTarget connectedTarget = null;
         int totalRetries = 0;
+        long chainStartTime = System.currentTimeMillis();
+        long maxChainTimeoutMs = configProperties.getRetry().getMaxChainTimeoutMs();
 
         // Multi-provider connection attempt with retries and failover
         for (int i = 0; i < chain.targets().size(); i++) {
             UpstreamClientService.ResolvedTarget candidate = chain.targets().get(i);
+
+            long elapsed = System.currentTimeMillis() - chainStartTime;
+            if (elapsed >= maxChainTimeoutMs) {
+                log.error("Streaming candidate chain deadline of {}ms exceeded (elapsed: {}ms) before target [{}]",
+                        maxChainTimeoutMs, elapsed, candidate.providerName());
+                break;
+            }
+
             GatewayConfigProperties.ProviderConfig providerConfig = configProperties.getProvider(candidate.providerName());
+            if (providerConfig == null && configProperties.getProvider("openrouter") != null) {
+                providerConfig = configProperties.getProvider("openrouter");
+            }
             if (providerConfig == null) {
                 log.warn("Provider [{}] not configured in registry; skipping to next fallback", candidate.providerName());
                 continue;
@@ -274,6 +362,22 @@ public class StreamingRelayService {
             double multiplier = configProperties.getRetry().getBackoffMultiplier();
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                long remChain = maxChainTimeoutMs - (System.currentTimeMillis() - chainStartTime);
+                if (remChain <= 50) {
+                    log.error("Streaming candidate chain deadline of {}ms exceeded before attempt {}/{} to target [{}]",
+                            maxChainTimeoutMs, attempt, maxAttempts, candidate.providerName());
+                    break;
+                }
+
+                // Resilience4j Circuit Breaker check: acquire exactly 1 permission per actual attempt
+                if (circuitBreakerService != null && !circuitBreakerService.tryAcquirePermission(candidate.providerName())) {
+                    log.warn("Fast-failing streaming attempt {}/{} to candidate [{}] because circuit breaker is OPEN",
+                            attempt, maxAttempts, candidate.providerName());
+                    totalRetries++;
+                    break;
+                }
+
+                long startNanos = System.nanoTime();
                 try {
                     HttpResponse<InputStream> resp = httpClient.send(
                             reqBuilder.build(),
@@ -285,23 +389,97 @@ public class StreamingRelayService {
                         connectedTarget = candidate;
                         break;
                     } else {
+                        // Issue 16 fix: Close unconsumed upstream response stream to prevent connection leak
+                        try {
+                            if (resp.body() != null) {
+                                resp.body().close();
+                            }
+                        } catch (Exception ignored) {}
+
+                        boolean isRequestSpecific = resp.statusCode() == 400 || resp.statusCode() == 422;
+                        boolean isThrottled = resp.statusCode() == 429;
+
+                        // Request-specific errors (HTTP 400, 422) are deterministic client/request errors - do not retry or trip breaker
+                        if (isRequestSpecific) {
+                            throw new UpstreamException(resp.statusCode(), "Upstream provider '" + candidate.providerName() + "' returned HTTP " + resp.statusCode());
+                        }
+
+                        if (!isThrottled && circuitBreakerService != null) {
+                            circuitBreakerService.recordError(candidate.providerName(), System.nanoTime() - startNanos, new UpstreamException(resp.statusCode(), "HTTP " + resp.statusCode()));
+                        }
                         log.warn("Streaming attempt {}/{} to [{}] returned HTTP {}",
                                 attempt, maxAttempts, candidate.providerName(), resp.statusCode());
+
+                        // Provider throttling (HTTP 429) releases permit on every candidate/attempt and triggers immediate failover
+                        if (isThrottled) {
+                            if (circuitBreakerService != null) {
+                                circuitBreakerService.releasePermission(candidate.providerName());
+                            }
+                            if (i < chain.targets().size() - 1) {
+                                log.warn("Streaming provider [{}] throttled request (HTTP 429). Triggering immediate failover to next candidate in chain...", candidate.providerName());
+                                totalRetries++;
+                                break;
+                            }
+                        }
+
                         if (attempt < maxAttempts || i < chain.targets().size() - 1) {
                             totalRetries++;
                         }
                         if (attempt < maxAttempts) {
-                            sleepBackoff(initialBackoff, multiplier, attempt);
+                            long rem = maxChainTimeoutMs - (System.currentTimeMillis() - chainStartTime);
+                            if (rem <= 50) {
+                                log.error("Streaming candidate chain deadline exceeded during backoff (elapsed: {}ms)",
+                                        System.currentTimeMillis() - chainStartTime);
+                                break;
+                            }
+                            // Issue 17 fix: Cap backoff sleep to remaining budget
+                            sleepBackoff(initialBackoff, multiplier, attempt, rem);
                         }
                     }
+                } catch (UpstreamException ue) {
+                    boolean isRequestSpecific = ue.isRequestSpecificError();
+                    if (isRequestSpecific) {
+                        if (circuitBreakerService != null) {
+                            circuitBreakerService.releasePermission(candidate.providerName());
+                        }
+                        admissionService.rollbackAdmission(tenant.getVirtualKey(), requestId);
+                        throw ue;
+                    }
+                    if (circuitBreakerService != null) {
+                        circuitBreakerService.recordError(candidate.providerName(), System.nanoTime() - startNanos, ue);
+                    }
+                    log.warn("Streaming attempt {}/{} to [{}] failed (status {}): {}",
+                            attempt, maxAttempts, candidate.providerName(), ue.getUpstreamStatusCode(), ue.getMessage());
+                    if (attempt < maxAttempts || i < chain.targets().size() - 1) {
+                        totalRetries++;
+                    }
+                    if (attempt < maxAttempts) {
+                        long rem = maxChainTimeoutMs - (System.currentTimeMillis() - chainStartTime);
+                        if (rem <= 50) {
+                            log.error("Streaming candidate chain deadline exceeded during backoff (elapsed: {}ms)",
+                                    System.currentTimeMillis() - chainStartTime);
+                            break;
+                        }
+                        sleepBackoff(initialBackoff, multiplier, attempt, rem);
+                    }
                 } catch (Exception e) {
+                    if (circuitBreakerService != null) {
+                        circuitBreakerService.recordError(candidate.providerName(), System.nanoTime() - startNanos, e);
+                    }
                     log.warn("Streaming attempt {}/{} to [{}] failed: {}",
                             attempt, maxAttempts, candidate.providerName(), e.getMessage());
                     if (attempt < maxAttempts || i < chain.targets().size() - 1) {
                         totalRetries++;
                     }
                     if (attempt < maxAttempts) {
-                        sleepBackoff(initialBackoff, multiplier, attempt);
+                        long rem = maxChainTimeoutMs - (System.currentTimeMillis() - chainStartTime);
+                        if (rem <= 50) {
+                            log.error("Streaming candidate chain deadline exceeded during backoff (elapsed: {}ms)",
+                                    System.currentTimeMillis() - chainStartTime);
+                            break;
+                        }
+                        // Issue 17 fix: Cap backoff sleep to remaining budget
+                        sleepBackoff(initialBackoff, multiplier, attempt, rem);
                     }
                 }
             }
@@ -334,24 +512,61 @@ public class StreamingRelayService {
             servletResponse.setHeader("x-netra-route-reason", connectedTarget.routeReason());
         }
         servletResponse.setHeader("x-netra-retries", String.valueOf(totalRetries));
+        // Issue 15 fix: Dynamic IETF RateLimit protocol headers from Redis token-bucket admission
+        int limit = admission != null && admission.limit() > 0 ? admission.limit() : tenant.getRpmLimit();
+        int remaining = admission != null ? admission.remaining() : Math.max(0, tenant.getRpmLimit() - 1);
+        int reset = admission != null && admission.resetSeconds() > 0 ? admission.resetSeconds() : 60;
+        String policy = admission != null && admission.policy() != null ? admission.policy() : (limit + ";w=60");
+        servletResponse.setHeader("RateLimit-Limit", String.valueOf(limit));
+        servletResponse.setHeader("RateLimit-Remaining", String.valueOf(remaining));
+        servletResponse.setHeader("RateLimit-Reset", String.valueOf(reset));
+        servletResponse.setHeader("RateLimit-Policy", policy);
 
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(STREAM_TIMEOUT_MS);
         AtomicBoolean clientDisconnected = new AtomicBoolean(false);
-
-        // Register lifecycle callbacks to detect client disconnection
-        emitter.onCompletion(() -> clientDisconnected.set(true));
-        emitter.onTimeout(() -> {
-            clientDisconnected.set(true);
-            emitter.complete();
-        });
-        emitter.onError(ex -> clientDisconnected.set(true));
+        AtomicBoolean permitHandled = new AtomicBoolean(false);
 
         final InputStream streamToPump = upstreamStream;
         final UpstreamClientService.ResolvedTarget targetSettlement = connectedTarget;
         final int retriesSettlement = totalRetries;
 
+        Runnable releasePermitOnce = () -> {
+            if (permitHandled.compareAndSet(false, true)) {
+                if (circuitBreakerService != null && targetSettlement != null) {
+                    circuitBreakerService.releasePermission(targetSettlement.providerName());
+                }
+            }
+        };
+
+        // Register lifecycle callbacks to detect client disconnection and release breaker permits promptly on timeout
+        emitter.onCompletion(() -> clientDisconnected.set(true));
+        emitter.onTimeout(() -> {
+            clientDisconnected.set(true);
+            try {
+                if (streamToPump != null) {
+                    streamToPump.close();
+                }
+            } catch (Exception ignored) {
+            }
+            releasePermitOnce.run();
+            emitter.complete();
+        });
+        emitter.onError(ex -> {
+            clientDisconnected.set(true);
+            try {
+                if (streamToPump != null) {
+                    streamToPump.close();
+                }
+            } catch (Exception ignored) {
+            }
+            releasePermitOnce.run();
+        });
+
         // Launch unbuffered stream pump on dedicated Java 25 Virtual Thread
-        Thread.ofVirtual().name("sse-relay-" + requestId).start(() -> {
+        com.netra.gateway.context.RequestContext relayContext = com.netra.gateway.context.RequestContext.get();
+        Runnable relayTask = () -> {
+            long streamStartTimeNanos = System.nanoTime();
+            long firstChunkLatencyNanos = 0;
             int promptTokens = 0;
             int completionTokens = 0;
             int inferredCompletionTokens = 0;
@@ -401,13 +616,34 @@ public class StreamingRelayService {
                                         }
                                     }
 
-                                    // Count words in delta content for heuristic fallback
+                                    // Count words in delta content and stop TTFT timer on the first non-empty output delta
                                     if (chunkNode.has("choices") && chunkNode.get("choices").isArray()) {
                                         for (JsonNode choice : chunkNode.get("choices")) {
-                                            if (choice.has("delta") && choice.get("delta").has("content")) {
-                                                String deltaText = choice.get("delta").get("content").asText();
-                                                fullContent.append(deltaText);
-                                                inferredCompletionTokens += estimateTokenCount(deltaText);
+                                            if (choice.has("delta")) {
+                                                JsonNode deltaNode = choice.get("delta");
+                                                boolean hasNonEmptyOutput = false;
+                                                if (deltaNode.has("content") && !deltaNode.get("content").isNull()) {
+                                                    String deltaText = deltaNode.get("content").asText();
+                                                    if (!deltaText.isEmpty()) {
+                                                        hasNonEmptyOutput = true;
+                                                        fullContent.append(deltaText);
+                                                        inferredCompletionTokens += estimateTokenCount(deltaText);
+                                                    }
+                                                }
+                                                if (deltaNode.has("reasoning_content") && !deltaNode.get("reasoning_content").isNull()) {
+                                                    String reasoningText = deltaNode.get("reasoning_content").asText();
+                                                    if (!reasoningText.isEmpty()) {
+                                                        hasNonEmptyOutput = true;
+                                                    }
+                                                }
+                                                if (deltaNode.has("tool_calls") && deltaNode.get("tool_calls").isArray() && !deltaNode.get("tool_calls").isEmpty()) {
+                                                    hasNonEmptyOutput = true;
+                                                }
+
+                                                // Record TTFT at the first non-empty output delta (empty role headers do not count as output)
+                                                if (hasNonEmptyOutput && firstChunkLatencyNanos == 0) {
+                                                    firstChunkLatencyNanos = System.nanoTime() - streamStartTimeNanos;
+                                                }
                                             }
                                         }
                                     }
@@ -422,16 +658,32 @@ public class StreamingRelayService {
                 // Handle stream outcome
                 if (clientDisconnected.get()) {
                     status = "client_disconnected";
+                    releasePermitOnce.run();
                 } else if (!sawDone) {
                     status = "upstream_error";
                     statusCode = 502;
                     errorType = "stream_severed";
+                    if (permitHandled.compareAndSet(false, true)) {
+                        if (circuitBreakerService != null && targetSettlement != null) {
+                            circuitBreakerService.recordError(targetSettlement.providerName(), System.nanoTime() - streamStartTimeNanos,
+                                    new UpstreamException(502, "Upstream stream severed prematurely"));
+                        }
+                    }
                     try {
                         emitter.send("data: {\"error\":{\"message\":\"Upstream provider disconnected mid-stream\",\"type\":\"upstream_error\",\"code\":\"stream_severed\"}}\n\n");
                     } catch (Exception ignored) {
                     }
                     emitter.completeWithError(new UpstreamException("Upstream stream severed prematurely"));
                 } else {
+                    if (permitHandled.compareAndSet(false, true)) {
+                        if (circuitBreakerService != null && targetSettlement != null) {
+                            // Measure provider responsiveness (TTFT / wait for output) so long healthy streams do not breach 5s slow-call threshold
+                            long waitDurationNanos = firstChunkLatencyNanos > 0
+                                    ? firstChunkLatencyNanos
+                                    : (System.nanoTime() - streamStartTimeNanos);
+                            circuitBreakerService.recordSuccess(targetSettlement.providerName(), waitDurationNanos);
+                        }
+                    }
                     emitter.complete();
                 }
 
@@ -439,11 +691,17 @@ public class StreamingRelayService {
                 if (clientDisconnected.get() || isClientAbort(e)) {
                     log.debug("Client closed stream for request [{}]: {}", requestId, e.getMessage());
                     status = "client_disconnected";
+                    releasePermitOnce.run();
                 } else {
                     log.error("Streaming error for request [{}]: {}", requestId, e.getMessage());
                     status = "upstream_error";
                     statusCode = 502;
                     errorType = "stream_error";
+                    if (permitHandled.compareAndSet(false, true)) {
+                        if (circuitBreakerService != null && targetSettlement != null) {
+                            circuitBreakerService.recordError(targetSettlement.providerName(), System.nanoTime() - streamStartTimeNanos, e);
+                        }
+                    }
                     emitter.completeWithError(e);
                 }
             } finally {
@@ -481,7 +739,7 @@ public class StreamingRelayService {
                 String routeReason = targetSettlement != null ? targetSettlement.routeReason() : chain.routeReason();
 
                 BigDecimal cost = (completionTokens > 0 || "ok".equals(status)) && targetSettlement != null
-                        ? costService.calculateCost(targetSettlement.modelName(), promptTokens, completionTokens)
+                        ? costService.calculateCost(targetSettlement.accountingModel(), promptTokens, completionTokens)
                         : BigDecimal.ZERO;
 
                 // Post-stream financial settlement & audit logging
@@ -534,7 +792,8 @@ public class StreamingRelayService {
                     }
                 }
             }
-        });
+        };
+        Thread.ofVirtual().name("sse-relay-" + requestId).start(relayContext != null ? relayContext.wrap(relayTask) : relayTask);
 
         return emitter;
     }
@@ -572,12 +831,15 @@ public class StreamingRelayService {
         return false;
     }
 
-    private void sleepBackoff(long initialBackoffMs, double multiplier, int attempt) {
+    private void sleepBackoff(long initialBackoffMs, double multiplier, int attempt, long remainingBudgetMs) {
         long delay = (long) (initialBackoffMs * Math.pow(multiplier, attempt - 1));
-        try {
-            Thread.sleep(Math.max(10, delay));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        long effectiveSleep = Math.min(delay, remainingBudgetMs - 10);
+        if (effectiveSleep > 0) {
+            try {
+                Thread.sleep(effectiveSleep);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }

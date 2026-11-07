@@ -1,0 +1,160 @@
+name: Deploy Backend to OCI Cloud VPS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'data/**'
+      - 'Dockerfile'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - 'deploy/cloud-vps/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: "deploy-backend"
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    name: Run Backend Verification Suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_DB: netra
+          POSTGRES_USER: netra
+          POSTGRES_PASSWORD: netra
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8.0-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25 (LTS)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Run Unit & Integration Tests (108 Tests)
+        run: ./gradlew test
+
+  build-and-push:
+    name: Build Multi-Arch Image & Push to GHCR
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (ARM64 Support for OCI Ampere A1)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/netra-gateway
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build and Push Multi-Arch Container Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-oci:
+    name: Deploy to OCI Cloud VPS (Rolling Over Gateway)
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Check OCI Secrets Availability
+        id: check-secrets
+        run: |
+          if [ -n "${{ secrets.OCI_HOST }}" ] && [ -n "${{ secrets.OCI_SSH_KEY }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "OCI_HOST or OCI_SSH_KEY not configured. Skipping automated SSH deploy step."
+          fi
+
+      - name: SSH Trigger Docker Rolling Deployment on OCI VPS
+        if: steps.check-secrets.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USERNAME || 'ubuntu' }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          port: ${{ secrets.OCI_SSH_PORT || 22 }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.OCI_APP_DIR || '$HOME/netra-llmgateway' }}"
+            cd "$APP_DIR" || cd "/opt/netra-llmgateway"
+            echo "==> Pulling latest repository state..."
+            git pull origin main
+            echo "==> Pulling updated multi-arch gateway image..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull gateway
+            echo "==> Seamless zero-downtime rollover (backing PostgreSQL & Redis remain untouched)..."
+            docker compose up -d --no-deps gateway
+            echo "==> Running readiness verification drill..."
+            for i in {1..30}; do
+              if curl -sf http://localhost:8080/health > /dev/null; then
+                echo "==> NETRA Gateway is healthy and live!"
+                exit 0
+              fi
+              echo "Waiting for gateway readiness probe... ($i/30)"
+              sleep 2
+            done
+            echo "Error: Gateway health check timed out!"
+            docker compose logs --tail=50 gateway
+            exit 1

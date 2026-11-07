@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
@@ -75,6 +76,9 @@ class ChatCompletionContractTest {
     @MockitoBean
     private com.netra.gateway.service.SemanticCacheService semanticCacheService;
 
+    @MockitoBean
+    private com.netra.gateway.service.RefusalEscalationService refusalEscalationService;
+
     private Tenant searchTenant;
 
     @BeforeEach
@@ -93,6 +97,7 @@ class ChatCompletionContractTest {
         lenient().when(upstreamClientService.resolveCandidateChain(eq("fast"), any())).thenReturn(defaultChain);
         lenient().when(upstreamClientService.resolveTarget("fast")).thenReturn(defaultTarget);
         lenient().when(semanticCacheService.lookup(any(), any(), any())).thenReturn(Optional.empty());
+        lenient().when(admissionService.checkAdmission(any(), any())).thenReturn(com.netra.gateway.service.AdmissionResult.defaultAdmitted(60));
     }
 
     @Test
@@ -267,7 +272,7 @@ class ChatCompletionContractTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.type").value("server_error"))
                 .andExpect(jsonPath("$.error.code").value("internal_error"))
-                .andExpect(jsonPath("$.error.message").value("An unexpected internal error occurred"));
+                .andExpect(jsonPath("$.error.message").value(startsWith("An unexpected internal error occurred")));
     }
 
     @Test
@@ -283,6 +288,15 @@ class ChatCompletionContractTest {
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
 
         ResponseBodyEmitter mockEmitter = new ResponseBodyEmitter();
+        when(streamingRelayService.streamChatCompletion(any(), any(), any(), any(UpstreamClientService.CandidateChain.class), anyLong(), any(), any()))
+                .thenAnswer(invocation -> {
+                    HttpServletResponse resp = invocation.getArgument(5);
+                    resp.setContentType("text/event-stream;charset=UTF-8");
+                    resp.setHeader("x-netra-provider", "alpha/alpha-small");
+                    resp.setHeader("x-netra-cache", "miss");
+                    resp.setHeader("x-netra-fallback", "false");
+                    return mockEmitter;
+                });
         when(streamingRelayService.streamChatCompletion(any(), any(), any(), any(UpstreamClientService.CandidateChain.class), anyLong(), any()))
                 .thenAnswer(invocation -> {
                     HttpServletResponse resp = invocation.getArgument(5);
@@ -359,6 +373,31 @@ class ChatCompletionContractTest {
                 .andExpect(jsonPath("$.error.type").value("budget_exceeded"))
                 .andExpect(jsonPath("$.error.code").value("budget_exceeded"))
                 .andExpect(jsonPath("$.error.message").value("Monthly budget of $5.00 exhausted for this key"));
+    }
+
+    @Test
+    @DisplayName("Rate limit breach returns HTTP 429 with standard IETF RateLimit and Retry-After headers")
+    void testRateLimitBreachReturnsIetfHeaders() throws Exception {
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+                .model("fast")
+                .messages(List.of(new ChatMessage("user", "rate limit test")))
+                .build();
+
+        org.mockito.Mockito.doThrow(new com.netra.gateway.exception.RateLimitException(60, 60))
+                .when(admissionService).checkAdmission(any(), any());
+
+        mockMvc.perform(post("/v1/chat/completions")
+                        .header("Authorization", "Bearer netra-sk-search-1a2b3c")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "60"))
+                .andExpect(header().string("RateLimit-Limit", "60"))
+                .andExpect(header().string("RateLimit-Remaining", "0"))
+                .andExpect(header().string("RateLimit-Reset", "60"))
+                .andExpect(header().string("RateLimit-Policy", "60;w=60"))
+                .andExpect(jsonPath("$.error.type").value("rate_limit_exceeded"))
+                .andExpect(jsonPath("$.error.code").value("rate_limit_exceeded"));
     }
 
     @Test

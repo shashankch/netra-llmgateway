@@ -11,11 +11,13 @@ info:
     - **Micro-USD Precision**: Exact 6-decimal cost calculation and quota accounting.
     - **High-Throughput Streaming**: Non-blocking SSE pass-through over Java 25 Virtual Threads.
     - **Atomic Redis 8.0 Admission**: Sliding-window rate limiting & zero over-admission budget accounting.
-    - **Semantic Vector Cache**: In-JVM dense embeddings (384-dim) with pgvector HNSW indexing and per-tenant isolation.
-  version: 0.5.0
+    - **Semantic Vector Cache**: Two-tier cache hierarchy (Tier 1 SHA-256 exact hash in <0.5ms + Tier 2 pgvector HNSW in <5ms).
+    - **Resilience & Failover**: Resilience4j circuit breakers (<0.05ms fast-failover) and small-model refusal auto-escalation.
+    - **React 19 / Vite 6 Ops Console**: Real-time OpenRouter-grade analytics, prompt playground, and virtual keys management.
+  version: 0.7.0
   contact:
     name: Shashank Chandel
-    email: shashakchandel@gmail.com
+    email: shashankchandel@gmail.com
     url: https://github.com/shashankch/netra-llmgateway
   license:
     name: Apache-2.0
@@ -24,6 +26,8 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local Gateway (Docker & Development)
+  - url: https://gateway.netrallm.avadhanlabs.dev
+    description: Production Gateway Data Plane
   - url: https://shashankch.github.io/netra-llmgateway
     description: Documentation & Schema Reference (GitHub Pages)
 
@@ -90,6 +94,38 @@ paths:
               schema:
                 type: integer
                 example: 0
+            x-netra-cache-tier:
+              description: Cache tier that fulfilled the query (`tier1_exact` or `tier2_semantic`).
+              schema:
+                type: string
+                enum: [tier1_exact, tier2_semantic]
+                example: "tier1_exact"
+            x-netra-escalated:
+              description: Indicates whether a small-model refusal was automatically escalated to the smart reasoning tier.
+              schema:
+                type: string
+                enum: ["true", "false"]
+                example: "true"
+            RateLimit-Limit:
+              description: Maximum request quota configured for the active sliding window.
+              schema:
+                type: integer
+                example: 60
+            RateLimit-Remaining:
+              description: Remaining requests permitted within the current window.
+              schema:
+                type: integer
+                example: 57
+            RateLimit-Reset:
+              description: Relative delta in seconds until the active rate limit window resets.
+              schema:
+                type: integer
+                example: 42
+            RateLimit-Policy:
+              description: Quota policy definition conforming to IETF draft (`<limit>;w=<window_seconds>`).
+              schema:
+                type: string
+                example: "60;w=60"
           content:
             application/json:
               schema:
@@ -159,8 +195,8 @@ paths:
       parameters:
         - name: key
           in: query
-          required: true
-          description: Virtual key to filter usage for.
+          required: false
+          description: Virtual key to filter usage for. Defaults to all tenants if omitted.
           schema:
             type: string
             example: "netra-sk-search-1a2b3c"
@@ -209,6 +245,20 @@ paths:
           schema:
             type: string
             example: "netra-sk-search-1a2b3c"
+        - name: status
+          in: query
+          required: false
+          description: Optional status code (e.g. 200, 429, 401, 502) or error filter (ERR).
+          schema:
+            type: string
+            example: "429"
+        - name: search
+          in: query
+          required: false
+          description: Case-insensitive search query across request ID, model, key, and route reason.
+          schema:
+            type: string
+            example: "smart"
         - name: limit
           in: query
           required: false
@@ -217,6 +267,21 @@ paths:
             type: integer
             default: 50
             example: 20
+        - name: page
+          in: query
+          required: false
+          description: Zero-indexed page number for pagination.
+          schema:
+            type: integer
+            default: 0
+            example: 0
+        - name: offset
+          in: query
+          required: false
+          description: Zero-indexed record offset for cursor/offset pagination.
+          schema:
+            type: integer
+            example: 25
       responses:
         '200':
           description: Array of request log entries.
@@ -254,9 +319,309 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /admin/cache/entries:
+    get:
+      summary: Inspect Cached Content Entries
+      description: Returns detailed cached prompt/response entries, filterable by virtual key and search text.
+      operationId: getCacheEntries
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: key
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Tenant virtual key namespace to filter entries.
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Substring match on prompt text or model alias.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of cached prompt completion records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CacheEntryDetail'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/cache/entries/{id}:
+    delete:
+      summary: Purge Specific Cache Entry
+      description: Evicts a cached completion entry from both vector database and in-memory caches.
+      operationId: deleteCacheEntry
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cache entry eviction confirmation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: string
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys:
+    get:
+      summary: List Virtual API Keys
+      description: Returns all provisioned virtual keys with live RPM quotas, monthly budget caps, spend, and status.
+      operationId: listVirtualKeys
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: List of all provisioned virtual keys.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TenantAdminResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Provision Virtual API Key
+      description: Creates a new virtual API key with sliding RPM limit, budget cap, model allowlist, and similarity threshold.
+      operationId: createVirtualKey
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Virtual key successfully provisioned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAdminResponse'
+        '400':
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/keys/{id}:
+    put:
+      summary: Update Virtual API Key
+      description: Updates virtual key rate limits, budget caps, allowlists, or active status.
+      operationId: updateVirtualKey
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Virtual key updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAdminResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Revoke Virtual API Key
+      description: Deactivates virtual API key; subsequent requests return HTTP 401.
+      operationId: revokeVirtualKey
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Virtual key revoked successfully.
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/logs/stream-ticket:
+    post:
+      summary: Issue SSE Stream Ticket
+      description: Issues a short-lived (60s) single-use ticket for secure EventSource SSE log streaming without exposing admin credentials in query parameters.
+      operationId: issueStreamTicket
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: Ephemeral stream ticket.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamTicketResponse'
+        '401':
+          description: Unauthorized admin token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/logs/stream:
+    get:
+      summary: Live SSE Request Logs Stream
+      description: Real-time Server-Sent Events stream of incoming request audit logs and rejections.
+      operationId: streamRequestLogs
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: ticket
+          in: query
+          required: false
+          description: Ephemeral single-use stream ticket issued by POST /admin/logs/stream-ticket.
+          schema:
+            type: string
+            example: "stk-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        - name: token
+          in: query
+          required: false
+          deprecated: true
+          description: Deprecated admin secret query parameter. Use ticket or Authorization header instead.
+          schema:
+            type: string
+            example: "netra-admin-demo"
+      responses:
+        '200':
+          description: SSE stream of incoming audit logs.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /admin/currency/rate:
+    get:
+      summary: Live Forex Rate
+      description: Returns active USD to INR exchange rate with dynamic fallback.
+      operationId: getCurrencyRate
+      security: []
+      responses:
+        '200':
+          description: Current exchange rate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrencyRateResponse'
+
+  /admin/pricing:
+    get:
+      summary: Model Pricing Catalog & Aliases
+      description: Returns configured model aliases, active pricing rates per 1M tokens, fallback chains, and foundation model catalogs.
+      operationId: getPricingCatalog
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: Model pricing and alias configurations.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aliases:
+                    type: object
+                  models:
+                    type: array
+                    items:
+                      type: object
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
+  /admin/providers/health:
+    get:
+      summary: Upstream Provider Health & Circuit Breakers
+      description: Returns live health snapshots, circuit breaker states, rolling error rates, and p95 latencies per provider.
+      operationId: getProviderHealth
+      security:
+        - AdminBearerAuth: []
+      responses:
+        '200':
+          description: Provider health snapshots.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProviderHealthSnapshot'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+
   /health:
     get:
-      summary: Liveness & Readiness Health Probe
+      summary: Service Ping Probe
       description: Returns gateway operating status, service identity, and release version.
       operationId: getHealth
       security: []
@@ -280,7 +645,87 @@ paths:
                     example: "netra-gateway"
                   version:
                     type: string
-                    example: "0.2.0"
+                    example: "0.7.0"
+
+  /health/live:
+    get:
+      summary: Container Liveness Probe
+      description: Basic liveness check for Kubernetes and container orchestrators.
+      operationId: getHealthLive
+      security: []
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  service:
+                    type: string
+                    example: "netra-gateway"
+                  version:
+                    type: string
+                    example: "0.7.0"
+
+  /health/ready:
+    get:
+      summary: Deep Synthetic Readiness Probe
+      description: Verifies active connections to PostgreSQL and Redis cluster before admitting traffic.
+      operationId: getHealthReady
+      security: []
+      responses:
+        '200':
+          description: Gateway and backing dependencies are fully healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - database
+                  - redis
+                  - seeder
+                  - version
+                properties:
+                  status:
+                    type: string
+                    example: "UP"
+                  database:
+                    type: string
+                    example: "UP"
+                  redis:
+                    type: string
+                    example: "UP"
+                  seeder:
+                    type: string
+                    enum: [READY, SEEDING]
+                    example: "READY"
+                  version:
+                    type: string
+                    example: "0.7.0"
+        '503':
+          description: Backing database or Redis is unavailable.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "DEGRADED"
+                  database:
+                    type: string
+                    example: "DOWN"
+                  redis:
+                    type: string
+                    example: "UP"
+                  version:
+                    type: string
+                    example: "0.7.0"
 
 components:
   securitySchemes:
@@ -294,6 +739,14 @@ components:
       scheme: bearer
       bearerFormat: Admin Token
       description: Provide platform admin secret in the `Authorization: Bearer <admin-token>` header.
+
+  responses:
+    401Unauthorized:
+      description: Unauthorized admin token or missing virtual key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
     ChatMessage:
@@ -571,6 +1024,12 @@ components:
           type: number
           format: double
           example: 0.80
+        tier1_exact_hits:
+          type: integer
+          example: 45
+        tier2_semantic_hits:
+          type: integer
+          example: 75
         keys:
           type: object
           additionalProperties:
@@ -594,4 +1053,270 @@ components:
                 type: number
                 format: double
                 example: 0.80
+              tier1_exact_hits:
+                type: integer
+                example: 45
+              tier2_semantic_hits:
+                type: integer
+                example: 75
+              similarity_threshold:
+                type: number
+                format: double
+                example: 0.920
+              cache_enabled:
+                type: boolean
+                example: true
+
+    CacheEntryDetail:
+      type: object
+      required:
+        - id
+        - virtual_key
+        - model_alias
+        - prompt_text
+        - response_json
+        - hit_count
+      properties:
+        id:
+          type: string
+          format: uuid
+        virtual_key:
+          type: string
+          example: netra-sk-search-1a2b3c
+        model_alias:
+          type: string
+          example: fast
+        prompt_text:
+          type: string
+          example: Explain what load balancers do in distributed web systems.
+        resolved_provider:
+          type: string
+          example: openrouter/openai/gpt-4o-mini
+        completion_text:
+          type: string
+          example: Load balancers distribute incoming network traffic across a farm of backend servers.
+        response_json:
+          type: string
+          description: Full serialized OpenAI-compatible ChatCompletionResponse JSON
+        hit_count:
+          type: integer
+          example: 18
+        created_at:
+          type: string
+          format: date-time
+        last_hit_at:
+          type: string
+          format: date-time
+        similarity_threshold:
+          type: number
+          format: double
+          example: 0.920
+        tier:
+          type: string
+          enum: [tier1_exact, tier2_semantic]
+          example: tier2_semantic
+
+    TenantAdminResponse:
+      type: object
+      required:
+        - id
+        - virtual_key
+        - team
+        - monthly_budget_usd
+        - current_spend_usd
+        - rpm_limit
+        - model_allowlist
+        - semantic_cache_enabled
+        - similarity_threshold
+        - is_active
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        virtual_key:
+          type: string
+          example: "netra-sk-search-1a2b3c"
+        team:
+          type: string
+          example: "Search Team"
+        monthly_budget_usd:
+          type: number
+          format: double
+          example: 100.0
+        current_spend_usd:
+          type: number
+          format: double
+          example: 14.25
+        rpm_limit:
+          type: integer
+          example: 60
+        tpm_limit:
+          type: integer
+          nullable: true
+          example: 100000
+        model_allowlist:
+          type: array
+          items:
+            type: string
+          example: ["fast", "smart", "auto"]
+        semantic_cache_enabled:
+          type: boolean
+          example: true
+        similarity_threshold:
+          type: number
+          format: double
+          example: 0.92
+        is_active:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [ACTIVE, EXHAUSTED, REVOKED]
+          example: "ACTIVE"
+        created_at:
+          type: string
+          format: date-time
+
+    CreateTenantRequest:
+      type: object
+      required:
+        - team
+      properties:
+        virtual_key:
+          type: string
+          nullable: true
+          example: "netra-sk-custom-key"
+        team:
+          type: string
+          example: "Search Core"
+        monthly_budget_usd:
+          type: number
+          format: double
+          example: 100.0
+        rpm_limit:
+          type: integer
+          example: 60
+        tpm_limit:
+          type: integer
+          example: 100000
+        model_allowlist:
+          type: array
+          items:
+            type: string
+          example: ["fast", "smart", "auto"]
+        semantic_cache_enabled:
+          type: boolean
+          example: true
+        similarity_threshold:
+          type: number
+          format: double
+          example: 0.85
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        team:
+          type: string
+          example: "Search Core"
+        monthly_budget_usd:
+          type: number
+          format: double
+          example: 250.0
+        rpm_limit:
+          type: integer
+          example: 120
+        tpm_limit:
+          type: integer
+          example: 200000
+        model_allowlist:
+          type: array
+          items:
+            type: string
+        semantic_cache_enabled:
+          type: boolean
+        similarity_threshold:
+          type: number
+          format: double
+        is_active:
+          type: boolean
+
+    CurrencyRateResponse:
+      type: object
+      required:
+        - base
+        - target
+        - rate
+      properties:
+        base:
+          type: string
+          example: "USD"
+        target:
+          type: string
+          example: "INR"
+        rate:
+          type: number
+          format: double
+          example: 85.00
+
+    ProviderHealthSnapshot:
+      type: object
+      required:
+        - provider
+        - status
+        - circuit_state
+        - failure_rate
+        - slow_call_rate
+      properties:
+        provider:
+          type: string
+          example: "alpha"
+        status:
+          type: string
+          enum: [HEALTHY, DEGRADED, DOWN]
+          example: "HEALTHY"
+        circuit_state:
+          type: string
+          enum: [CLOSED, OPEN, HALF_OPEN]
+          example: "CLOSED"
+        failure_rate:
+          type: number
+          format: float
+          example: 0.0
+        slow_call_rate:
+          type: number
+          format: float
+          example: 0.0
+        buffered_calls:
+          type: integer
+          example: 20
+        successful_calls:
+          type: integer
+          example: 20
+        failed_calls:
+          type: integer
+          example: 0
+        slow_calls:
+          type: integer
+          example: 0
+        p95_latency_ms:
+          type:
+            - integer
+            - "null"
+          nullable: true
+          description: Rolling p95 latency in milliseconds, or null if no latency samples have been recorded yet.
+          example: 24
+
+    StreamTicketResponse:
+      type: object
+      required:
+        - ticket
+        - expires_in
+      properties:
+        ticket:
+          type: string
+          example: "stk-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        expires_in:
+          type: integer
+          example: 60
 

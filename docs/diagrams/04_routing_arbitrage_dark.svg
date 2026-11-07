@@ -1,0 +1,93 @@
+<svg width="980" height="300" viewBox="0 0 980 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-route-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748B"/>
+    </marker>
+    <marker id="arr-route-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38BDF8"/>
+    </marker>
+    <marker id="arr-route-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#818CF8"/>
+    </marker>
+    <filter id="shadow-route-dark" x="-8%" y="-8%" width="116%" height="116%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="980" height="300" rx="14" fill="#06070A"/>
+  <rect x="0.5" y="0.5" width="979" height="299" rx="13.5" stroke="#18202F" stroke-width="1"/>
+
+  <!-- Eyebrow & Title -->
+  <text x="35" y="32" fill="#818CF8" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" letter-spacing="1.5px">COST ARBITRAGE · INTELLIGENT MODEL ROUTING</text>
+  <text x="35" y="52" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="15" font-weight="800" letter-spacing="-0.3px">Prompt Difficulty Classification &amp; Dynamic Steering</text>
+
+  <!-- Node 1: Request Ingress -->
+  <g transform="translate(35, 80)">
+    <rect width="180" height="130" rx="8" fill="#0D111A" stroke="#253046" filter="url(#shadow-route-dark)"/>
+    <text x="16" y="28" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">Client Prompt</text>
+    <text x="16" y="48" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">model: "auto"</text>
+    <text x="16" y="70" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Dynamic task envelope</text>
+    <text x="16" y="86" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Code, proofs, or queries</text>
+    <text x="16" y="110" fill="#94A3B8" font-family="'JetBrains Mono', monospace" font-size="8">No client tier tagging</text>
+  </g>
+
+  <!-- Node 2: Stage 1 Classifier -->
+  <g transform="translate(255, 80)">
+    <rect width="210" height="130" rx="8" fill="#0D111A" stroke="#253046" filter="url(#shadow-route-dark)"/>
+    <rect x="12" y="12" width="100" height="16" rx="3" fill="#18202F"/>
+    <text x="62" y="23" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">1. EXTRACTION</text>
+    <text x="14" y="48" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">Payload Decoupling</text>
+    <text x="14" y="68" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">Strips log traces, tables &amp;</text>
+    <text x="14" y="84" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">JSON arrays to isolate the</text>
+    <text x="14" y="100" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">core operative instruction</text>
+  </g>
+
+  <!-- Node 3: Stage 2 Difficulty Signal Classifier -->
+  <g transform="translate(505, 80)">
+    <rect width="210" height="130" rx="8" fill="#0D111A" stroke="#818CF8" stroke-width="1.2" filter="url(#shadow-route-dark)"/>
+    <rect x="12" y="12" width="90" height="16" rx="3" fill="#1E1B4B"/>
+    <text x="57" y="23" fill="#818CF8" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">2. SCORING</text>
+    <text x="14" y="48" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">Syntactic Classifier</text>
+    <text x="14" y="66" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="8">+3.5 Proof / Math</text>
+    <text x="14" y="80" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="8">+2.5 Architecture / Tradeoff</text>
+    <text x="14" y="94" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8">-3.0 Lookup / Definition</text>
+    <text x="14" y="108" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8">-3.0 Mechanical Transform</text>
+    <text x="14" y="122" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700">Threshold: Score ≥ 1.5</text>
+  </g>
+
+  <!-- Node 4: Routing Outcomes (Right) -->
+  <!-- Smart Tier -->
+  <g transform="translate(755, 70)">
+    <rect width="190" height="65" rx="8" fill="#0D111A" stroke="#818CF8" filter="url(#shadow-route-dark)"/>
+    <text x="14" y="24" fill="#818CF8" font-family="Inter, sans-serif" font-size="11" font-weight="800">SMART TIER (≥ 1.5)</text>
+    <text x="14" y="40" fill="#F8FAFC" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">alpha-large / gpt-4o</text>
+    <text x="14" y="55" fill="#64748B" font-family="Inter, sans-serif" font-size="9">$3.00 / 1M tokens · Deep Reasoning</text>
+  </g>
+
+  <!-- Fast Tier -->
+  <g transform="translate(755, 155)">
+    <rect width="190" height="65" rx="8" fill="#0D111A" stroke="#38BDF8" filter="url(#shadow-route-dark)"/>
+    <text x="14" y="24" fill="#38BDF8" font-family="Inter, sans-serif" font-size="11" font-weight="800">FAST TIER (&lt; 1.5)</text>
+    <text x="14" y="40" fill="#F8FAFC" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">alpha-small / gpt-4o-mini</text>
+    <text x="14" y="55" fill="#64748B" font-family="Inter, sans-serif" font-size="9">$0.15 / 1M tokens · 20x Cheaper</text>
+  </g>
+
+  <!-- Bottom Arbitrage Benefit Bar -->
+  <g transform="translate(35, 235)">
+    <rect width="910" height="42" rx="6" fill="#0A0D14" stroke="#18202F"/>
+    <text x="20" y="26" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="800">NET BENEFIT:</text>
+    <text x="125" y="26" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="11">Diverting simpler queries saves <tspan font-weight="700" fill="#D2F823">~72.4% net API token spend</tspan> while preserving 100% accuracy on complex multi-step reasoning tasks.</text>
+  </g>
+
+  <!-- Connectors -->
+  <path d="M 215 145 H 255" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-route-dark)"/>
+  <path d="M 465 145 H 505" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-route-dark)"/>
+
+  <!-- Scoring to Smart -->
+  <path d="M 715 120 H 735 V 102 H 755" stroke="#818CF8" stroke-width="1.5" fill="none" marker-end="url(#arr-route-indigo)"/>
+
+  <!-- Scoring to Fast -->
+  <path d="M 715 160 H 735 V 187 H 755" stroke="#38BDF8" stroke-width="1.5" fill="none" marker-end="url(#arr-route-cyan)"/>
+
+</svg>

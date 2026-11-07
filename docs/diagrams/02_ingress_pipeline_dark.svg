@@ -1,0 +1,88 @@
+<svg width="980" height="260" viewBox="0 0 980 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr-pipe-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748B"/>
+    </marker>
+    <marker id="arr-pipe-lime" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D2F823"/>
+    </marker>
+    <filter id="shadow-pipe-dark" x="-8%" y="-8%" width="116%" height="116%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="980" height="260" rx="14" fill="#06070A"/>
+  <rect x="0.5" y="0.5" width="979" height="259" rx="13.5" stroke="#18202F" stroke-width="1"/>
+
+  <!-- Eyebrow & Title -->
+  <text x="35" y="32" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" letter-spacing="1.5px">EXECUTION STAGES · INGRESS TO EGRESS</text>
+  <text x="35" y="52" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="15" font-weight="800" letter-spacing="-0.3px">Five Decoupled Pipeline Stages</text>
+
+  <!-- Stage 1 -->
+  <g transform="translate(35, 75)">
+    <rect width="168" height="150" rx="8" fill="#0D111A" stroke="#253046" filter="url(#shadow-pipe-dark)"/>
+    <rect x="12" y="14" width="60" height="16" rx="3" fill="#18202F"/>
+    <text x="42" y="25" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">STAGE 1</text>
+    <text x="12" y="50" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">Virtual Key Auth</text>
+    <text x="12" y="68" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">&lt;50μs Caffeine L1</text>
+    <text x="12" y="86" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Bearer netra-sk-*</text>
+    <text x="12" y="102" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Model Allowlist Check</text>
+    <text x="12" y="125" fill="#EF4444" font-family="'JetBrains Mono', monospace" font-size="8">401/403 Early Exit</text>
+  </g>
+
+  <!-- Stage 2 -->
+  <g transform="translate(223, 75)">
+    <rect width="168" height="150" rx="8" fill="#0D111A" stroke="#253046" filter="url(#shadow-pipe-dark)"/>
+    <rect x="12" y="14" width="60" height="16" rx="3" fill="#18202F"/>
+    <text x="42" y="25" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">STAGE 2</text>
+    <text x="12" y="50" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">Atomic Admission</text>
+    <text x="12" y="68" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">0.00% Over-Limit</text>
+    <text x="12" y="86" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Redis 8.0 Lua Script</text>
+    <text x="12" y="102" fill="#64748B" font-family="Inter, sans-serif" font-size="9">IETF RateLimit Headers</text>
+    <text x="12" y="125" fill="#EF4444" font-family="'JetBrains Mono', monospace" font-size="8">429/402 Early Exit</text>
+  </g>
+
+  <!-- Stage 3 (Focal Node) -->
+  <g transform="translate(411, 75)">
+    <rect width="168" height="150" rx="8" fill="#0D111A" stroke="#D2F823" stroke-width="1.5" filter="url(#shadow-pipe-dark)"/>
+    <rect x="12" y="14" width="60" height="16" rx="3" fill="#1E293B"/>
+    <text x="42" y="25" fill="#D2F823" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="800" text-anchor="middle">STAGE 3</text>
+    <text x="12" y="50" fill="#D2F823" font-family="Inter, sans-serif" font-size="12" font-weight="800">Two-Tier Cache</text>
+    <text x="12" y="68" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">Tier 1 &lt;0.5ms · Tier 2 &lt;5ms</text>
+    <text x="12" y="86" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">Exact Hash L1 + pgvector</text>
+    <text x="12" y="102" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9">HNSW Cosine · $0 Cost Hit</text>
+    <text x="12" y="125" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="8">Progressive SSE Replay</text>
+  </g>
+
+  <!-- Stage 4 -->
+  <g transform="translate(599, 75)">
+    <rect width="168" height="150" rx="8" fill="#0D111A" stroke="#253046" filter="url(#shadow-pipe-dark)"/>
+    <rect x="12" y="14" width="60" height="16" rx="3" fill="#18202F"/>
+    <text x="42" y="25" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">STAGE 4</text>
+    <text x="12" y="50" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">Dynamic Router</text>
+    <text x="12" y="68" fill="#818CF8" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">auto Classifier</text>
+    <text x="12" y="86" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Syntactic Signal Gating</text>
+    <text x="12" y="102" fill="#64748B" font-family="Inter, sans-serif" font-size="9">fast vs. smart (~72% Save)</text>
+    <text x="12" y="125" fill="#F59E0B" font-family="'JetBrains Mono', monospace" font-size="8">Failover Retries</text>
+  </g>
+
+  <!-- Stage 5 -->
+  <g transform="translate(787, 75)">
+    <rect width="158" height="150" rx="8" fill="#0D111A" stroke="#253046" filter="url(#shadow-pipe-dark)"/>
+    <rect x="12" y="14" width="60" height="16" rx="3" fill="#18202F"/>
+    <text x="42" y="25" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" text-anchor="middle">STAGE 5</text>
+    <text x="12" y="50" fill="#F8FAFC" font-family="Inter, sans-serif" font-size="12" font-weight="700">Streaming Relay</text>
+    <text x="12" y="68" fill="#38BDF8" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">~20ms TTFT</text>
+    <text x="12" y="86" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Virtual Threads SSE</text>
+    <text x="12" y="102" fill="#64748B" font-family="Inter, sans-serif" font-size="9">Socket Abort Protection</text>
+    <text x="12" y="125" fill="#10B981" font-family="'JetBrains Mono', monospace" font-size="8">Micro-USD Accounting</text>
+  </g>
+
+  <!-- Pipeline Arrows -->
+  <path d="M 203 145 H 221" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-pipe-dark)"/>
+  <path d="M 391 145 H 409" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-pipe-dark)"/>
+  <path d="M 579 145 H 597" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-pipe-dark)"/>
+  <path d="M 767 145 H 785" stroke="#64748B" stroke-width="1.5" marker-end="url(#arr-pipe-dark)"/>
+
+</svg>

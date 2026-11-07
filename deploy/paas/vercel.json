@@ -1,0 +1,26 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "rootDirectory": "console",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/v1/:path*",
+      "destination": "https://gateway.netrallm.avadhanlabs.dev/v1/:path*"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "https://gateway.netrallm.avadhanlabs.dev/admin/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://gateway.netrallm.avadhanlabs.dev/health"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+

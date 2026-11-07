@@ -4,6 +4,7 @@ import com.netra.gateway.exception.BudgetExceededException;
 import com.netra.gateway.exception.RateLimitException;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.repository.MonthlySpendRepository;
+import com.netra.gateway.service.AdmissionResult;
 import com.netra.gateway.service.AdmissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +21,7 @@ import org.springframework.data.redis.core.script.RedisScript;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
@@ -60,14 +62,18 @@ class AdmissionServiceTest {
     }
 
     @Test
-    @DisplayName("checkAdmission allows request when Lua script returns 200")
+    @DisplayName("checkAdmission allows request when Lua script returns 200 and returns IETF RateLimit parameters")
     void testCheckAdmissionAllowed() {
         when(redisTemplate.hasKey(anyString())).thenReturn(true);
         when(redisTemplate.execute(eq(admissionScript), anyList(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(200L, 1L));
+                .thenReturn(List.of(200L, "admitted", "1", "45", "9"));
 
-        assertThatCode(() -> admissionService.checkAdmission(testTenant, "req_123"))
-                .doesNotThrowAnyException();
+        AdmissionResult result = admissionService.checkAdmission(testTenant, "req_123");
+        assertThat(result).isNotNull();
+        assertThat(result.limit()).isEqualTo(10);
+        assertThat(result.remaining()).isEqualTo(9);
+        assertThat(result.resetSeconds()).isEqualTo(45);
+        assertThat(result.policy()).isEqualTo("10;w=60");
     }
 
     @Test
@@ -75,11 +81,12 @@ class AdmissionServiceTest {
     void testCheckAdmissionRateLimited() {
         when(redisTemplate.hasKey(anyString())).thenReturn(true);
         when(redisTemplate.execute(eq(admissionScript), anyList(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(429L, 11L));
+                .thenReturn(List.of(429L, "rate_limit_exceeded", "11", "30"));
 
         assertThatThrownBy(() -> admissionService.checkAdmission(testTenant, "req_123"))
                 .isInstanceOf(RateLimitException.class)
-                .hasMessageContaining("Rate limit exceeded");
+                .hasMessageContaining("Rate limit exceeded")
+                .satisfies(ex -> assertThat(((RateLimitException) ex).getRetryAfterSeconds()).isEqualTo(30));
     }
 
     @Test

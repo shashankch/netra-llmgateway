@@ -52,6 +52,8 @@ def post_chat(base, key, body, stream=False):
             return resp.status, headers, json.loads(raw)
     except urllib.error.HTTPError as e:
         raw = e.read().decode(errors="replace")
+        if stream:
+            return e.code, {k.lower(): v for k, v in e.headers.items()}, raw
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
@@ -93,7 +95,7 @@ def main():
     record("returns 200", status == 200, f"got {status}")
     record("content-type is text/event-stream",
            "text/event-stream" in headers.get("content-type", ""), headers.get("content-type", ""))
-    lines = [l for l in raw.splitlines() if l.startswith("data: ")]
+    lines = [l for l in raw.splitlines() if l.startswith("data: ")] if isinstance(raw, str) else []
     record("received multiple SSE chunks", len(lines) >= 3, f"{len(lines)} data lines")
     record("stream ends with [DONE]", bool(lines) and lines[-1] == "data: [DONE]")
 
@@ -109,14 +111,14 @@ def main():
            isinstance(body, dict) and "error" in body, str(body)[:80])
 
     print("\n[5] Semantic cache: exact repeat")
-    prompt = f"({salt}) How do I reset my password on the dashboard?"
+    prompt = f"({salt}) How do I reset my password on the console?"
     post_chat(args.url, args.key, simple_body(args.model, prompt))
     status, headers, _ = post_chat(args.url, args.key, simple_body(args.model, prompt))
     record("identical repeat is a cache hit", headers.get("x-netra-cache") == "hit",
            headers.get("x-netra-cache", "missing"))
 
     print("\n[6] Semantic cache: paraphrases (each pair soft; at least one pair must hit)")
-    paraphrase_a = f"({salt}) What are the steps to reset my dashboard password?"
+    paraphrase_a = f"({salt}) What are the steps to reset my console password?"
     status, headers, _ = post_chat(args.url, args.key, simple_body(args.model, paraphrase_a))
     hit_a = headers.get("x-netra-cache") == "hit"
     record("pair A paraphrase is a cache hit", hit_a,
