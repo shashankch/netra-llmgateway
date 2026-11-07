@@ -10,19 +10,72 @@ import {
 export default function Playground({ adminToken = 'netra-admin-demo' }) {
   const { formatCurrency, currency } = useTheme();
 
-  // Selected virtual key
-  const [virtualKey, setVirtualKey] = useState('netra-sk-search-1a2b3c');
-  const [model, setModel] = useState('fast');
-  const [stream, setStream] = useState(true);
-  const [prompt, setPrompt] = useState('What is a load balancer and why is it needed?');
-  const [systemPrompt, setSystemPrompt] = useState('You are NETRA, an enterprise AI assistant.');
+  // Selected virtual key with sessionStorage persistence across tab navigation
+  const [virtualKey, setVirtualKey] = useState(() => {
+    try {
+      return sessionStorage.getItem('netra_playground_vkey') || 'netra-sk-search-1a2b3c';
+    } catch {
+      return 'netra-sk-search-1a2b3c';
+    }
+  });
+  const [model, setModel] = useState(() => {
+    try {
+      return sessionStorage.getItem('netra_playground_model') || 'fast';
+    } catch {
+      return 'fast';
+    }
+  });
+  const [stream, setStream] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('netra_playground_stream');
+      return stored !== null ? stored === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [prompt, setPrompt] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('netra_playground_prompt');
+      return stored !== null ? stored : 'What is a load balancer and why is it needed?';
+    } catch {
+      return 'What is a load balancer and why is it needed?';
+    }
+  });
+  const [systemPrompt, setSystemPrompt] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('netra_playground_sysprompt');
+      return stored !== null ? stored : 'You are NETRA, an enterprise AI assistant.';
+    } catch {
+      return 'You are NETRA, an enterprise AI assistant.';
+    }
+  });
 
-  // Execution state
+  // Execution state with sessionStorage persistence
   const [executing, setExecuting] = useState(false);
-  const [responseContent, setResponseContent] = useState('');
-  const [telemetry, setTelemetry] = useState(null);
+  const [responseContent, setResponseContent] = useState(() => {
+    try {
+      return sessionStorage.getItem('netra_playground_response') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [telemetry, setTelemetry] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('netra_playground_telemetry');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [errorInfo, setErrorInfo] = useState(null);
-  const [chunkCount, setChunkCount] = useState(0);
+  const [chunkCount, setChunkCount] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('netra_playground_chunk_count');
+      return stored ? Number(stored) : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [copiedResponse, setCopiedResponse] = useState(false);
 
   // Dynamic Gateway Catalog & Virtual Key Configuration
@@ -58,10 +111,13 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
           const keysJson = await keysRes.value.json();
           if (isMounted && Array.isArray(keysJson) && keysJson.length > 0) {
             setTenantKeys(keysJson);
-            // If current key is default demo, auto-select first active real key
+            // If current key is default demo and no saved key in session, auto-select first active real key
             if (keysJson.some(k => k.status === 'ACTIVE')) {
               const firstActive = keysJson.find(k => k.status === 'ACTIVE');
-              if (firstActive && virtualKey === 'netra-sk-search-1a2b3c') {
+              const hasPersistedKey = (() => {
+                try { return !!sessionStorage.getItem('netra_playground_vkey'); } catch { return false; }
+              })();
+              if (firstActive && virtualKey === 'netra-sk-search-1a2b3c' && !hasPersistedKey) {
                 setVirtualKey(firstActive.virtual_key);
                 if (firstActive.model_allowlist && firstActive.model_allowlist.length > 0) {
                   setModel(firstActive.model_allowlist[0]);
@@ -96,6 +152,57 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
     }
   }, []);
 
+  // Sync state variables to sessionStorage so state is preserved across tab navigation
+  useEffect(() => {
+    try { sessionStorage.setItem('netra_playground_vkey', virtualKey); } catch (e) {}
+  }, [virtualKey]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('netra_playground_model', model); } catch (e) {}
+  }, [model]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('netra_playground_stream', String(stream)); } catch (e) {}
+  }, [stream]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('netra_playground_prompt', prompt); } catch (e) {}
+  }, [prompt]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('netra_playground_sysprompt', systemPrompt); } catch (e) {}
+  }, [systemPrompt]);
+
+  useEffect(() => {
+    try {
+      if (responseContent) {
+        sessionStorage.setItem('netra_playground_response', responseContent);
+      } else {
+        sessionStorage.removeItem('netra_playground_response');
+      }
+    } catch (e) {}
+  }, [responseContent]);
+
+  useEffect(() => {
+    try {
+      if (telemetry) {
+        sessionStorage.setItem('netra_playground_telemetry', JSON.stringify(telemetry));
+      } else {
+        sessionStorage.removeItem('netra_playground_telemetry');
+      }
+    } catch (e) {}
+  }, [telemetry]);
+
+  useEffect(() => {
+    try {
+      if (chunkCount > 0) {
+        sessionStorage.setItem('netra_playground_chunk_count', String(chunkCount));
+      } else {
+        sessionStorage.removeItem('netra_playground_chunk_count');
+      }
+    } catch (e) {}
+  }, [chunkCount]);
+
   const copyResponseToClipboard = () => {
     if (!responseContent) return;
     navigator.clipboard.writeText(responseContent);
@@ -108,6 +215,11 @@ export default function Playground({ adminToken = 'netra-admin-demo' }) {
     setTelemetry(null);
     setErrorInfo(null);
     setChunkCount(0);
+    try {
+      sessionStorage.removeItem('netra_playground_response');
+      sessionStorage.removeItem('netra_playground_telemetry');
+      sessionStorage.removeItem('netra_playground_chunk_count');
+    } catch (e) {}
   };
 
   // Dynamic profiles from live database or pre-seeded fallbacks
