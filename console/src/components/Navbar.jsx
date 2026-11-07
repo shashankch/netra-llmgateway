@@ -206,13 +206,6 @@ export default function Navbar({
   const handleResetDemo = () => {
     setTokenInput('netra-admin-demo');
     setGatewayUrlInput('');
-    setGatewayBaseUrl('');
-    setHealthPollingEnabled(true);
-    if (onUpdateAdminToken) {
-      onUpdateAdminToken('netra-admin-demo');
-    }
-    checkNow();
-    setShowAdminModal(false);
   };
 
   const navItems = [
@@ -230,7 +223,7 @@ export default function Navbar({
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      padding: '0.65rem 2rem',
+      padding: '0.6rem 1.5rem',
     }}>
       <div style={{
         maxWidth: 1400,
@@ -238,16 +231,16 @@ export default function Navbar({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
+        flexWrap: 'nowrap',
+        gap: '0.75rem',
       }}>
         {/* Brand with Netra Aperture Logo */}
         <div 
           onClick={() => setActiveTab('landing')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', flexShrink: 0 }}
           title="Return to Home"
         >
-          <NetraLogo size={32} showText={true} />
+          <NetraLogo size={30} showText={true} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
             <a
               href="https://github.com/shashankch/netra-llmgateway/releases/tag/phase-7-complete"
@@ -275,7 +268,18 @@ export default function Navbar({
         </div>
 
         {/* Navigation Tabs (OpenRouter Minimalist Pill Tabs) */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
+        <nav 
+          className="hide-scrollbar"
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.2rem', 
+            overflowX: 'auto', 
+            flexShrink: 1, 
+            minWidth: 0, 
+            WebkitOverflowScrolling: 'touch' 
+          }}
+        >
           {navItems.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id || (item.id === 'analytics' && activeTab === 'overview');
@@ -285,13 +289,15 @@ export default function Navbar({
                 onClick={() => setActiveTab(item.id)}
                 className={`btn btn-sm ${isActive ? 'btn-secondary' : 'btn-outline'}`}
                 style={{
-                  padding: '0.35rem 0.75rem',
+                  padding: '0.32rem 0.65rem',
                   borderRadius: 6,
                   fontWeight: isActive ? 700 : 500,
-                  fontSize: '0.8125rem',
+                  fontSize: '0.8rem',
+                  whiteSpace: 'nowrap',
                   borderColor: isActive ? 'var(--border-strong)' : 'transparent',
                   background: isActive ? 'var(--bg-card-hover)' : 'transparent',
                   color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  flexShrink: 0,
                 }}
               >
                 <Icon size={14} style={{ opacity: isActive ? 1 : 0.7 }} />
@@ -302,27 +308,28 @@ export default function Navbar({
         </nav>
 
         {/* Action Controls: Admin Key, Docs, Creator Attribution, Currency & Theme */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
           {/* Admin Key Status & Configuration Button */}
           <button
             onClick={() => setShowAdminModal(true)}
             className="btn btn-outline btn-sm font-mono"
             style={{
               fontWeight: 600,
-              padding: '0.35rem 0.65rem',
-              fontSize: '0.78rem',
+              padding: '0.3rem 0.55rem',
+              fontSize: '0.76rem',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.45rem',
+              gap: '0.4rem',
               borderColor: adminBtn.borderColor,
               background: adminBtn.background,
               color: 'var(--text-primary)',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              flexShrink: 0,
             }}
             title={adminBtn.title}
           >
             <Key size={13} style={{ color: adminBtn.iconColor, transition: 'color 0.2s ease' }} />
-            <span>Admin Key</span>
+            <span>Admin</span>
             <span style={{
               fontSize: '0.625rem',
               color: adminBtn.badgeColor,
@@ -343,7 +350,7 @@ export default function Navbar({
             target="_blank"
             rel="noreferrer"
             className="btn btn-outline btn-sm"
-            style={{ fontWeight: 600, padding: '0.35rem 0.65rem' }}
+            style={{ fontWeight: 600, padding: '0.3rem 0.55rem', fontSize: '0.76rem', flexShrink: 0 }}
             title="Open Documentation (Zensical)"
           >
             <BookOpen size={13} />
@@ -357,6 +364,7 @@ export default function Navbar({
             rel="noreferrer"
             className="author-nav-badge"
             title="Crafted by Shashank Chandel"
+            style={{ flexShrink: 0 }}
           >
             <Github size={13} style={{ opacity: 0.8 }} />
             <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.72rem' }}>by</span>
@@ -368,7 +376,7 @@ export default function Navbar({
             onClick={toggleCurrency}
             className="btn btn-secondary btn-sm font-mono"
             title={`Active Currency: ${currency} (1 USD = ${exchangeRate} INR)`}
-            style={{ fontWeight: 700, padding: '0.35rem 0.65rem' }}
+            style={{ fontWeight: 700, padding: '0.3rem 0.55rem', fontSize: '0.76rem', flexShrink: 0 }}
           >
             <DollarSign size={13} style={{ color: 'var(--accent-emerald)' }} />
             <span>{currency}</span>

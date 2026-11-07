@@ -108,6 +108,10 @@
   padding: 0;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-canvas);
@@ -538,6 +542,7 @@ tr:hover td {
 /* Modals & Responsive Dialogs */
 body.modal-open {
   overflow: hidden !important;
+  scrollbar-gutter: stable;
 }
 
 .modal-overlay,
@@ -966,6 +971,20 @@ body.modal-open {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: inherit;
   text-decoration: none !important;
+}
+
+@media (max-width: 1240px) {
+  .author-nav-badge {
+    display: none !important;
+  }
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Tri-State Theme Segmented Control (OpenRouter Aesthetic) */
