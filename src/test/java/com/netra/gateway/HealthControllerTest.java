@@ -44,13 +44,13 @@ class HealthControllerTest {
     }
 
     @Test
-    @DisplayName("GET /health returns 200 OK with service netra-gateway and version 0.7.1")
+    @DisplayName("GET /health returns 200 OK with service netra-gateway and version 0.7.3")
     void testBasicHealth() throws Exception {
         mockMvc.perform(get("/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ok"))
                 .andExpect(jsonPath("$.service").value("netra-gateway"))
-                .andExpect(jsonPath("$.version").value("0.7.1"));
+                .andExpect(jsonPath("$.version").value("0.7.3"));
     }
 
     @Test
@@ -59,7 +59,7 @@ class HealthControllerTest {
         mockMvc.perform(get("/health/live"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ok"))
-                .andExpect(jsonPath("$.version").value("0.7.1"));
+                .andExpect(jsonPath("$.version").value("0.7.3"));
     }
 
     @Test
@@ -80,7 +80,7 @@ class HealthControllerTest {
                 .andExpect(jsonPath("$.status").value("UP"))
                 .andExpect(jsonPath("$.database").value("UP"))
                 .andExpect(jsonPath("$.redis").value("UP"))
-                .andExpect(jsonPath("$.version").value("0.7.1"));
+                .andExpect(jsonPath("$.version").value("0.7.3"));
     }
 
     @Test

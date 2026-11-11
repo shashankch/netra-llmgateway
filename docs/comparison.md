@@ -1,6 +1,6 @@
 # Architecture & Gateway Comparison
 
-This document provides a comparative analysis of **NETRA LLM Gateway** alongside common architectural patterns for generative AI applications: **Direct Provider APIs**, **Public Cloud Aggregators (e.g., OpenRouter)**, and **Generic Reverse Proxies (e.g., Nginx, Envoy)**.
+This document provides a comparative analysis of **NETRA LLM Gateway** alongside common architectural patterns for generative AI applications: **Direct Provider APIs**, **Public Cloud Model Aggregators (e.g., OpenRouter, Together AI)**, and **Generic Reverse Proxies (e.g., Nginx, Envoy)**.
 
 ---
 
@@ -9,7 +9,7 @@ This document provides a comparative analysis of **NETRA LLM Gateway** alongside
 When deploying Generative AI applications to production, engineering teams typically evaluate four architectural topologies:
 
 1. **Direct Provider APIs (Point-to-Point):** Applications make direct HTTP calls using vendor SDKs (e.g., OpenAI, Anthropic, Google). Each service handles its own API keys, retries, and rate limits.
-2. **Public Cloud Aggregators (e.g., OpenRouter):** A hosted, multi-tenant public SaaS proxy providing access to 500+ commercial and open-weight models under a single unified billing balance.
+2. **Public Cloud Model Aggregators:** Hosted, multi-tenant public SaaS proxies (e.g., OpenRouter, Together AI, Groq) providing access to hundreds of commercial and open-weight models under a unified billing account.
 3. **Generic Network Reverse Proxies (e.g., Nginx, Envoy):** Standard Layer 7 HTTP proxies handling basic SSL termination and load balancing, but unaware of LLM tokens, prompt complexity, or streaming token semantics.
 4. **Private Enterprise AI Gateway (NETRA):** An in-VPC, tenant-isolated intelligent gateway and semantic vector cache that delivers predictable token economics, multi-provider failover, atomic budget guardrails, and zero data leakage.
 
@@ -17,7 +17,7 @@ When deploying Generative AI applications to production, engineering teams typic
 
 ## 2. Capability Matrix
 
-| Architectural Dimension | Direct Provider APIs | Public Aggregators (e.g. OpenRouter) | Generic Reverse Proxy (Envoy/Nginx) | NETRA Enterprise AI Gateway |
+| Architectural Dimension | Direct Provider APIs | Public Model Aggregators | Generic Reverse Proxy (Envoy/Nginx) | NETRA Enterprise AI Gateway |
 |---|---|---|---|---|
 | **Deployment Location** | Public Vendor Cloud | Public Multi-Tenant SaaS Edge | In-VPC / Cloud | **Private In-VPC / On-Premise / Edge** |
 | **Data Sovereignty & Privacy** | Vendor-dependent | Transits public multi-tenant network | Private | **100% In-VPC Data Sovereignty** |
@@ -38,12 +38,12 @@ When deploying Generative AI applications to production, engineering teams typic
 
 ### 3.1 Data Residency & Sovereign AI Infrastructure
 
-- **Public Aggregators (OpenRouter):** Applications forward all prompts and completions across OpenRouter's edge network on Cloudflare Workers. While convenient for rapid prototyping and accessing diverse hosted models, enterprise compliance standards (HIPAA, SOC 2, GDPR, internal zero-data-retention mandates) often prohibit sending internal data or customer PII through third-party multi-tenant aggregator proxies.
+- **Public Model Aggregators:** Applications forward all prompts and completions across public third-party SaaS proxy networks. While convenient for rapid prototyping and accessing diverse hosted models under one billing balance, enterprise compliance standards (HIPAA, SOC 2, GDPR, internal zero-data-retention mandates) often prohibit sending internal data or customer PII through third-party multi-tenant aggregator proxies.
 - **NETRA Gateway:** Deployed directly within your private cloud (AWS VPC, GCP, Azure), on-premise infrastructure, or container platforms. Your prompts, completions, embeddings, and audit logs never leave your designated network boundaries.
 
 ### 3.2 Semantic Vector Caching & Token Economics
 
-- **Public Aggregators:** Public aggregators bill for every token generated on every query. If 1,000 users ask identical or paraphrased questions (e.g., customer support FAQs, documentation lookups, onboarding prompts), 1,000 full upstream API calls are made and billed.
+- **Public Model Aggregators:** Public aggregators bill for every token generated on every query. If 1,000 users ask identical or paraphrased questions (e.g., customer support FAQs, documentation lookups, onboarding prompts), 1,000 full upstream API calls are made and billed.
 - **NETRA Gateway:** Deploys a two-tier cache hierarchy: Tier 1 evaluates deterministic Unicode NFC prompt SHA-256 hashes against an in-memory Caffeine + Redis 8 near-cache (<0.5ms). Tier 2 evaluates dense vector embeddings via in-process ONNX (`all-MiniLM-L6-v2`) and PostgreSQL `pgvector` HNSW index (<5ms). When matched above the tenant similarity threshold, NETRA serves the completion in **sub-millisecond or sub-5ms latency** with **$0.000000 upstream token cost**, while enforcing cryptographic tenant isolation so namespaces never leak cached completions across virtual keys. Semantic hits automatically back-populate Tier 1 for subsequent instantaneous matches.
 
 ### 3.3 Atomic Admission Control & Zero Over-Admission
@@ -58,9 +58,9 @@ When deploying Generative AI applications to production, engineering teams typic
 
 ---
 
-## 4. Complementary Architecture: Using OpenRouter *Behind* NETRA
+## 4. Complementary Architecture: Upstream Model Aggregators *Behind* NETRA
 
-NETRA and OpenRouter are not mutually exclusive. In fact, many enterprise teams use **OpenRouter as an upstream provider behind NETRA**:
+Sovereign enterprise gateways and public model aggregators are complementary rather than mutually exclusive. In fact, engineering teams can configure **model aggregators (such as OpenRouter) as an upstream provider behind NETRA**:
 
 ![Hybrid Topology: OpenRouter behind NETRA](diagrams/03_hybrid_openrouter_topology_dark.svg)
 
@@ -68,14 +68,14 @@ In this hybrid topology:
 
 1. **Client Ingress within VPC:** Client applications connect to NETRA within the local network or VPC using tenant virtual keys (`netra-sk-*`).
 2. **Local Governance & Semantic Cache:** NETRA evaluates atomic rate limits, monthly budgets, and sub-5ms semantic cache hits directly inside your private infrastructure.
-3. **Secure Centralized Egress:** On cache misses, NETRA routes through a single centralized `OPENROUTER_API_KEY`, granting your team access to 500+ models without managing individual vendor billing accounts or exposing master provider credentials to application developers.
+3. **Secure Centralized Egress:** On cache misses, NETRA routes through a centralized upstream aggregator key (`OPENROUTER_API_KEY`), granting your internal teams access to a diverse catalog of foundation models without managing individual vendor billing accounts or exposing master provider credentials to application developers.
 
 ---
 
 ## 5. Architectural Decision Guide
 
 - **Choose Direct Provider APIs if:** You are building a single-model prototype with minimal traffic, no budget constraints, and no requirement for multi-provider failover or caching.
-- **Choose OpenRouter directly if:** You are an indie hacker or early startup that wants a hosted SaaS catalog with 500+ models, wants to pay with a single credit card, and has no data residency or private network requirements.
+- **Choose a Public Model Aggregator directly if:** You are an indie developer or early-stage team wanting a single unified API and credit card checkout across diverse models, with no strict data residency, private VPC, or internal multi-tenant quota enforcement requirements.
 - **Choose NETRA Enterprise Gateway if:** You are an engineering organization that requires:
 
     * Strict data sovereignty and zero data leakage.

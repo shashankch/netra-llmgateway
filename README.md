@@ -40,7 +40,7 @@
 
 ## 📖 Overview
 
-**NETRA** (*Sanskrit: नेत्र — Vision / Aperture / Insight*) is an enterprise-grade, sovereign AI Gateway and tenant-isolated Semantic Vector Cache. Sitting in the critical path between client applications and downstream foundation model providers (OpenAI, Anthropic, OpenRouter, self-hosted vLLM clusters), NETRA delivers predictable latency, multi-provider fast-failover, race-safe atomic admission control, and in-JVM vector deduplication.
+**NETRA** (*Sanskrit: नेत्र — Vision / Aperture / Insight*) is an enterprise-grade, sovereign AI Gateway and tenant-isolated Semantic Vector Cache. Sitting in the critical path between client applications and downstream foundation model providers (OpenAI, Anthropic, model aggregators like OpenRouter, self-hosted vLLM clusters), NETRA delivers predictable latency, multi-provider fast-failover, race-safe atomic admission control, and in-JVM vector deduplication.
 
 Built natively on **Java 25 LTS Virtual Threads** and **Spring Boot 4.1.1**, NETRA handles tens of thousands of concurrent connections with minimal memory footprint, sub-0.5ms proxy pass-through overhead, and zero thread pinning.
 
@@ -70,7 +70,7 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 | **🔌 Phantom Spend Reclaim** | Instant client TCP/HTTP2 stream disconnect detection (`Broken pipe`) | Halts upstream generation in **<2ms**, eliminating 100% of phantom token spend on cancelled or abandoned client sessions. |
 | **📊 Exact Micro-Cost Accounting** | Java `BigDecimal` arithmetic scaled to 6 decimal places (`$0.000000 USD`) | Eliminates IEEE-754 floating-point drift; guarantees exact reconciliation between client telemetry headers, ledgers, and live Forex (USD/INR). |
 | **⚙️ Canonical Telemetry Contract** | Strict `x-netra-*` and standardized IETF RateLimit headers | Transparent full-stack observability on provider selection, cache tier, failover status, routing rationale, retries, and quota limits. |
-| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`console/`) with dark/light themes | Enterprise-grade analytics, live provider health matrix, real-time SSE audit stream, virtual key manager, semantic cache viewer with smart match and prompt content modal, and 1-click prompt evaluation sandbox. |
+| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`console/`) with dark/light themes | Enterprise-grade analytics, live provider health matrix, real-time SSE audit stream, virtual key manager, semantic cache viewer, and high-performance playground with zero-dependency Markdown rendering, copyable code blocks, and Raw inspection toggle. |
 | **🌐 Pluggable Multi-Tier Deploy** | Out-of-the-box descriptors for Docker Compose, PaaS, and Cloud VPS | Turnkey 1-click deployment across Railway, Render, Fly.io, OCI Always Free, and AWS Free Tier. |
 
 ---
@@ -97,7 +97,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.1"}
+# {"status":"ok","service":"netra-gateway","version":"0.7.3"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -359,8 +359,8 @@ make console-serve      # or: cd console && npm run preview
 #### Backend Gateway (`.env`)
 | Variable | Default / Example | Purpose |
 |---|---|---|
-| `SPRING_PROFILES_ACTIVE` | `dev` (or `prod`) | Profile selector: `dev` for local mock providers, `prod` for OpenRouter / live upstream |
-| `OPENROUTER_API_KEY` | `sk-or-v1-...` | API key for unified 500+ model routing via OpenRouter |
+| `SPRING_PROFILES_ACTIVE` | `dev` (or `prod`) | Profile selector: `dev` for local mock providers, `prod` for live upstream providers |
+| `OPENROUTER_API_KEY` | `sk-or-v1-...` | API key for upstream model aggregator routing (OpenRouter / compatible endpoints) |
 | `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
 | `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC local/private model endpoint (vLLM / Ollama) |
 | `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |

@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Cpu, Database, Clock, Coins, AlertTriangle, 
-  Check, Copy, Trash2, Zap, XCircle, Terminal 
+  Check, Copy, Trash2, Zap, XCircle, Terminal,
+  FileText, Code
 } from 'lucide-react';
+import MarkdownRenderer from './MarkdownRenderer';
 
 export default function PlaygroundResponsePane({
   executing,
@@ -17,6 +19,7 @@ export default function PlaygroundResponsePane({
   responseContainerRef,
   formatCurrency
 }) {
+  const [viewMode, setViewMode] = useState('markdown'); // 'markdown' | 'raw'
   return (
     <div 
       className="card" 
@@ -184,8 +187,68 @@ export default function PlaygroundResponsePane({
           )}
         </div>
 
-        {/* Quick Output Actions: Copy & Clear */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+        {/* Quick Output Actions: Markdown/Raw Mode Toggle, Copy & Clear */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          {responseContent && (
+            <div 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                background: 'var(--bg-canvas)', 
+                border: '1px solid var(--border-subtle)', 
+                borderRadius: 6, 
+                padding: '0.15rem' 
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('markdown')}
+                className="font-mono"
+                style={{
+                  padding: '0.2rem 0.5rem',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  background: viewMode === 'markdown' ? 'var(--bg-card-hover)' : 'transparent',
+                  color: viewMode === 'markdown' ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  boxShadow: viewMode === 'markdown' ? '0 1px 2px rgba(0,0,0,0.15)' : 'none'
+                }}
+                title="Render formatted Markdown"
+              >
+                <FileText size={11} />
+                <span>Markdown</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('raw')}
+                className="font-mono"
+                style={{
+                  padding: '0.2rem 0.5rem',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  background: viewMode === 'raw' ? 'var(--bg-card-hover)' : 'transparent',
+                  color: viewMode === 'raw' ? 'var(--accent-primary)' : 'var(--text-muted)',
+                  boxShadow: viewMode === 'raw' ? '0 1px 2px rgba(0,0,0,0.15)' : 'none'
+                }}
+                title="View raw plain text / JSON response"
+              >
+                <Code size={11} />
+                <span>Raw</span>
+              </button>
+            </div>
+          )}
+
           {responseContent && (
             <>
               <button
@@ -268,11 +331,11 @@ export default function PlaygroundResponsePane({
           border: '1px solid var(--border-subtle)',
           borderRadius: 8,
           padding: '1.25rem',
-          fontFamily: stream ? 'inherit' : 'var(--font-mono)',
+          fontFamily: viewMode === 'markdown' ? 'inherit' : 'var(--font-mono)',
           fontSize: '0.875rem',
           lineHeight: 1.65,
           overflowY: 'auto',
-          whiteSpace: 'pre-wrap',
+          whiteSpace: viewMode === 'markdown' ? 'normal' : 'pre-wrap',
           position: 'relative'
         }}
       >
@@ -286,20 +349,32 @@ export default function PlaygroundResponsePane({
             {errorInfo.code && <div className="font-mono" style={{ fontSize: '0.75rem' }}>Code: {errorInfo.code}</div>}
           </div>
         ) : responseContent ? (
-          <div>
-            {responseContent}
-            {executing && (
-              <span style={{
-                display: 'inline-block',
-                width: 7,
-                height: 15,
-                backgroundColor: 'var(--accent-primary)',
-                marginLeft: 4,
-                verticalAlign: 'middle',
-                animation: 'pulse 1s infinite'
-              }} />
-            )}
-          </div>
+          viewMode === 'markdown' ? (
+            <MarkdownRenderer content={responseContent} executing={executing} />
+          ) : (
+            <pre style={{ 
+              margin: 0, 
+              fontFamily: 'var(--font-mono)', 
+              fontSize: '0.8125rem', 
+              lineHeight: 1.6, 
+              whiteSpace: 'pre-wrap', 
+              wordBreak: 'break-word', 
+              color: 'var(--text-code)' 
+            }}>
+              {responseContent}
+              {executing && (
+                <span style={{
+                  display: 'inline-block',
+                  width: 7,
+                  height: 15,
+                  backgroundColor: 'var(--accent-primary)',
+                  marginLeft: 4,
+                  verticalAlign: 'middle',
+                  animation: 'pulse 1s infinite'
+                }} />
+              )}
+            </pre>
+          )
         ) : executing ? (
           <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span className="pulse-indicator" />

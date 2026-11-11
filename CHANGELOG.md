@@ -9,10 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.3](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.2...netra-llmgateway-v0.7.3) (2026-11-11)
 
+### Features
+
+* **console:** zero-dependency markdown renderer in playground response pane with copyable code blocks, typography, tables, and segmented markdown vs raw view mode toggle
+* **gateway:** multi-file release-please automated SemVer pipeline synchronization across `build.gradle.kts`, `package.json`, and OpenAPI definitions
+* **infra:** scope `console` container under `local` and `console` docker compose profiles to ensure standard `docker compose up -d` boots strictly core backend infrastructure
 
 ### Bug Fixes
 
 * **console,ci:** pull version from gateway health and upgrade actions to node 24 runtime ([#16](https://github.com/shashankch/netra-llmgateway/issues/16)) ([88e6c60](https://github.com/shashankch/netra-llmgateway/commit/88e6c60d13a44123a7263508fec518b9c02d03f5))
+* **gateway:** synchronize runtime health controller and unit test assertions with active build manifest release version ([#17](https://github.com/shashankch/netra-llmgateway/issues/17))
 
 ## [0.7.2](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.1...netra-llmgateway-v0.7.2) (2026-11-11)
 

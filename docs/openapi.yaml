@@ -14,7 +14,7 @@ info:
     - **Semantic Vector Cache**: Two-tier cache hierarchy (Tier 1 SHA-256 exact hash in <0.5ms + Tier 2 pgvector HNSW in <5ms).
     - **Resilience & Failover**: Resilience4j circuit breakers (<0.05ms fast-failover) and small-model refusal auto-escalation.
     - **React 19 / Vite 6 Ops Console**: Real-time enterprise-grade analytics, prompt playground, and virtual keys management.
-  version: 0.7.1
+  version: 0.7.3 # x-release-please-version
   contact:
     name: Shashank Chandel
     email: shashankchandel@gmail.com
@@ -651,7 +651,7 @@ paths:
                     example: "netra-gateway"
                   version:
                     type: string
-                    example: "0.7.0"
+                    example: "0.7.3"
 
   /health/live:
     get:
@@ -675,7 +675,7 @@ paths:
                     example: "netra-gateway"
                   version:
                     type: string
-                    example: "0.7.0"
+                    example: "0.7.3"
 
   /health/ready:
     get:
@@ -712,7 +712,7 @@ paths:
                     example: "READY"
                   version:
                     type: string
-                    example: "0.7.0"
+                    example: "0.7.3"
         '503':
           description: Backing database or Redis is unavailable.
           content:
@@ -731,7 +731,7 @@ paths:
                     example: "UP"
                   version:
                     type: string
-                    example: "0.7.0"
+                    example: "0.7.3"
 
 components:
   securitySchemes:

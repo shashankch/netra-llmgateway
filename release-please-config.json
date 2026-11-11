@@ -9,7 +9,8 @@
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
         "build.gradle.kts",
-        "console/package.json"
+        "console/package.json",
+        "docs/openapi.yaml"
       ]
     }
   }
