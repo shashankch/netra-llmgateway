@@ -25,7 +25,7 @@
   <text x="600" y="195" text-anchor="middle" fill="#FFFFFF" font-family="Inter, -apple-system, sans-serif" font-size="23" font-weight="800" letter-spacing="-0.5px">The Unified Intelligent Interface for LLMs</text>
   
   <!-- Subtitle -->
-  <text x="600" y="228" text-anchor="middle" fill="#94A3B8" font-family="Inter, -apple-system, sans-serif" font-size="14.5" font-weight="400">Route dynamically across frontier models, eliminate redundant token spend with sub-5ms caching — via one OpenAI-compatible API.</text>
+  <text x="600" y="228" text-anchor="middle" fill="#94A3B8" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="400">Route dynamically across frontier models, eliminate redundant token spend with sub-5ms caching, and ensure zero-downtime inference with one drop-in OpenAI-compatible API.</text>
 
   <!-- 4 Stat Metric Cards (OpenRouter Aesthetic) -->
   <!-- Card 1 -->

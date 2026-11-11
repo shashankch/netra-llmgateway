@@ -1,18 +1,18 @@
 import React from 'react';
 
 /**
- * NETRA Iconic Logo & Wordmark
- * Inspired by modern futuristic AI infrastructure aesthetic (clean geometric aperture / neural lens).
+ * NETRA Brand Emblem and Wordmark.
  *
  * @param {number} size - Size of the icon in pixels (default: 32)
  * @param {boolean} showText - Whether to render the wordmark "netra" (default: true)
  * @param {string} textClassName - Custom class name for the wordmark
- * @param {boolean} isNeon - Whether to render with OpenRouter-style electric neon lime (default: true)
+ * @param {boolean} isNeon - Whether to render with high-visibility accent styling (default: true)
+ * @param {object} style - Additional inline styles for the container
  */
 export default function NetraLogo({ size = 32, showText = true, isNeon = true, style = {} }) {
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: size >= 40 ? '0.75rem' : '0.5rem', ...style }}>
-      {/* Geometric Neural Lens / Aperture Emblem */}
+      {/* Brand Icon Emblem */}
       <svg
         width={size}
         height={size}
@@ -51,7 +51,7 @@ export default function NetraLogo({ size = 32, showText = true, isNeon = true, s
         />
       </svg>
 
-      {/* Wordmark in OpenRouter-style geometric lowercase */}
+      {/* Brand Wordmark */}
       {showText && (
         <span
           style={{

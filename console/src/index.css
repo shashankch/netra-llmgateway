@@ -3,7 +3,7 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 
-  /* Theme tokens: Clean High-Contrast Light Mode (OpenRouter / Vercel style) */
+  /* Theme tokens: Clean High-Contrast Light Mode */
   --bg-canvas: #fafafa;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
@@ -53,7 +53,7 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  /* Theme tokens: Deep Obsidian Dark Mode with Electric Lime (OpenRouter signature style) */
+  /* Theme tokens: Deep Obsidian Dark Mode with Electric Lime */
   --bg-canvas: #06070a;
   --bg-surface: #0a0d14;
   --bg-card: #0d111a;
@@ -70,7 +70,7 @@
   --logo-bg: #d2f823;
   --logo-glyph: #06070a;
 
-  /* OpenRouter signature Electric Lime / Chartreuse */
+  /* Electric Lime / Chartreuse brand accent */
   --accent-primary: #d2f823;
   --accent-primary-hover: #e0fa52;
   --accent-primary-subtle: rgba(210, 248, 35, 0.12);
@@ -156,6 +156,41 @@ code, pre, .font-mono {
   width: 100%;
   margin: 0 auto;
   padding: 1.5rem 2rem;
+}
+
+/* Nav Tab Clean Modern Reset */
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  user-select: none;
+  box-shadow: none !important;
+}
+
+.nav-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover) !important;
+  border-color: transparent !important;
+}
+
+.nav-tab.active {
+  background: var(--bg-card-hover) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 /* Card UI */
@@ -776,9 +811,10 @@ body.modal-open {
 }
 
 /* ==========================================================================
-   OpenRouter Design System Elements (README card, Metric boxes, Pill buttons)
+   Hero Overview & Metric Elements (Banner container, Metric cards, Pill links)
    ========================================================================== */
 
+.hero-banner-container,
 .openrouter-hero-container {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -788,6 +824,7 @@ body.modal-open {
   margin-bottom: 2rem;
 }
 
+.hero-tab-bar,
 .openrouter-tab-bar {
   display: flex;
   align-items: center;
@@ -799,6 +836,7 @@ body.modal-open {
   color: var(--text-muted);
 }
 
+.hero-banner-body,
 .openrouter-banner-body {
   padding: 3.5rem 2rem 2.5rem;
   text-align: center;
@@ -809,6 +847,7 @@ body.modal-open {
   position: relative;
 }
 
+.hero-tagline,
 .openrouter-tagline {
   font-size: 1.5rem;
   font-weight: 800;
@@ -816,6 +855,7 @@ body.modal-open {
   color: var(--text-primary);
 }
 
+.hero-subtext,
 .openrouter-subtext {
   font-size: 1rem;
   color: var(--text-secondary);
@@ -823,6 +863,7 @@ body.modal-open {
   line-height: 1.6;
 }
 
+.hero-stats-grid,
 .openrouter-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -833,17 +874,20 @@ body.modal-open {
 }
 
 @media (max-width: 900px) {
+  .hero-stats-grid,
   .openrouter-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 500px) {
+  .hero-stats-grid,
   .openrouter-stats-grid {
     grid-template-columns: 1fr;
   }
 }
 
+.hero-stat-card,
 .openrouter-stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -853,11 +897,13 @@ body.modal-open {
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
+.hero-stat-card:hover,
 .openrouter-stat-card:hover {
   border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
+.hero-stat-number,
 .openrouter-stat-number {
   font-size: 1.85rem;
   font-weight: 900;
@@ -867,6 +913,7 @@ body.modal-open {
   color: var(--text-primary);
 }
 
+.hero-stat-label,
 .openrouter-stat-label {
   font-size: 0.7rem;
   font-weight: 800;
@@ -876,13 +923,15 @@ body.modal-open {
   margin-top: 0.35rem;
 }
 
+.hero-stat-desc,
 .openrouter-stat-desc {
   font-size: 0.725rem;
   color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
-/* Pill Links Bar (OpenRouter Style) */
+/* Pill Links Bar */
+.hero-pill-bar,
 .openrouter-pill-bar {
   display: flex;
   align-items: center;
@@ -926,7 +975,7 @@ body.modal-open {
   font-family: var(--font-mono);
 }
 
-/* Creator Attribution Pill (Clean OpenRouter / Vercel Aesthetic) */
+/* Creator Attribution Pill */
 .author-nav-badge,
 .author-nav-badge:hover,
 .author-nav-badge:focus,
@@ -973,12 +1022,6 @@ body.modal-open {
   text-decoration: none !important;
 }
 
-@media (max-width: 1240px) {
-  .author-nav-badge {
-    display: none !important;
-  }
-}
-
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -987,7 +1030,7 @@ body.modal-open {
   scrollbar-width: none;
 }
 
-/* Tri-State Theme Segmented Control (OpenRouter Aesthetic) */
+/* Tri-State Theme Segmented Control */
 .theme-segmented-control {
   display: inline-flex;
   align-items: center;
@@ -1028,17 +1071,117 @@ body.modal-open {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-/* Playground Viewport-Bounded Responsive Grid */
+/* Responsive Navbar & Action Toolbar */
+.navbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 860px) {
+  .navbar-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .navbar-nav {
+    order: 3;
+    width: 100%;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-btn-text {
+    display: none;
+  }
+  .docs-nav-link {
+    display: none;
+  }
+  .main-content {
+    padding: 1rem 0.75rem;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.65rem;
+  }
+  .kpi-card {
+    padding: 0.85rem;
+  }
+  .hero-banner-body,
+  .openrouter-banner-body {
+    padding: 2rem 1rem 1.75rem !important;
+  }
+  .hero-tagline,
+  .openrouter-tagline {
+    font-size: 1.35rem !important;
+  }
+  .hero-subtext,
+  .openrouter-subtext {
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Playground Responsive Grid */
 .playground-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 420px) 1fr;
-  gap: 1.5rem;
-  align-items: start;
+  grid-template-columns: 380px 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+  min-height: 500px;
+  height: clamp(520px, calc(100vh - 290px), 700px);
+}
+
+/* Custom internal scrollbar for Playground output box */
+.response-output-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.response-output-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.response-output-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.response-output-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+
+.response-output-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+@media (max-width: 1100px) {
+  .playground-grid {
+    grid-template-columns: minmax(320px, 360px) 1fr;
+  }
 }
 
 @media (max-width: 960px) {
   .playground-grid {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: unset;
+  }
+  .playground-grid > .card {
+    height: auto !important;
+    min-height: 480px !important;
   }
 }
 

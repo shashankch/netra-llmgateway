@@ -4,7 +4,7 @@
 <br/>
 
   <p align="center">
-    <strong>Sovereign AI Gateway and tenant-isolated semantic cache with drop-in OpenAI API compatibility, dynamic cost arbitrage routing, and instant phantom spend reclamation.</strong>
+    <strong>Route dynamically across frontier models, eliminate redundant token spend with sub-5ms caching, and ensure zero-downtime inference with one drop-in OpenAI-compatible API.</strong>
   </p>
 
   <p align="center">
@@ -17,10 +17,11 @@
   </p>
 
   <p align="center">
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-ci.yml"><img src="https://img.shields.io/badge/Gateway_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Gateway CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/console-ci.yml"><img src="https://img.shields.io/badge/Console_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Console CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-verification.yml"><img src="https://img.shields.io/badge/Verification_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Gateway Verification CI"/></a>
-    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/badge/Docs_CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="Docs CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/releases/latest"><img src="https://img.shields.io/github/v/release/shashankch/netra-llmgateway?color=059669&label=release&logo=github&labelColor=0B0F19&style=flat" alt="Latest Release"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/shashankch/netra-llmgateway/gateway-ci.yml?branch=main&label=Gateway_CI&logo=githubactions&logoColor=white&labelColor=0B0F19&style=flat" alt="Gateway CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/console-ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/shashankch/netra-llmgateway/console-ci.yml?branch=main&label=Console_CI&logo=githubactions&logoColor=white&labelColor=0B0F19&style=flat" alt="Console CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-verification.yml"><img src="https://img.shields.io/github/actions/workflow/status/shashankch/netra-llmgateway/gateway-verification.yml?branch=main&label=Verification_CI&logo=githubactions&logoColor=white&labelColor=0B0F19&style=flat" alt="Gateway Verification CI"/></a>
+    <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/shashankch/netra-llmgateway/docs.yml?branch=main&label=Docs_CI&logo=githubactions&logoColor=white&labelColor=0B0F19&style=flat" alt="Docs CI"/></a>
   </p>
 
   <p align="center">
@@ -52,7 +53,7 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 <p align="center">
   <img src="docs/diagrams/00_readme_architecture_dark.svg" alt="NETRA System Architecture Diagram" width="100%">
   <br>
-  <em>Figure 1: NETRA End-to-End Request Pipeline &amp; Storage Topology (<a href="docs/diagrams/00_readme_architecture_dark.svg">Dark Theme</a> · <a href="docs/diagrams/00_readme_architecture.d2">D2 Source</a>)</em>
+  <em>Figure 1: NETRA End-to-End Request Pipeline &amp; Storage Topology</em>
 </p>
 
 ---
@@ -61,7 +62,7 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 
 | Capability | Technical Implementation | Production Impact |
 |---|---|---|
-| **⚡ Virtual Threads Data Plane** | Java 25 LTS Virtual Threads (`spring.threads.virtual.enabled=true`) | Eliminates OS thread starvation; serves 10,000+ unbuffered streaming SSE sessions with sub-20ms TTFT. |
+| **⚡ Virtual Threads Data Plane** | Java 25 LTS Virtual Threads & Scoped Values (JEP 506) | Eliminates OS thread starvation; serves 10,000+ unbuffered streaming SSE sessions with sub-20ms TTFT. |
 | **🛡️ Race-Safe Atomic Admission** | Atomic Redis 8.0 Lua scripts with rolling-window ZSETs | Enforces strict RPM and monthly budget caps with **zero over-admission guarantee** under high-concurrency bursts, compliant with standardized IETF RateLimit protocol headers. |
 | **🔄 Resilience & Circuit Breakers** | Resilience4j circuit breakers + ordered multi-provider fallback chains | Fast-failover across providers in **<0.05ms** without dead network hops, bounded candidate chain deadline budgets (15s), and small-model refusal auto-escalation. |
 | **🧠 Intelligent Prompt Classifier** | Two-stage task instruction signals decoupled from raw token payload | Automatically routes queries to cost-effective (`fast`) or reasoning (`smart`) models with 100% benchmark accuracy (~72.4% cost savings). |
@@ -69,7 +70,7 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 | **🔌 Phantom Spend Reclaim** | Instant client TCP/HTTP2 stream disconnect detection (`Broken pipe`) | Halts upstream generation in **<2ms**, eliminating 100% of phantom token spend on cancelled or abandoned client sessions. |
 | **📊 Exact Micro-Cost Accounting** | Java `BigDecimal` arithmetic scaled to 6 decimal places (`$0.000000 USD`) | Eliminates IEEE-754 floating-point drift; guarantees exact reconciliation between client telemetry headers, ledgers, and live Forex (USD/INR). |
 | **⚙️ Canonical Telemetry Contract** | Strict `x-netra-*` and standardized IETF RateLimit headers | Transparent full-stack observability on provider selection, cache tier, failover status, routing rationale, retries, and quota limits. |
-| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`console/`) with dark/light themes | OpenRouter-grade analytics, live provider health matrix, real-time SSE audit stream, virtual key manager, semantic cache viewer with smart match and prompt content modal, and 1-click prompt evaluation sandbox. |
+| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`console/`) with dark/light themes | Enterprise-grade analytics, live provider health matrix, real-time SSE audit stream, virtual key manager, semantic cache viewer with smart match and prompt content modal, and 1-click prompt evaluation sandbox. |
 | **🌐 Pluggable Multi-Tier Deploy** | Out-of-the-box descriptors for Docker Compose, PaaS, and Cloud VPS | Turnkey 1-click deployment across Railway, Render, Fly.io, OCI Always Free, and AWS Free Tier. |
 
 ---
@@ -96,7 +97,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.7.1"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -132,7 +133,7 @@ curl -i -X POST http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-**Response Telemetry Headers:**
+**Response Telemetry Headers & Body:**
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -146,6 +147,28 @@ RateLimit-Limit: 60
 RateLimit-Remaining: 59
 RateLimit-Reset: 60
 RateLimit-Policy: 60;w=60
+
+{
+  "id": "chatcmpl-7f8b9a2c",
+  "object": "chat.completion",
+  "created": 1729891200,
+  "model": "alpha-small",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "A message queue is an asynchronous communications protocol that enables decoupled components to produce and consume messages reliably."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 25,
+    "total_tokens": 37
+  }
+}
 ```
 
 ### 3. Stream a Completion via Server-Sent Events (SSE)
@@ -200,10 +223,17 @@ curl -i -X POST http://localhost:8080/v1/chat/completions \
 **Routing Telemetry Headers:**
 ```http
 HTTP/1.1 200 OK
+Content-Type: application/json
 x-netra-provider: alpha/alpha-large
+x-netra-cache: miss
 x-netra-fallback: false
+x-netra-cost-usd: 0.000072
 x-netra-route-reason: auto -> smart (score +3.5): +3.5 proof/derivation demand
 x-netra-retries: 0
+RateLimit-Limit: 300
+RateLimit-Remaining: 299
+RateLimit-Reset: 60
+RateLimit-Policy: 300;w=60
 ```
 
 ### 5. Semantic Vector Cache & $0 Cost Deduplication
@@ -225,6 +255,7 @@ curl -i -X POST http://localhost:8080/v1/chat/completions \
 **Cache Hit Telemetry Headers:**
 ```http
 HTTP/1.1 200 OK
+Content-Type: application/json
 x-netra-provider: alpha/alpha-small
 x-netra-cache: hit
 x-netra-cache-tier: tier2_semantic
@@ -232,6 +263,10 @@ x-netra-fallback: false
 x-netra-cost-usd: 0.000000
 x-netra-route-reason: semantic_cache_hit
 x-netra-retries: 0
+RateLimit-Limit: 60
+RateLimit-Remaining: 58
+RateLimit-Reset: 58
+RateLimit-Policy: 60;w=60
 ```
 
 Inspect cache statistics and hit rates:
@@ -240,13 +275,68 @@ curl -i http://localhost:8080/admin/cache/stats \
   -H "Authorization: Bearer netra-admin-demo"
 ```
 
+**Cache Statistics Output:**
+```json
+{
+  "total_entries": 1,
+  "total_hits": 1,
+  "total_misses": 0,
+  "hit_rate": 1.00,
+  "tier1_exact_hits": 0,
+  "tier2_semantic_hits": 1,
+  "keys": {
+    "netra-sk-search-1a2b3c": {
+      "entries": 1,
+      "hits": 1,
+      "misses": 0,
+      "hit_rate": 1.00,
+      "tier1_exact_hits": 0,
+      "tier2_semantic_hits": 1,
+      "similarity_threshold": 0.920,
+      "cache_enabled": true
+    }
+  }
+}
+```
+
+Inspect live provider health and circuit breaker telemetry:
+```bash
+curl -i http://localhost:8080/admin/providers/health \
+  -H "Authorization: Bearer netra-admin-demo"
+```
+
+**Provider Health Telemetry Output:**
+```json
+[
+  {
+    "provider": "mock-alpha",
+    "circuit_state": "CLOSED",
+    "failure_rate": 0.0,
+    "slow_call_rate": 0.0,
+    "p95_latency_ms": 42.15,
+    "total_calls": 24,
+    "failed_calls": 0
+  }
+]
+```
+
 ### 6. Run Automated Verification & Evaluation Suites
-Execute the contract smoke tests, routing accuracy benchmark, and semantic cache evaluation:
+Execute the contract smoke tests, routing accuracy benchmark, concurrency load tests, and v2 hardening suites:
 
 ```bash
-make smoke
-make routing-eval
-make cache-eval
+# Core Verification Suite (v1)
+make smoke              # 17 contract checks (headers, streaming, auth, 4xx)
+make routing-eval       # 20 prompt difficulty trap cases (auto classifier)
+make cache-eval         # Paraphrase match, near-miss rejection, $0 deduplication
+make load               # 30-request concurrency burst (asserts 0.00% over-admission)
+
+# Hardening Verification Suite (v2)
+make chaos              # Abrupt client socket drops, budget limits, vector faults
+make cache-fuzz         # Cross-tenant vector isolation & refusal suppression
+make stress             # Sustained concurrency throughput & TTFT percentiles
+
+# Run Complete Suite
+make verify-all         # Executes all 7 verification drills sequentially
 ```
 
 ### 7. Launch & Serve Operations Console UI
@@ -263,6 +353,26 @@ make console-dev        # or: cd console && npm install && npm run dev
 make console-build
 make console-serve      # or: cd console && npm run preview
 ```
+
+### 8. Essential Environment Variables
+
+#### Backend Gateway (`.env`)
+| Variable | Default / Example | Purpose |
+|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | `dev` (or `prod`) | Profile selector: `dev` for local mock providers, `prod` for OpenRouter / live upstream |
+| `OPENROUTER_API_KEY` | `sk-or-v1-...` | API key for unified 500+ model routing via OpenRouter |
+| `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
+| `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC local/private model endpoint (vLLM / Ollama) |
+| `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/netra` | PostgreSQL JDBC connection string (auto-resolved in Docker) |
+| `SPRING_DATA_REDIS_HOST` | `localhost` | Redis host for atomic rate limiting and admission control |
+| `CLOUDFLARE_TUNNEL_TOKEN` | `eyJhIjoi...` | *(Optional)* Zero-Open-Port Cloudflare Tunnel token for ingress |
+
+#### Frontend Operations Console (`console/.env`)
+| Variable | Default / Example | Purpose |
+|---|---|---|
+| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway-netrallm.avadhanlabs.dev`) |
+| `VITE_BACKEND_TARGET` | `http://localhost:8080` | Backend target used by Vite dev server reverse proxy |
 
 ---
 
@@ -319,14 +429,14 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | `make routing-eval` | Runs prompt difficulty classifier accuracy benchmark on `data/routing_eval.jsonl` |
 | `make cache-eval` | Runs semantic vector cache hit and tenant isolation benchmark |
 | `make load` | Runs burst concurrency load test asserting zero over-admission |
-| `make chaos` | Runs Enterprise v2 fault injection, socket abort, and budget drills |
-| `make cache-fuzz` | Runs Enterprise v2 adversarial vector cache and privacy auditor |
-| `make stress` | Runs Enterprise v2 high-concurrency throughput and TTFT benchmark |
+| `make chaos` | Runs v2 fault injection, socket abort, and budget drills |
+| `make cache-fuzz` | Runs v2 adversarial vector cache and privacy auditor |
+| `make stress` | Runs v2 high-concurrency throughput and TTFT benchmark |
 | `make verify-all` | Executes complete end-to-end verification harness (v1 + v2) |
 | `make console-dev`| Starts React 19 Ops Console in Vite hot-reload development mode |
 | `make console-build`| Builds optimized production React 19 Ops Console bundle |
 | `make console-serve`| Serves production-built React 19 Ops Console bundle on port 3000 |
-| `make docs-serve`| Starts live-reloading Zensical developer documentation |
+| `make docs-serve`| Starts live-reloading developer documentation |
 | `make docs-build`| Builds strict static production documentation distribution |
 
 ---
@@ -339,7 +449,7 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | **Tier 2: Developer PaaS** | Railway, Render, Fly.io, Vercel | `deploy/paas/` (`railway.toml`, `render.yaml`, `fly.toml`, `vercel.json`) | Turnkey auto-assigned HTTPS edge routes |
 | **Tier 3: Production Cloud VM & VPS** | AWS EC2, GCP, OCI Compute, Hetzner | `deploy/cloud-vps/setup-vps.sh` | Zero-open-port Cloudflare Zero Trust tunnel |
 | **Reference Cloud Ingress** | `avadhanlabs.dev` (Demo / Pre-Prod Reference) | Custom domain DNS / Tunnel mapping | `gateway-netrallm.avadhanlabs.dev` • `console-netrallm.avadhanlabs.dev` • `docs-netrallm.avadhanlabs.dev` |
-| **Documentation Site** | GitHub Pages (Zensical SSG) | `zensical.toml` | [docs-netrallm.avadhanlabs.dev](https://docs-netrallm.avadhanlabs.dev/) |
+| **Documentation Site** | GitHub Pages | `zensical.toml` | [docs-netrallm.avadhanlabs.dev](https://docs-netrallm.avadhanlabs.dev/) |
 
 ---
 

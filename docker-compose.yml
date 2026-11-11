@@ -49,10 +49,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mock-alpha:
-        condition: service_started
-      mock-beta:
-        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -99,6 +95,9 @@ services:
     volumes:
       - ./scripts:/scripts:ro
     command: python3 /scripts/mock_provider.py --port 9001 --name alpha
+    profiles:
+      - dev
+      - test
 
   mock-beta:
     image: python:3.11-slim
@@ -109,6 +108,9 @@ services:
     volumes:
       - ./scripts:/scripts:ro
     command: python3 /scripts/mock_provider.py --port 9002 --name beta
+    profiles:
+      - dev
+      - test
 
   console:
     build:

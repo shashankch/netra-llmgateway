@@ -72,6 +72,31 @@ Every successful response from NETRA includes canonical telemetry headers:
 | `x-netra-retries` | `0` | Number of upstream network retries executed. |
 | `x-netra-escalated` | `true` | Emitted when a small-model refusal was automatically escalated to the smart reasoning tier. |
 
+#### Response Body (200 OK — Non-Streaming)
+```json
+{
+  "id": "chatcmpl-7f8b9a2c",
+  "object": "chat.completion",
+  "created": 1729891200,
+  "model": "alpha-small",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Vector embeddings represent text as dense numerical coordinates in a high-dimensional space capturing semantic meaning."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 20,
+    "total_tokens": 32
+  }
+}
+```
+
 #### Standardized IETF RateLimit Protocol Headers (`draft-ietf-httpapi-ratelimit-headers`)
 In full compliance with modern enterprise API standards, NETRA emits standardized rate-limiting headers on all responses:
 
@@ -143,6 +168,7 @@ Deep synthetic readiness probe for Kubernetes and container PaaS environments. V
   "status": "DEGRADED",
   "database": "DOWN",
   "redis": "UP",
+  "seeder": "READY",
   "version": "0.7.0"
 }
 ```
@@ -200,7 +226,17 @@ Chronological audit log entries, newest first, including all rejected requests (
 Authorization: Bearer netra-admin-demo
 ```
 
-#### Response (200 OK)
+#### Response Headers
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+X-Total-Count: 1420
+X-Page-Number: 0
+X-Page-Size: 50
+X-Total-Pages: 29
+```
+
+#### Response Body (200 OK)
 ```json
 [
   {
@@ -236,7 +272,7 @@ Returns aggregate semantic vector cache hit rates, entry counts, and per-tenant 
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Response (200 OK)
 ```json
@@ -271,7 +307,7 @@ Inspects stored semantic and exact cache completions, query prompts, models, hit
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Query Parameters
 | Parameter | Type | Required | Description |
@@ -316,7 +352,7 @@ Evicts a cached completion entry by UUID from both PostgreSQL `pgvector` storage
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Response (200 OK)
 ```json
@@ -335,7 +371,7 @@ Returns all configured virtual keys, active RPM quotas, monthly budget caps, cur
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Response (200 OK)
 ```json
@@ -367,7 +403,7 @@ Provisions a new virtual API key for a tenant or application with automated near
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 | `Content-Type` | string | **Yes** | `application/json` |
 
 #### Request Body
@@ -380,6 +416,25 @@ Provisions a new virtual API key for a tenant or application with automated near
   "model_allowlist": ["fast", "smart", "auto"],
   "semantic_cache_enabled": true,
   "similarity_threshold": 0.880
+}
+```
+
+#### Response (201 Created)
+```json
+{
+  "id": "c1d2e3f4-5a6b-7c8d-9e0f-1a2b3c4d5e6f",
+  "virtual_key": "netra-sk-finance-demo",
+  "team": "Finance Core",
+  "monthly_budget_usd": 250.000000,
+  "current_spend_usd": 0.000000,
+  "rpm_limit": 60,
+  "tpm_limit": 100000,
+  "model_allowlist": ["fast", "smart", "auto"],
+  "semantic_cache_enabled": true,
+  "similarity_threshold": 0.880,
+  "is_active": true,
+  "status": "ACTIVE",
+  "created_at": "2026-10-24T15:30:00Z"
 }
 ```
 
@@ -397,7 +452,7 @@ Updates an existing virtual API key's quotas, allowlists, cache configuration, o
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 | `Content-Type` | string | **Yes** | `application/json` |
 
 #### Request Body
@@ -413,7 +468,23 @@ Updates an existing virtual API key's quotas, allowlists, cache configuration, o
 ```
 
 #### Response (200 OK)
-Returns the updated tenant record (`TenantAdminResponse`).
+```json
+{
+  "id": "c1d2e3f4-5a6b-7c8d-9e0f-1a2b3c4d5e6f",
+  "virtual_key": "netra-sk-finance-demo",
+  "team": "Finance Core",
+  "monthly_budget_usd": 500.000000,
+  "current_spend_usd": 12.450000,
+  "rpm_limit": 120,
+  "tpm_limit": 100000,
+  "model_allowlist": ["fast", "smart", "auto"],
+  "semantic_cache_enabled": true,
+  "similarity_threshold": 0.900,
+  "is_active": true,
+  "status": "ACTIVE",
+  "created_at": "2026-10-24T15:30:00Z"
+}
+```
 
 ---
 
@@ -429,7 +500,7 @@ Revokes an active virtual API key. Subsequent completion requests from this key 
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Response (204 No Content)
 Returns empty body upon successful revocation.
@@ -443,7 +514,7 @@ Issues a short-lived (60-second), cryptographically generated single-use ticket 
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Response (200 OK)
 ```json
@@ -468,7 +539,7 @@ Real-time Server-Sent Events (SSE) stream broadcasting newly recorded audit log 
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | No | `Bearer <admin-secret>` (Alternative to `ticket`). |
+| `Authorization` | string | No | `Bearer <admin-token>` (Alternative to `ticket`). |
 
 #### Stream Event Output (`text/event-stream`)
 ```http
@@ -503,7 +574,7 @@ Returns configured model aliases, active pricing rates per 1M tokens, fallback c
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Response (200 OK)
 ```json
@@ -561,7 +632,7 @@ Exposes live provider health snapshots, sliding-window latency profiles, and aut
 #### Request Headers
 | Header | Type | Required | Description |
 |---|---|---|---|
-| `Authorization` | string | **Yes** | `Bearer <admin-secret>` |
+| `Authorization` | string | **Yes** | `Bearer <admin-token>` |
 
 #### Response (200 OK)
 ```json
