@@ -29,7 +29,8 @@ export default function Navbar({
   const healthState = useGatewayHealth();
   const { isOnline, isChecking, latencyMs } = healthState;
 
-  const displayVersion = `v${CONSOLE_VERSION}`;
+  const rawVersion = healthState?.version || CONSOLE_VERSION;
+  const displayVersion = rawVersion ? (rawVersion.startsWith('v') ? rawVersion : `v${rawVersion}`) : `v${CONSOLE_VERSION}`;
 
   // Multi-Environment & Health Status Matrix for Navbar Indicators
   const getStatusDot = () => {
