@@ -17,10 +17,6 @@ const getInitialTab = () => {
   if (hash && VALID_TABS.includes(hash)) {
     return hash;
   }
-  const saved = localStorage.getItem('netra_active_tab');
-  if (saved && VALID_TABS.includes(saved) && saved !== 'landing') {
-    return saved;
-  }
   return 'landing';
 };
 
@@ -30,7 +26,6 @@ export default function App() {
 
   const setActiveTab = (tab) => {
     setActiveTabState(tab);
-    localStorage.setItem('netra_active_tab', tab);
     if (tab === 'landing') {
       if (window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -45,10 +40,8 @@ export default function App() {
       const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
       if (hash && VALID_TABS.includes(hash)) {
         setActiveTabState(hash);
-        localStorage.setItem('netra_active_tab', hash);
       } else if (!hash) {
         setActiveTabState('landing');
-        localStorage.setItem('netra_active_tab', 'landing');
       }
     };
     window.addEventListener('hashchange', handleHashChange);

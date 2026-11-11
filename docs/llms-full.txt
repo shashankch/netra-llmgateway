@@ -45,7 +45,7 @@ NETRA is an enterprise-grade sovereign AI gateway and tenant-isolated semantic v
 - Enterprise-grade analytics: Total Spend, Request Volume, Token Volume Distribution, Semantic Cache Hit Rate %, Average Latency / TTFT.
 - Seamless Dark & Light theme engine with OS preference auto-detection.
 - Single-denomination USD/INR toggle with dynamic live forex conversion.
-- Developer Sandbox with 1-click model badges (fast/smart/auto), Stream/JSON slider toggle, and grouped benchmark evaluation suites (Pair A/B, near-miss).
+- Interactive Playground with 1-click model badges (fast/smart/auto), zero-dependency Markdown renderer with copyable code blocks, [Markdown | Raw] toggle, and grouped benchmark evaluation suites.
 
 ## Error Model
 Standard OpenAI JSON format:

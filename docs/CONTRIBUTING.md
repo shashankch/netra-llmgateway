@@ -46,8 +46,8 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
 
 6. **Commit Message Conventions:**
    NETRA adheres to the **Conventional Commits** specification (`v1.0.0`) to drive automated semantic releases via Google's Release Please bot:
-   - `feat:` Introduces a new feature or capability (triggers a minor release, e.g. `0.7.1` &rarr; `0.8.0`).
-   - `fix:` Fixes a bug or recovers degraded behavior (triggers a patch release, e.g. `0.7.1` &rarr; `0.7.2`).
+   - `feat:` Introduces a new feature or capability (triggers a minor release, e.g. `0.7.3` &rarr; `0.8.0`).
+   - `fix:` Fixes a bug or recovers degraded behavior (triggers a patch release, e.g. `0.7.3` &rarr; `0.7.4`).
    - `feat!:` or `BREAKING CHANGE:` Introduces a breaking API change (triggers a major release).
    - `docs:`, `chore:`, `refactor:`, `test:`, `ci:` Internal maintenance or documentation updates (no release triggered).
 

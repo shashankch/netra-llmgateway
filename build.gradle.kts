@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.netra.gateway"
-version = "0.7.1"
+version = "0.7.3" // x-release-please-version
 
 java {
     toolchain {

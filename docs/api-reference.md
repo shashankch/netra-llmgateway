@@ -141,7 +141,7 @@ Basic service ping and container liveness probe. Returns operational status and 
 {
   "status": "ok",
   "service": "netra-gateway",
-  "version": "0.7.0"
+  "version": "0.7.3"
 }
 ```
 
@@ -158,7 +158,7 @@ Deep synthetic readiness probe for Kubernetes and container PaaS environments. V
   "database": "UP",
   "redis": "UP",
   "seeder": "READY",
-  "version": "0.7.0"
+  "version": "0.7.3"
 }
 ```
 
@@ -169,7 +169,7 @@ Deep synthetic readiness probe for Kubernetes and container PaaS environments. V
   "database": "DOWN",
   "redis": "UP",
   "seeder": "READY",
-  "version": "0.7.0"
+  "version": "0.7.3"
 }
 ```
 

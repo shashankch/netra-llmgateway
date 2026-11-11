@@ -46,7 +46,7 @@ make dev
 - <img src="assets/icons/terminal.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Mock Provider Beta (dev profile):** `http://localhost:9002`
 
 !!! info "Docker Compose Profiles: Clean Production vs. Development"
-    Mock upstream containers (`mock-alpha`, `mock-beta`) are isolated under `profiles: ["dev", "test"]`. Standard `docker compose up -d` boots only real infrastructure without mock test doubles, eliminating unnecessary CPU/RAM overhead in production environments.
+    Mock upstream containers (`mock-alpha`, `mock-beta`) and the local Ops Console container (`console`) are isolated under profiles (`["dev", "test"]` and `["local", "console"]`). Standard `docker compose up -d` boots strictly core backend data plane infrastructure (`gateway`, `postgres`, `redis`), eliminating unnecessary memory overhead in production environments where the UI is hosted on Vercel.
 
 !!! tip "Port Allocation & Local vLLM Drills"
     The documentation preview server (`make docs-serve`) binds to port 8000 by default. If testing with an in-VPC vLLM instance locally on port 8000, specify an alternate port (`uv run --with zensical zensical serve --dev-addr 127.0.0.1:8008`) or route to `VLLM_BASE_URL=http://localhost:8001/v1`.
@@ -82,8 +82,8 @@ cd console && vercel --prod
 #### Backend Gateway (`.env`)
 | Variable | Default / Example | Purpose |
 |---|---|---|
-| `SPRING_PROFILES_ACTIVE` | `dev` (or `prod`) | Profile selector: `dev` for local mock providers, `prod` for OpenRouter / live upstream |
-| `OPENROUTER_API_KEY` | `sk-or-v1-...` | API key for unified 500+ model routing via OpenRouter |
+| `SPRING_PROFILES_ACTIVE` | `dev` (or `prod`) | Profile selector: `dev` for local mock providers, `prod` for live upstream providers |
+| `OPENROUTER_API_KEY` | `sk-or-v1-...` | API key for upstream model aggregator routing (OpenRouter / compatible endpoints) |
 | `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
 | `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC private endpoint (vLLM / Ollama) |
 | `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |
@@ -162,18 +162,39 @@ When deploying to production with a custom domain (e.g. registered via Name.com)
 | **Operations Console** | `https://console-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Vercel &rarr; Port `3000` | Browser or `curl -I https://console-netrallm.avadhanlabs.dev` |
 | **Documentation Site** | `https://docs-netrallm.avadhanlabs.dev` | GitHub Pages | `curl -I https://docs-netrallm.avadhanlabs.dev` |
 
-**DNS Configuration (Name.com / Cloudflare Zero Trust):**
-* `gateway-netrallm` (CNAME) -> Cloudflare Tunnel UUID target or VPS public IP.
-* `console-netrallm` (CNAME) -> Cloudflare Tunnel target or `cname.vercel-dns.com`.
-* `docs-netrallm` (CNAME) -> `shashankch.github.io.` (GitHub Pages custom domain — configure as **DNS Only / Gray Cloud** in Cloudflare so GitHub Pages can issue and terminate the Let's Encrypt SSL certificate directly without Error 525).
+#### DNS Records Configuration
+
+Configure the following CNAME records in your DNS management provider (e.g. Name.com or Cloudflare Zero Trust):
+
+- **`gateway-netrallm` (CNAME):**  
+  Points to the Cloudflare Tunnel UUID target or your VPS public IP.
+
+- **`console-netrallm` (CNAME):**  
+  Points to the Cloudflare Tunnel target or Vercel edge router (`cname.vercel-dns.com`).
+
+- **`docs-netrallm` (CNAME):**  
+  Points to `shashankch.github.io.` (GitHub Pages custom domain).
+
+!!! tip "Cloudflare SSL / Gray Cloud Configuration for GitHub Pages"
+    Configure the `docs-netrallm` record as **DNS Only (Gray Cloud)** in Cloudflare. This ensures GitHub Pages can independently verify domain ownership and issue Let's Encrypt TLS certificates without triggering Cloudflare Error 525 (SSL Handshake Failed).
+
+---
 
 ### 3.6 Ops Console Connectivity & Cloud Free-Tier Safeguards
 
 The Ops Console includes native configuration controls to communicate across origins:
-- **Configurable Gateway Endpoint:** Supports both Same-Origin deployments (empty string, proxies `/v1` and `/admin`) and Custom Remote endpoints (e.g., `https://gateway-netrallm.avadhanlabs.dev`) with a 1-click "Use Default Origin" reset.
-- **High-Precedence CORS Filter:** The gateway runs a dedicated `FilterRegistrationBean<CorsFilter>` bean configured at `Ordered.HIGHEST_PRECEDENCE`, intercepting preflight `OPTIONS` requests before Spring security/servlet dispatchers to permit cross-subdomain API calls.
-- **Interactive Connectivity Probe:** Provides real-time gateway reachability and round-trip latency pings (`GET /health`) directly from the settings dialog.
-- **Free-Tier Friendly Health Polling:** Background health monitoring uses the Page Visibility API (suspends polling when the browser tab is hidden), adaptive exponential backoff (30s baseline to 120s backoff), and an operator toggle to avoid waking sleeping or scale-to-zero compute instances.
+
+- **Configurable Gateway Endpoint:**  
+  Supports both Same-Origin deployments (empty string, proxying `/v1` and `/admin` through Vite or Vercel) and Custom Remote endpoints (e.g., `https://gateway-netrallm.avadhanlabs.dev`) with a 1-click "Use Default Origin" reset button.
+
+- **High-Precedence CORS Filter:**  
+  The gateway runs a dedicated `FilterRegistrationBean<CorsFilter>` bean configured at `Ordered.HIGHEST_PRECEDENCE`, intercepting preflight `OPTIONS` requests before Spring security/servlet dispatchers to permit cross-subdomain API calls.
+
+- **Interactive Connectivity Probe:**  
+  Provides real-time gateway reachability and round-trip latency pings (`GET /health`) directly from the settings dialog.
+
+- **Free-Tier Friendly Health Polling:**  
+  Background health monitoring uses the Page Visibility API (suspends polling when the browser tab is hidden), adaptive exponential backoff (30s baseline extending to 120s backoff), and an operator toggle to avoid waking sleeping or scale-to-zero compute instances.
 
 ---
 
@@ -207,7 +228,7 @@ Deploy gateway pods to Amazon EKS, Azure Kubernetes Service (AKS), Google GKE, o
 ```yaml
 containers:
 - name: gateway
-  image: ghcr.io/shashankch/netra-gateway:latest # Or pin to release tag, e.g. ghcr.io/shashankch/netra-gateway:0.7.1
+  image: ghcr.io/shashankch/netra-gateway:latest # Or pin to release tag, e.g. ghcr.io/shashankch/netra-gateway:0.7.3
   ports:
   - containerPort: 8080
   env:

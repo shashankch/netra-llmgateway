@@ -30,7 +30,7 @@ public class HealthController {
     private com.netra.gateway.service.CanonicalDataSeeder canonicalDataSeeder;
 
     private String getVersion() {
-        return buildProperties != null ? buildProperties.getVersion() : "0.7.1";
+        return buildProperties != null ? buildProperties.getVersion() : "0.7.3";
     }
 
     @GetMapping("/health")

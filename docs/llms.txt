@@ -27,7 +27,7 @@
 ## Operations Console (`console/`)
 - Modern React 19 / Vite 6 console with enterprise-grade analytics suite.
 - 5 Headline KPI cards, 4 interactive SVG charts, single-denomination USD/INR toggle, dark/light theme engine.
-- Developer Sandbox with 1-click model badges (fast/smart/auto), Stream/JSON slider toggle, and grouped benchmark evaluation suites (Pair A/B, near-miss).
+- Interactive Playground with 1-click model badges (fast/smart/auto), zero-dependency Markdown renderer with copyable code blocks, [Markdown | Raw] toggle, and grouped benchmark evaluation suites.
 
 ## Documentation Links
 - System Overview & Ingress Topology: docs/index.md

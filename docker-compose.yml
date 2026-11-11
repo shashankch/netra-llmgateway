@@ -123,6 +123,9 @@ services:
     depends_on:
       gateway:
         condition: service_healthy
+    profiles:
+      - local
+      - console
 
   cloudflared:
     image: cloudflare/cloudflared:latest
