@@ -15,7 +15,7 @@ This document reports empirical verification results and benchmark outputs for *
 | **Financial Reconciliation** | Exact client vs. ledger match | 100.00% exact match ($0.000000 delta) | **PASS** |
 | **Prompt Routing Accuracy** | ≥ 80.0% accuracy on benchmark | 20/20 (100.00%) accuracy | **PASS** |
 | **Semantic Cache Evaluation** | Paraphrase hit, near-miss rejected, tenant isolated | 16/16 checks passed ($0.000000 cache cost) | **PASS** |
-| **Enterprise Chaos Resilience** | Broken pipe abort, budget cap, socket recovery | 3/3 chaos drills passed | **PASS** |
+| **Chaos Resilience Drill** | Broken pipe abort, budget cap, socket recovery | 3/3 chaos drills passed | **PASS** |
 | **Adversarial Cache Fuzzing** | 0% cross-tenant bleed, refusal suppression | 4/4 probes passed | **PASS** |
 | **High-Concurrency Stress** | ≥ 50 req/s throughput under load | 61.20 req/s, p50 42.15ms, 0 errors | **PASS** |
 | **Pass-Through Overhead** | < 1.0ms added gateway latency | 0.22ms p50 overhead | **PASS** |
@@ -28,7 +28,8 @@ The smoke test (`scripts/smoke_test.py`) verifies OpenAI wire compatibility, res
 
 ### Command
 ```bash
-python3 scripts/smoke_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --model fast
+make smoke
+# or: python3 scripts/smoke_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --model fast
 ```
 
 ### Output
@@ -79,8 +80,9 @@ The concurrency load test (`scripts/load_test.py`) fires a burst of 30 cache-bus
 
 ### Command
 ```bash
-python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i \
-    --model fast --requests 30 --concurrency 10 --rpm-limit 10
+make load
+# or: python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i \
+#         --model fast --requests 30 --concurrency 10 --rpm-limit 10
 ```
 
 ### Output
@@ -123,7 +125,8 @@ The routing evaluation (`scripts/run_routing_eval.py`) validates the prompt diff
 
 ### Command
 ```bash
-python3 scripts/run_routing_eval.py --offline
+make routing-eval
+# or: python3 scripts/run_routing_eval.py --offline
 ```
 
 ### Output
@@ -192,7 +195,8 @@ The semantic vector cache evaluation (`scripts/run_cache_eval.py`) validates in-
 
 ### Command
 ```bash
-python3 scripts/run_cache_eval.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --alt-key netra-sk-research-4d5e6f
+make cache-eval
+# or: python3 scripts/run_cache_eval.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --alt-key netra-sk-research-4d5e6f
 ```
 
 ### Output
@@ -240,13 +244,14 @@ Results: 16 passed, 0 failed
 
 ---
 
-## 5. Enterprise v2 Chaos & Fault Injection Drill
+## 5. v2 Chaos & Fault Injection Drill
 
 The chaos resilience drill (`scripts/v2/chaos_drill.py`) validates gateway behavior under abrupt socket severing, hard budget exhaustion, and negative boundary conditions.
 
 ### Command
 ```bash
-python3 scripts/v2/chaos_drill.py --url http://localhost:8080
+make chaos
+# or: python3 scripts/v2/chaos_drill.py --url http://localhost:8080
 ```
 
 ### Output
@@ -274,13 +279,14 @@ python3 scripts/v2/chaos_drill.py --url http://localhost:8080
 
 ---
 
-## 6. Enterprise v2 Semantic Cache Adversarial Fuzzer
+## 6. v2 Semantic Cache Adversarial Fuzzer
 
 The adversarial fuzzer (`scripts/v2/cache_fuzzer.py`) verifies cross-tenant cryptographic boundaries, refusal suppression, and multi-turn dialogue history canonicalization.
 
 ### Command
 ```bash
-python3 scripts/v2/cache_fuzzer.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --alt-key netra-sk-research-4d5e6f
+make cache-fuzz
+# or: python3 scripts/v2/cache_fuzzer.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --alt-key netra-sk-research-4d5e6f
 ```
 
 ### Output
@@ -322,13 +328,14 @@ python3 scripts/v2/cache_fuzzer.py --url http://localhost:8080 --key netra-sk-se
 
 ---
 
-## 7. Enterprise v2 High-Concurrency Stress Benchmark
+## 7. v2 High-Concurrency Stress Benchmark
 
 The high-concurrency stress benchmark (`scripts/v2/stress_test.py`) assesses gateway throughput, Requests Per Second (RPS), and latency percentiles under sustained concurrent load.
 
 ### Command
 ```bash
-python3 scripts/v2/stress_test.py --url http://localhost:8080 --key netra-sk-research-4d5e6f --concurrency 10 --duration 5
+make stress
+# or: python3 scripts/v2/stress_test.py --url http://localhost:8080 --key netra-sk-research-4d5e6f --concurrency 10 --duration 5
 ```
 
 ### Output
@@ -354,4 +361,14 @@ End-to-End Latency:
   p95:                  64.20 ms
   p99:                  82.10 ms
 -------------------------
+```
+
+---
+
+## 8. Full End-to-End Verification Harness
+
+To execute all 7 verification gates sequentially:
+
+```bash
+make verify-all
 ```

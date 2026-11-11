@@ -8,14 +8,14 @@ on:
 
 jobs:
   build:
-    name: Build & Verify (React 19 / Vite 6)
+    name: Build & Verify
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -30,8 +30,8 @@ jobs:
         working-directory: console
         run: npm run build
 
-      - name: Verify Distribution Artifacts
+      - name: Verify Build Artifacts
         working-directory: console
         run: |
           test -f dist/index.html || exit 1
-          echo "Production Vite 6 build verified successfully."
+          echo "Production build verified successfully."

@@ -71,8 +71,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   initImageZoom();
 
-  // Support Zensical / MkDocs Material instant navigation (page switches without full reload)
+  // Support instant navigation (page switches without full reload)
   if (typeof document$ !== "undefined" && document$.subscribe) {
-    document$.subscribe(initImageZoom);
+    document$.subscribe(function () {
+      initImageZoom();
+    });
   }
 });

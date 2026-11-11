@@ -23,6 +23,7 @@ Architecture Decision Records document foundational architectural, protocol, and
 | [ADR-013](#adr-013-java-25-scoped-values-for-request-context-propagation) | Java 25 Scoped Values for Request Context Propagation | **Accepted** | 2026-05 | Memory Safety & Concurrency |
 | [ADR-014](#adr-014-decoupled-asynchronous-batch-persister-spend-aggregation) | Decoupled Asynchronous Batch Persister & Spend Aggregation | **Accepted** | 2026-05 | Database Performance |
 | [ADR-015](#adr-015-circuit-breaker-permit-safety-exponential-backoff-resilience) | Circuit Breaker Permit Safety & Exponential Backoff Resilience | **Accepted** | 2026-05 | Ingress Pipeline Safety |
+| [ADR-016](#adr-016-pragmatic-open-core-authentication-phased-access-governance) | Pragmatic Open-Core Authentication & Phased Access Governance | **Accepted** | 2026-05 | Access Governance & Security |
 
 ---
 
@@ -59,14 +60,15 @@ Operating a unified gateway across disparate inference providers requires transp
 
 ### Decision Outcome
 Emit a deterministic set of canonical HTTP response headers on completion responses:
-- `x-netra-provider`: Upstream provider that fulfilled the request (e.g. direct cloud endpoint or aggregator).
-- `x-netra-cache`: Cache status outcome (`hit` or `miss`).
-- `x-netra-cache-tier`: Specific cache tier that served the response (`tier1_exact` or `tier2_semantic`).
-- `x-netra-fallback`: Boolean flag indicating whether upstream failover was triggered.
-- `x-netra-cost-usd`: Precise financial expenditure calculated for the invocation.
-- `x-netra-route-reason`: Explanatory signal for the routing or caching decision.
-- `x-netra-retries`: Number of upstream network retries absorbed before successful response.
-- `x-netra-escalated`: Boolean indicator showing if small-model refusal was automatically escalated to smart reasoning tier.
+
+1. `x-netra-provider`: Upstream provider that fulfilled the request (e.g. direct cloud endpoint or aggregator).
+2. `x-netra-cache`: Cache status outcome (`hit` or `miss`).
+3. `x-netra-cache-tier`: Specific cache tier that served the response (`tier1_exact` or `tier2_semantic`).
+4. `x-netra-fallback`: Boolean flag indicating whether upstream failover was triggered.
+5. `x-netra-cost-usd`: Precise financial expenditure calculated for the invocation.
+6. `x-netra-route-reason`: Explanatory signal for the routing or caching decision.
+7. `x-netra-retries`: Number of upstream network retries absorbed before successful response.
+8. `x-netra-escalated`: Boolean indicator showing if small-model refusal was automatically escalated to smart reasoning tier.
 
 ### Consequences
 - **Positive:** Deterministic auditability and transparent spend attribution for every API transaction.
@@ -100,6 +102,7 @@ Mandate arbitrary-precision arithmetic (`BigDecimal`) across all token cost calc
 Enterprise teams operate in various domestic currencies (EUR, GBP, INR, JPY), while cloud foundation model providers bill exclusively in USD. Storing volatile local currencies in the primary audit ledger causes historical rate distortion, reporting drift, and reporting complexities during rate fluctuations.
 
 ### Decision Outcome
+
 1. Maintain all core ledger entries, pricing rates, and tenant budgets strictly in USD (`cost_usd`, `total_spend_usd`).
 2. Provide real-time currency conversion across the console and management interfaces through an in-memory foreign exchange service backed by a 6-hour refresh cache and offline fallback tables.
 
@@ -119,6 +122,7 @@ When streaming LLM responses over Server-Sent Events, buffering chunks in memory
 
 ### Decision Outcome
 Implement an unbuffered streaming relay with dedicated virtual threads and direct stream pumping:
+
 1. Immediately flush tokens downstream as chunks arrive from upstream providers.
 2. Intercept client socket resets (broken connections) immediately.
 3. Instantly sever the upstream provider connection to halt further token generation.
@@ -141,6 +145,7 @@ Directing all prompts to frontier reasoning models creates massive cost ineffici
 
 ### Decision Outcome
 Implement a deterministic two-stage hybrid syntactic complexity classifier for the automatic routing alias (`auto`):
+
 1. **Structural Intent Extraction:** Decouple operational commands from surrounding context, code blocks, or tabular data.
 2. **Linguistic Complexity Evaluation:** Analyze semantic markers (mathematical reasoning, architecture trade-offs, code synthesis) versus basic lookup patterns in under 0.3ms without external network calls.
 3. Automatically route simple tasks to cost-effective small models and complex tasks to frontier models.
@@ -160,6 +165,7 @@ Implement a deterministic two-stage hybrid syntactic complexity classifier for t
 Semantic caching eliminates redundant inference spend by serving semantically similar queries from cache. However, external embedding APIs add 150–300ms of latency, shared vector stores risk cross-tenant data leakage, and caching upstream safety refusals risks permanently suppressing legitimate queries.
 
 ### Decision Outcome
+
 1. **In-JVM Embeddings:** Generate 384-dimensional dense vectors in ~5ms using a quantized `all-MiniLM-L6-v2` model executed via ONNX Runtime directly inside the gateway JVM process.
 2. **Tenant Partition Isolation:** Enforce hard database partitioning scoped strictly by tenant virtual key and model alias.
 3. **HNSW Vector Search:** Execute cosine distance queries against PostgreSQL vector indexes using tenant-configured similarity thresholds (e.g. 0.920 for high precision, 0.850 for general use).
@@ -181,6 +187,7 @@ Hardcoding local mock provider configurations risks accidental leakage into prod
 
 ### Decision Outcome
 Structure runtime configuration into four isolated environment tiers:
+
 1. **Base Infrastructure Tier:** Defines platform defaults, thread pool parameters, database migrations, connection pool baselines, and health metrics.
 2. **Local Development Tier:** The default offline profile. Directs traffic to containerized mock providers for zero-cost, hermetic local testing.
 3. **Production Tier:** Activated explicitly via production environment switches. Directs egress through verified cloud aggregators and direct APIs, enables connection pool tuning, and applies response compression.
@@ -202,6 +209,7 @@ Enterprise hybrid topologies frequently operate private in-VPC inference nodes a
 
 ### Decision Outcome
 Implement a 5-tier deterministic target resolution hierarchy for model dispatch:
+
 1. **Explicit Provider Colon Prefix:** Models formatted as `provider:model` bind explicitly to the named registered provider.
 2. **Explicit Provider Slash Prefix:** Models formatted as `provider/model` matching a registered provider route directly.
 3. **Provider Model Affinity:** Providers advertising dedicated model support take priority over general aggregator endpoints.
@@ -224,6 +232,7 @@ Proprietary rate-limiting headers create integration friction for modern reverse
 
 ### Decision Outcome
 Adopt a phased deprecation and standards convergence strategy:
+
 1. **Dual-Emission Phase:** Concurrently emit standard IETF headers alongside legacy gateway headers:
    - `RateLimit-Limit: <quota>`
    - `RateLimit-Remaining: <remaining>`
@@ -249,6 +258,7 @@ Even in-process ONNX embeddings require 3–5ms of matrix computation per prompt
 
 ### Decision Outcome
 Deploy a Two-Tier Cache Hierarchy for query matching:
+
 1. **Tier 1 (Exact Hash Near-Cache):** In-memory local cache paired with distributed cache keyed on the deterministic SHA-256 hash of Unicode NFC-normalized prompt text. Serves exact hits in **<0.5ms** with zero vector computation.
 2. **Tier 2 (Dense Semantic Vector Cache):** Evaluated only when Tier 1 misses. Generates dense embeddings and executes HNSW vector cosine search (<5ms). Successful Tier 2 hits automatically back-populate Tier 1.
 
@@ -267,6 +277,7 @@ Deploy a Two-Tier Cache Hierarchy for query matching:
 Cloud AI providers experience periodic throttling, elevated latency, and transient outages. Blocking on full network timeouts across retry chains causes request durations to exceed edge proxy limits (>15s). Furthermore, lightweight foundation models frequently return safety refusals or empty completions on complex prompts.
 
 ### Decision Outcome
+
 1. **Provider Circuit Breakers:** Protect each upstream provider with an independent sliding-window circuit breaker. Fast-failover to secondary fallback targets occurs in **<0.05ms** when a breaker opens.
 2. **Global Candidate Chain Deadline:** Enforce an overarching timeout budget (default 15,000ms) spanning all retry and fallback attempts.
 3. **Small-Model Refusal Auto-Escalation:** Detect upstream refusals or degraded responses from cheap model tiers, automatically re-routing the prompt to the frontier tier with explicit telemetry annotation.
@@ -287,6 +298,7 @@ With Java 25 Virtual Threads, a single server handles tens of thousands of concu
 
 ### Decision Outcome
 Adopt Java 25 Scoped Values (`java.lang.ScopedValue`, JEP 506) for request lifecycle state:
+
 1. Bind immutable request context (`requestId`, `virtualKey`, `tenant`, `startTimeMs`) at the HTTP ingress filter.
 2. Propagate context safely and immutably when dispatching asynchronous tasks or child virtual threads.
 
@@ -305,6 +317,7 @@ Adopt Java 25 Scoped Values (`java.lang.ScopedValue`, JEP 506) for request lifec
 Under high-concurrency burst traffic (10,000+ concurrent virtual threads), executing synchronous database writes for audit logs and monthly spend ledger updates exhausts connection pools, creating connection acquisition timeouts and latency spikes.
 
 ### Decision Outcome
+
 1. Decouple database write operations from HTTP worker threads using a bounded in-memory queue (capacity 10,000). Ingress threads offer records in non-blocking sub-microsecond time.
 2. A scheduled background worker flushes batched multi-row inserts every 250ms or 100 entries.
 3. Aggregate monthly tenant spend in memory by `(virtualKey, yearMonth)` across each batch window, executing a single bulk upsert per tenant per cycle.
@@ -321,11 +334,10 @@ Under high-concurrency burst traffic (10,000+ concurrent virtual threads), execu
 - **Area:** Ingress Pipeline Safety & Recovery
 
 ### Context & Problem Statement
-1. In circuit breaking, when a breaker transitions from open to half-open, it permits a limited number of canary calls. If a client transmits an invalid payload resulting in an HTTP 400 or 422 Bad Request, counting this as a provider failure incorrectly keeps healthy providers blocked.
-2. Admitted rate-limit tokens must be refunded if an upstream provider rejects a call before generating tokens, avoiding artificial quota starvation.
-3. During database maintenance or network blips, unhandled persister retries create tight loops that saturate CPU and flood logs.
+Counting client-side validation errors (HTTP 400/422) as upstream failures during half-open canary recovery falsely locks out healthy providers. Similarly, client errors must not consume rate-limit slots when no tokens were generated. Additionally, during database maintenance or network blips, unhandled persister retries create tight loops that saturate CPU and flood logs.
 
 ### Decision Outcome
+
 1. Inspect upstream exceptions during relay: for client-side errors (HTTP 400/422), release circuit breaker permits without recording a provider failure, and immediately roll back the admitted rate-limit slot.
 2. In the asynchronous persister, implement bounded exponential backoff (500ms initial to 10,000ms max) with an atomic failure counter.
 3. Discriminate permanent SQL constraint violations (drop with error log) from transient connection failures (retain for backoff retry).
@@ -334,3 +346,28 @@ Under high-concurrency burst traffic (10,000+ concurrent virtual threads), execu
 - **Positive:** Clean recovery of circuit breakers during canary testing without false provider lockout.
 - **Positive:** Zero rate-limit slot starvation caused by client-side syntax errors.
 - **Positive:** Resilient database error containment with zero CPU-saturating retry loops during infrastructure maintenance.
+
+---
+
+## ADR-016: Pragmatic Open-Core Authentication & Phased Access Governance
+
+- **Status:** Accepted
+- **Area:** Access Governance & Security
+
+### Context & Problem Statement
+Deploying an open-source gateway requires zero-friction local setup, while shared and enterprise environments require administrative protection and federated access governance. Building custom username/password authentication (credential hashing, password reset workflows, account recovery) creates unnecessary maintenance burden and security vulnerability surface.
+
+### Decision Outcome
+Adopt a pragmatic three-tier access governance strategy:
+
+1. **Baseline Admin Token:** Protect administrative REST endpoints and ephemeral stream ticketing via a bearer token (`NETRA_ADMIN_TOKEN`).
+2. **Dashboard Protection:** Optional credential protection (`NETRA_UI_PASSWORD`) issuing an HTTP-only secure session cookie for shared internal networks.
+3. **Enterprise SSO Federation:** Standard OpenID Connect (OIDC / OAuth2) via Spring Security for open-source and enterprise identity providers (Keycloak, Okta, Google Workspace, Azure AD) with workspace scoping (`workspace_id`).
+
+Homegrown credential databases and signup pipelines are explicitly rejected in favor of standard OIDC federation.
+
+### Consequences
+- **Positive:** Sub-minute local onboarding with zero external identity dependencies.
+- **Positive:** Eliminates vulnerability surface from custom authentication pipelines, password reset mechanisms, and credential storage.
+- **Positive:** Seamless integration with enterprise identity providers via standard OIDC claims.
+- **Trade-off:** Multi-tenant workspace isolation relies on an external OIDC provider.

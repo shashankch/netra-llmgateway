@@ -142,9 +142,9 @@ fi
 
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
     cp .env.example .env
-    # Explicitly enforce production Spring profile on cloud VM deployment (Issue 4)
+    # Explicitly enforce production Spring profile on cloud VM deployment
     sed -i.bak "s|^SPRING_PROFILES_ACTIVE=.*|SPRING_PROFILES_ACTIVE=prod|" .env && rm -f .env.bak
-    # Auto-generate secure random admin token if demo token was present (Issue 9)
+    # Auto-generate secure random admin token if demo token was present
     if grep -q "NETRA_ADMIN_TOKEN=netra-admin-demo" .env; then
         RANDOM_ADMIN_TOKEN="netra-adm-$(openssl rand -hex 24 2>/dev/null || cat /proc/sys/kernel/random/uuid | tr -d '-')"
         sed -i.bak "s|^NETRA_ADMIN_TOKEN=.*|NETRA_ADMIN_TOKEN=${RANDOM_ADMIN_TOKEN}|" .env && rm -f .env.bak

@@ -26,10 +26,13 @@ The multi-container stack includes the core Java 25 gateway, PostgreSQL 18 with 
 git clone https://github.com/shashankch/netra-llmgateway.git
 cd netra-llmgateway
 
-# Build and start all services
+# Production stack (gateway, postgres, redis, console)
 docker compose up -d --build
+
+# Or with offline mock provider containers (dev profile)
+docker compose --profile dev up -d --build
 # or using the developer Makefile:
-make up
+make dev
 ```
 
 ### 2.2 Exposed Services & Health Endpoints
@@ -39,11 +42,14 @@ make up
 - <img src="assets/icons/spring.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Actuator Health & Metrics:** `http://localhost:8080/actuator/health`
 - <img src="assets/icons/postgres.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **PostgreSQL 18 (pgvector):** `localhost:5432` (`user: netra`, `password: netra`, `db: netra`)
 - <img src="assets/icons/redis.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Redis 8.0:** `localhost:6379`
-- <img src="assets/icons/openai.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Mock Provider Alpha:** `http://localhost:9001`
-- <img src="assets/icons/terminal.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Mock Provider Beta:** `http://localhost:9002`
+- <img src="assets/icons/openai.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Mock Provider Alpha (dev profile):** `http://localhost:9001`
+- <img src="assets/icons/terminal.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Mock Provider Beta (dev profile):** `http://localhost:9002`
+
+!!! info "Docker Compose Profiles: Clean Production vs. Development"
+    Mock upstream containers (`mock-alpha`, `mock-beta`) are isolated under `profiles: ["dev", "test"]`. Standard `docker compose up -d` boots only real infrastructure without mock test doubles, eliminating unnecessary CPU/RAM overhead in production environments.
 
 !!! tip "Port Allocation & Local vLLM Drills"
-    The Zensical documentation preview server (`make docs-serve`) binds to port 8000 by default. If testing with an in-VPC vLLM instance locally on port 8000, specify an alternate port (`zensical serve --dev-addr 127.0.0.1:8008`) or route to `VLLM_BASE_URL=http://localhost:8001/v1`.
+    The documentation preview server (`make docs-serve`) binds to port 8000 by default. If testing with an in-VPC vLLM instance locally on port 8000, specify an alternate port (`uv run --with zensical zensical serve --dev-addr 127.0.0.1:8008`) or route to `VLLM_BASE_URL=http://localhost:8001/v1`.
 
 ### 2.3 Operations Console UI Deployment & Serving
 
@@ -70,6 +76,26 @@ Deploy directly from `console/` using the provided blueprint (`deploy/paas/verce
 ```bash
 cd console && vercel --prod
 ```
+
+### 2.4 Essential Environment Variables
+
+#### Backend Gateway (`.env`)
+| Variable | Default / Example | Purpose |
+|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | `dev` (or `prod`) | Profile selector: `dev` for local mock providers, `prod` for OpenRouter / live upstream |
+| `OPENROUTER_API_KEY` | `sk-or-v1-...` | API key for unified 500+ model routing via OpenRouter |
+| `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
+| `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC private endpoint (vLLM / Ollama) |
+| `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/netra` | PostgreSQL JDBC connection string (auto-resolved in Docker) |
+| `SPRING_DATA_REDIS_HOST` | `localhost` | Redis host for atomic rate limiting and sliding-window quotas |
+| `CLOUDFLARE_TUNNEL_TOKEN` | `eyJhIjoi...` | *(Optional)* Cloudflare Tunnel token for zero-open-port ingress |
+
+#### Frontend Operations Console (`console/.env`)
+| Variable | Default / Example | Purpose |
+|---|---|---|
+| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway-netrallm.avadhanlabs.dev`) |
+| `VITE_BACKEND_TARGET` | `http://localhost:8080` | Backend target used by Vite dev server reverse proxy |
 
 ---
 
@@ -181,7 +207,7 @@ Deploy gateway pods to Amazon EKS, Azure Kubernetes Service (AKS), Google GKE, o
 ```yaml
 containers:
 - name: gateway
-  image: ghcr.io/shashankch/netra-gateway:latest
+  image: ghcr.io/shashankch/netra-gateway:latest # Or pin to release tag, e.g. ghcr.io/shashankch/netra-gateway:0.7.1
   ports:
   - containerPort: 8080
   env:
@@ -224,39 +250,49 @@ For single-host cloud deployments, bootstrap the host with [`setup-vps.sh`](http
 
 ## 5. Post-Deployment Verification Drills
 
-Once deployed, verify gateway integrity and contract adherence using both the standard starter suite (v1) and the enterprise-grade testing suite (v2):
+Once deployed, verify gateway integrity and contract adherence using both the standard contract suite (v1) and the hardened verification suite (v2):
 
 ### 5.1 Starter Contract Suite (v1)
 
 ```bash
 # 1. Run the smoke test suite (17 contract checks)
-python3 scripts/smoke_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --model fast
+make smoke
+# or: python3 scripts/smoke_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --model fast
 
 # 2. Run the concurrency load test (0 over-admissions)
-python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i \
-    --model fast --requests 30 --concurrency 10 --rpm-limit 10
+make load
+# or: python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i \
+#         --model fast --requests 30 --concurrency 10 --rpm-limit 10
 
 # 3. Run the prompt difficulty routing eval (20 benchmark cases)
-python3 scripts/run_routing_eval.py --url http://localhost:8080 --key netra-sk-research-4d5e6f
+make routing-eval
+# or: python3 scripts/run_routing_eval.py --url http://localhost:8080 --key netra-sk-research-4d5e6f
 
 # 4. Run the semantic vector cache evaluation
-python3 scripts/run_cache_eval.py --url http://localhost:8080 --key netra-sk-search-1a2b3c
+make cache-eval
+# or: python3 scripts/run_cache_eval.py --url http://localhost:8080 --key netra-sk-search-1a2b3c
 ```
 
-### 5.2 Enterprise Hardening Suite (v2)
+### 5.2 Hardened Verification Suite (v2)
 
 For deep stress testing, socket drop resilience, and adversarial cache fuzzing:
 
 ```bash
 # 5. High-Concurrency Stress Test (TPS vs. RPS, TTFT percentiles)
-python3 scripts/v2/stress_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c \
-    --concurrency 25 --duration 10 --model fast
+make stress
+# or: python3 scripts/v2/stress_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c \
+#         --concurrency 10 --duration 5 --model fast
 
 # 6. Chaos & Resilience Drill (Client socket drops, budget limits, vector faults)
-python3 scripts/v2/chaos_drill.py --url http://localhost:8080 --key netra-sk-free-7g8h9i
+make chaos
+# or: python3 scripts/v2/chaos_drill.py --url http://localhost:8080 --key netra-sk-free-7g8h9i
 
 # 7. Semantic Cache Adversarial Fuzzer (Refusal suppression, tenant leakage probes)
-python3 scripts/v2/cache_fuzzer.py --url http://localhost:8080 --key netra-sk-search-1a2b3c
+make cache-fuzz
+# or: python3 scripts/v2/cache_fuzzer.py --url http://localhost:8080 --key netra-sk-search-1a2b3c
+
+# 8. Complete Verification Harness (v1 + v2)
+make verify-all
 ```
 
 For detailed endpoint specifications and error envelopes, see the [REST API Reference](api-reference.md).

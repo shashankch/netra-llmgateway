@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.netra.gateway"
-version = "0.7.0"
+version = "0.7.1"
 
 java {
     toolchain {
@@ -67,6 +67,10 @@ tasks.named<ProcessResources>("processResources") {
     from("data") {
         into("data")
     }
+}
+
+springBoot {
+    buildInfo()
 }
 
 tasks.named<Jar>("jar") {

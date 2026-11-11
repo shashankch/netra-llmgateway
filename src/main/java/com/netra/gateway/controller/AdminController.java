@@ -59,7 +59,7 @@ public class AdminController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
-    // Short-lived, single-use stream tickets for secure EventSource connections (Issue 3 & 6)
+    // Short-lived, single-use stream tickets for secure EventSource connections
     private final com.github.benmanes.caffeine.cache.Cache<String, Instant> streamTicketCache =
             com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
                     .maximumSize(500)

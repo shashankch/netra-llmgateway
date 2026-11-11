@@ -92,7 +92,7 @@ def run_single_request(gateway_url, key, model, prompt, stream):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NETRA v2 Enterprise Stress Benchmark")
+    parser = argparse.ArgumentParser(description="NETRA v2 Stress Benchmark")
     parser.add_argument("--url", default=DEFAULT_GATEWAY_URL, help="Gateway base URL")
     parser.add_argument("--key", default=DEFAULT_VIRTUAL_KEY, help="Tenant virtual key")
     parser.add_argument("--concurrency", type=int, default=10, help="Concurrent client threads")

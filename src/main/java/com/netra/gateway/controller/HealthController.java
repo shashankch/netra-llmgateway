@@ -1,6 +1,7 @@
 package com.netra.gateway.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,14 +24,21 @@ public class HealthController {
     private StringRedisTemplate redisTemplate;
 
     @Autowired(required = false)
+    private BuildProperties buildProperties;
+
+    @Autowired(required = false)
     private com.netra.gateway.service.CanonicalDataSeeder canonicalDataSeeder;
+
+    private String getVersion() {
+        return buildProperties != null ? buildProperties.getVersion() : "0.7.1";
+    }
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
         return ResponseEntity.ok(Map.of(
                 "status", "ok",
                 "service", "netra-gateway",
-                "version", "0.7.0"
+                "version", getVersion()
         ));
     }
 
@@ -51,7 +59,7 @@ public class HealthController {
                 "database", dbOk ? "UP" : "DOWN",
                 "redis", redisOk ? "UP" : "DOWN",
                 "seeder", seederOk ? "READY" : "SEEDING",
-                "version", "0.7.0"
+                "version", getVersion()
         ));
     }
 
