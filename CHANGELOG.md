@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.3](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.2...netra-llmgateway-v0.7.3) (2026-11-11)
+
+
+### Bug Fixes
+
+* **console,ci:** pull version from gateway health and upgrade actions to node 24 runtime ([#16](https://github.com/shashankch/netra-llmgateway/issues/16)) ([88e6c60](https://github.com/shashankch/netra-llmgateway/commit/88e6c60d13a44123a7263508fec518b9c02d03f5))
+
 ## [0.7.2](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.1...netra-llmgateway-v0.7.2) (2026-11-11)
 
 
