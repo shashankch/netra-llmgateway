@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.2](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.1...netra-llmgateway-v0.7.2) (2026-11-11)
+
+
+### Features
+
+* **phase-1:** foundation, canonical data seeder, pass-through ingress, and docs CI ([#1](https://github.com/shashankch/netra-llmgateway/issues/1)) ([255fddf](https://github.com/shashankch/netra-llmgateway/commit/255fddf6408354a6c6ccc844eb2c65c168db8aa0))
+* **phase-2:** virtual key auth, atomic lua admission, and request logs ([#2](https://github.com/shashankch/netra-llmgateway/issues/2)) ([d8155d8](https://github.com/shashankch/netra-llmgateway/commit/d8155d8f8f77ff450c6076a97cf5e58a8ba5afec))
+* **phase-3:** unbuffered streaming sse relay and usage finalization ([#3](https://github.com/shashankch/netra-llmgateway/issues/3)) ([b380c28](https://github.com/shashankch/netra-llmgateway/commit/b380c2832b65449937b52025ef360318ad02db3c))
+* **phase-4:** multi-provider routing, fast-failover, and intelligent auto router ([#4](https://github.com/shashankch/netra-llmgateway/issues/4)) ([c056191](https://github.com/shashankch/netra-llmgateway/commit/c0561913b5e8d84cb9bbf3c6ca99b8c4dacd7cd6))
+* **phase-5:** tenant-isolated semantic vector cache, pgvector integration and sync docs ([#5](https://github.com/shashankch/netra-llmgateway/issues/5)) ([bc3c6d2](https://github.com/shashankch/netra-llmgateway/commit/bc3c6d29e32c1fb76faab480e0881c4a3d8b45f2))
+* **phase-6-7:** enterprise operations console, resilience4j circuit breakers, two-tier caching, and hardened security ([#6](https://github.com/shashankch/netra-llmgateway/issues/6)) ([c851e4a](https://github.com/shashankch/netra-llmgateway/commit/c851e4a7ca0577b2aae383495e2c8f5a6c8d20e4))
+
+
+### Bug Fixes
+
+* **ci, infra:** auto-fallback to sudo docker compose for fresh VM provisioning ([#7](https://github.com/shashankch/netra-llmgateway/issues/7)) ([43f153d](https://github.com/shashankch/netra-llmgateway/commit/43f153d29d7e2d064c75d83893d093661945b34d))
+* **console,gateway:** enterprise console polish, high-precedence CORS filter, and full documentation sync ([#12](https://github.com/shashankch/netra-llmgateway/issues/12)) ([da8650f](https://github.com/shashankch/netra-llmgateway/commit/da8650f0bef81dde7a2189df67345c80fcdb391c))
+* **console:** persist background monitoring toggle on modal save, update default model aliases in production profile ([#10](https://github.com/shashankch/netra-llmgateway/issues/10)) ([e05fe6f](https://github.com/shashankch/netra-llmgateway/commit/e05fe6fc6a10278b92085e0f597e4b597ce50f9a))
+* **console:** prevent route reason badge from overlapping token usage in request logs, playground state fixes, caching improvements ([#11](https://github.com/shashankch/netra-llmgateway/issues/11)) ([da76bd5](https://github.com/shashankch/netra-llmgateway/commit/da76bd5eaea5fb898306201f651c6646570490a1))
+* **docs:** preserve CNAME in pages artifact and document Cloudflare DNS-only setup ([#13](https://github.com/shashankch/netra-llmgateway/issues/13)) ([3f7abeb](https://github.com/shashankch/netra-llmgateway/commit/3f7abeb94fe6aeb08bb7a6c19a355fe5e1f05bbc))
+* **ingress, infra:** single-level hyphenated subdomains for Cloudflare SSL & automated docker compose elevation ([#8](https://github.com/shashankch/netra-llmgateway/issues/8)) ([d6e9acf](https://github.com/shashankch/netra-llmgateway/commit/d6e9acfe7f1c9ca4e20dd5a23bc216462c969faa))
+* **script:** hyphen domain and vps script ([#9](https://github.com/shashankch/netra-llmgateway/issues/9)) ([63fb70b](https://github.com/shashankch/netra-llmgateway/commit/63fb70b4e7c617b6d9ac31d182cbe993e31cd025))
+
 ## [0.7.1] - 2026-11-08
 
 ### Added
