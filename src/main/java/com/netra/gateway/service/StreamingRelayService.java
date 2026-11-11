@@ -390,7 +390,7 @@ public class StreamingRelayService {
                         connectedTarget = candidate;
                         break;
                     } else {
-                        // Issue 16 fix: Close unconsumed upstream response stream to prevent connection leak
+                        // Close unconsumed upstream response stream to prevent connection leak
                         try {
                             if (resp.body() != null) {
                                 resp.body().close();
@@ -433,7 +433,7 @@ public class StreamingRelayService {
                                         System.currentTimeMillis() - chainStartTime);
                                 break;
                             }
-                            // Issue 17 fix: Cap backoff sleep to remaining budget
+                            // Cap backoff sleep to remaining budget
                             sleepBackoff(initialBackoff, multiplier, attempt, rem);
                         }
                     }
@@ -479,7 +479,7 @@ public class StreamingRelayService {
                                     System.currentTimeMillis() - chainStartTime);
                             break;
                         }
-                        // Issue 17 fix: Cap backoff sleep to remaining budget
+                        // Cap backoff sleep to remaining budget
                         sleepBackoff(initialBackoff, multiplier, attempt, rem);
                     }
                 }
@@ -513,7 +513,7 @@ public class StreamingRelayService {
             servletResponse.setHeader("x-netra-route-reason", connectedTarget.routeReason());
         }
         servletResponse.setHeader("x-netra-retries", String.valueOf(totalRetries));
-        // Issue 15 fix: Dynamic IETF RateLimit protocol headers from Redis token-bucket admission
+        // Dynamic IETF RateLimit protocol headers from Redis token-bucket admission
         if (admission != null) {
             servletResponse.setHeader("RateLimit-Limit", String.valueOf(admission.limit()));
             servletResponse.setHeader("RateLimit-Remaining", String.valueOf(admission.remaining()));

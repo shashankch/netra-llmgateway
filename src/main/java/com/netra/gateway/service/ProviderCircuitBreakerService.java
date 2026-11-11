@@ -146,7 +146,7 @@ public class ProviderCircuitBreakerService {
      */
     public List<ProviderHealthSnapshot> getProviderHealthSnapshots() {
         Set<String> allProviders = new LinkedHashSet<>();
-        // Issue 14 fix: Only report health snapshots for explicitly configured providers
+        // Only report health snapshots for explicitly configured providers
         if (configProperties.getProviders() != null && !configProperties.getProviders().isEmpty()) {
             configProperties.getProviders().stream()
                     .map(GatewayConfigProperties.ProviderConfig::getName)

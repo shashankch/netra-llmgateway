@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import pkg from '../../package.json';
+
+export const CONSOLE_VERSION = pkg.version || '0.7.1';
 
 /**
  * NETRA Operations Console - Gateway API Configuration
@@ -87,9 +90,9 @@ export function getApiUrl(path) {
 
 export function isHealthPollingEnabled() {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('netra_health_poll_enabled') !== 'false';
+    return localStorage.getItem('netra_health_poll_enabled') === 'true';
   }
-  return true;
+  return false;
 }
 
 export function setHealthPollingEnabled(enabled) {
@@ -107,7 +110,7 @@ let currentHealth = {
   lastChecked: null,
   latencyMs: null,
   consecutiveFailures: 0,
-  version: '0.7.0',
+  version: CONSOLE_VERSION,
 };
 
 let inFlightHealthPromise = null;
@@ -188,16 +191,30 @@ export async function checkGatewayHealth() {
       const roundTripMs = Math.round(performance.now() - probeStart);
 
       if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        currentHealth = {
-          isOnline: data.status === 'ok' || data.status === 'UP' || res.status === 200,
-          isChecking: false,
-          isPollingEnabled: isHealthPollingEnabled(),
-          lastChecked: Date.now(),
-          latencyMs: roundTripMs,
-          consecutiveFailures: 0,
-          version: data.version || '0.7.0',
-        };
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('text/html')) {
+          currentHealth = {
+            isOnline: false,
+            isChecking: false,
+            isPollingEnabled: isHealthPollingEnabled(),
+            lastChecked: Date.now(),
+            latencyMs: null,
+            consecutiveFailures: (currentHealth.consecutiveFailures || 0) + 1,
+            version: CONSOLE_VERSION,
+          };
+        } else {
+          const data = await res.json().catch(() => ({}));
+          const isHealthy = data.status === 'ok' || data.status === 'UP' || res.status === 200;
+          currentHealth = {
+            isOnline: isHealthy,
+            isChecking: false,
+            isPollingEnabled: isHealthPollingEnabled(),
+            lastChecked: Date.now(),
+            latencyMs: roundTripMs,
+            consecutiveFailures: isHealthy ? 0 : (currentHealth.consecutiveFailures || 0) + 1,
+            version: data.version || CONSOLE_VERSION,
+          };
+        }
       } else {
         currentHealth = {
           isOnline: false,
@@ -206,7 +223,7 @@ export async function checkGatewayHealth() {
           lastChecked: Date.now(),
           latencyMs: null,
           consecutiveFailures: (currentHealth.consecutiveFailures || 0) + 1,
-          version: '0.7.0',
+          version: CONSOLE_VERSION,
         };
       }
     } catch (err) {
@@ -217,7 +234,7 @@ export async function checkGatewayHealth() {
         lastChecked: Date.now(),
         latencyMs: null,
         consecutiveFailures: (currentHealth.consecutiveFailures || 0) + 1,
-        version: '0.7.0',
+        version: CONSOLE_VERSION,
       };
     } finally {
       inFlightHealthPromise = null;
@@ -252,13 +269,11 @@ export function useGatewayHealth() {
     const listener = (h) => setHealth({ ...h });
     healthListeners.add(listener);
 
-    // Initial check on mount if polling enabled and hasn't checked recently
-    if (isHealthPollingEnabled()) {
-      if (!currentHealth.lastChecked || Date.now() - currentHealth.lastChecked > 30000) {
-        checkGatewayHealth();
-      } else {
-        scheduleNextProbe();
-      }
+    // Always execute at least one initial check on mount to establish live connectivity
+    if (!currentHealth.lastChecked || Date.now() - currentHealth.lastChecked > 10000) {
+      checkGatewayHealth();
+    } else if (isHealthPollingEnabled()) {
+      scheduleNextProbe();
     }
 
     const handleUrlOrToggleChange = () => {

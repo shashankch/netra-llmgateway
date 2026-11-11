@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/shashankch/netra-llmgateway/releases/tag/phase-7-complete"><img src="https://img.shields.io/badge/version-v0.7.0-059669.svg?style=flat&logo=github&labelColor=0B0F19" alt="Release v0.7.0"/></a>
-  <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-ci.yml"><img src="https://img.shields.io/badge/CI-passing-2ea44f?style=flat&logo=githubactions&logoColor=white&labelColor=0B0F19" alt="CI Status"/></a>
+  <a href="https://github.com/shashankch/netra-llmgateway/releases/"><img src="https://img.shields.io/github/v/release/shashankch/netra-llmgateway?color=059669&label=release&logo=github&labelColor=0B0F19&style=flat" alt="Latest Release"/></a>
+  <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/shashankch/netra-llmgateway/gateway-ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white&labelColor=0B0F19&style=flat" alt="CI Status"/></a>
   <a href="https://github.com/shashankch/netra-llmgateway/tree/main"><img src="https://img.shields.io/badge/branch-main-38bdf8.svg?style=flat&logo=git&labelColor=0B0F19" alt="Branch Main"/></a>
 </p>
 
@@ -30,7 +30,7 @@
 
 | Pillar | Technology | Role in Ingress Pipeline |
 |---|---|---|
-| <img src="assets/icons/java.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Runtime Engine** | Java 25 LTS (Virtual Threads / Loom) | High-throughput unbuffered SSE streaming relay & socket cancellation detection |
+| <img src="assets/icons/java.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Runtime Engine** | Java 25 LTS (Virtual Threads / Loom & Scoped Values) | High-throughput unbuffered SSE streaming relay & socket cancellation detection |
 | <img src="assets/icons/spring.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Framework** | Spring Boot 4.1.1 | Graceful shutdown connection draining, actuator probes & observability |
 | <img src="assets/icons/postgres.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Vector Storage** | PostgreSQL 18 & pgvector | Dense vector embeddings (384-dim) with HNSW indexing for sub-5ms cosine caching |
 | <img src="assets/icons/redis.svg" width="18" height="18" style="vertical-align: middle; margin-right: 6px;"> **Admission Control** | Redis 8.0 Alpine (Lua Scripting) | Single-transaction sliding-window rate limiting & atomic budget validation (0.00% over-admission) |
@@ -88,7 +88,13 @@ Verify service readiness:
 
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.0"}
+# {"status":"ok","service":"netra-gateway","version":"0.7.1"}
+```
+
+Inspect live provider health & circuit breaker telemetry:
+```bash
+curl -i http://localhost:8080/admin/providers/health \
+  -H "Authorization: Bearer netra-admin-demo"
 ```
 
 !!! tip "Release & Version Verification"
@@ -106,6 +112,44 @@ curl -i -X POST http://localhost:8080/v1/chat/completions \
       {"role": "user", "content": "What is a message queue?"}
     ]
   }'
+```
+
+**Response Telemetry Headers & Body:**
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+x-netra-provider: alpha/alpha-small
+x-netra-cache: miss
+x-netra-fallback: false
+x-netra-cost-usd: 0.000011
+x-netra-route-reason: alias_fast
+x-netra-retries: 0
+RateLimit-Limit: 60
+RateLimit-Remaining: 59
+RateLimit-Reset: 60
+RateLimit-Policy: 60;w=60
+
+{
+  "id": "chatcmpl-7f8b9a2c",
+  "object": "chat.completion",
+  "created": 1729891200,
+  "model": "alpha-small",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "A message queue is an asynchronous communications protocol that enables decoupled components to produce and consume messages reliably."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 25,
+    "total_tokens": 37
+  }
+}
 ```
 
 !!! tip "Cloud Ingress Endpoints (`avadhanlabs.dev`) [Pre-Prod / Demo Only]"
@@ -130,6 +174,46 @@ make console-dev        # or: cd console && npm install && npm run dev
 make console-build
 make console-serve      # or: cd console && npm run preview
 ```
+
+### 4. Run Automated Verification Suites
+
+Execute the contract smoke tests, routing accuracy benchmark, concurrency load tests, and v2 hardening suites:
+
+```bash
+# Core Verification Suite (v1)
+make smoke              # 17 contract checks (headers, streaming, auth, 4xx)
+make routing-eval       # 20 prompt difficulty trap cases (auto classifier)
+make cache-eval         # Paraphrase match, near-miss rejection, $0 deduplication
+make load               # 30-request concurrency burst (asserts 0.00% over-admission)
+
+# Hardening Verification Suite (v2)
+make chaos              # Abrupt client socket drops, budget limits, vector faults
+make cache-fuzz         # Cross-tenant vector isolation & refusal suppression
+make stress             # Sustained concurrency throughput & TTFT percentiles
+
+# Run Complete Suite
+make verify-all         # Executes all 7 verification drills sequentially
+```
+
+### 5. Essential Environment Variables
+
+#### Backend Gateway (`.env`)
+| Variable | Default / Example | Purpose |
+|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | `dev` (or `prod`) | Profile selector: `dev` for local mock providers, `prod` for OpenRouter / live upstream |
+| `OPENROUTER_API_KEY` | `sk-or-v1-...` | API key for unified 500+ model routing via OpenRouter |
+| `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
+| `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC private endpoint (vLLM / Ollama) |
+| `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/netra` | PostgreSQL JDBC connection string (auto-resolved in Docker) |
+| `SPRING_DATA_REDIS_HOST` | `localhost` | Redis host for atomic rate limiting and sliding-window quotas |
+| `CLOUDFLARE_TUNNEL_TOKEN` | `eyJhIjoi...` | *(Optional)* Cloudflare Tunnel token for zero-open-port ingress |
+
+#### Frontend Operations Console (`console/.env`)
+| Variable | Default / Example | Purpose |
+|---|---|---|
+| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway-netrallm.avadhanlabs.dev`) |
+| `VITE_BACKEND_TARGET` | `http://localhost:8080` | Backend target used by Vite dev server reverse proxy |
 
 ---
 

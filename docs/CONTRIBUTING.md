@@ -26,15 +26,31 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
      make test
      ```
 
-5. **Evaluation Verification:** Ensure all benchmark suites pass:
+5. **Evaluation Verification:** Ensure all benchmark and verification suites pass:
 
    ```bash
+   # Core Verification Suite (v1)
    make smoke
    make routing-eval
    make cache-eval
    make load
+
+   # Hardening Verification Suite (v2)
+   make chaos
+   make cache-fuzz
+   make stress
+
+   # Or execute all verification gates at once:
+   make verify-all
    ```
 
-6. **Submitting Pull Requests:** Push your branch and open a PR against `main`. Provide a clear summary of changes, rationale, and test results.
+6. **Commit Message Conventions:**
+   NETRA adheres to the **Conventional Commits** specification (`v1.0.0`) to drive automated semantic releases via Google's Release Please bot:
+   - `feat:` Introduces a new feature or capability (triggers a minor release, e.g. `0.7.1` &rarr; `0.8.0`).
+   - `fix:` Fixes a bug or recovers degraded behavior (triggers a patch release, e.g. `0.7.1` &rarr; `0.7.2`).
+   - `feat!:` or `BREAKING CHANGE:` Introduces a breaking API change (triggers a major release).
+   - `docs:`, `chore:`, `refactor:`, `test:`, `ci:` Internal maintenance or documentation updates (no release triggered).
 
-7. **Questions & Maintenance:** For questions, architectural discussions, or project maintenance inquiries, contact the project maintainer at **shashankchandel@gmail.com** or open a GitHub Discussion.
+7. **Submitting Pull Requests:** Push your branch and open a PR against `main`. Provide a clear summary of changes, rationale, and test results.
+
+8. **Questions & Maintenance:** For questions, architectural discussions, or project maintenance inquiries, contact the project maintainer at **shashankchandel@gmail.com** or open a GitHub Discussion.

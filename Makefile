@@ -14,17 +14,17 @@ help:
 	@echo "  make routing-eval - Run benchmark prompt difficulty routing eval"
 	@echo "  make cache-eval  - Run semantic vector cache hit and isolation eval"
 	@echo "  make load        - Run burst concurrency load test"
-	@echo "  make chaos       - Run Enterprise v2 fault injection & socket abort drill"
-	@echo "  make cache-fuzz  - Run Enterprise v2 adversarial vector cache fuzzer"
-	@echo "  make stress      - Run Enterprise v2 high-concurrency throughput test"
+	@echo "  make chaos       - Run v2 fault injection & socket abort drill"
+	@echo "  make cache-fuzz  - Run v2 adversarial vector cache fuzzer"
+	@echo "  make stress      - Run v2 high-concurrency throughput test"
 	@echo "  make verify-all  - Execute full E2E verification suite (v1 + v2)"
 	@echo "  make console-dev - Run React 19 Ops Console in Vite hot-reload dev mode"
 	@echo "  make console-build - Build production React 19 Ops Console distribution bundle"
-	@echo "  make docs-serve  - Serve live-reloading Zensical developer documentation"
-	@echo "  make docs-build  - Build strict production documentation artifacts via Zensical"
+	@echo "  make docs-serve  - Serve live-reloading developer documentation"
+	@echo "  make docs-build  - Build strict production documentation distribution"
 
 dev:
-	docker compose up -d postgres redis mock-alpha mock-beta
+	docker compose --profile dev up -d postgres redis mock-alpha mock-beta
 	./gradlew bootRun
 
 up:
@@ -84,7 +84,7 @@ console-build:
 console-serve:
 	cd console && npm run preview -- --port 3000 --host 0.0.0.0
 
-docs-serve: ## Serve documentation locally via Zensical
+docs-serve: ## Serve documentation locally
 	uv run --with zensical zensical serve
 
 docs-build: ## Build static documentation site distribution

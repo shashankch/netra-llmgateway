@@ -8,6 +8,7 @@ import RequestLogs from './components/RequestLogs';
 import CacheInspector from './components/CacheInspector';
 import LandingPage from './components/LandingPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import { Github } from 'lucide-react';
 
 const VALID_TABS = ['landing', 'analytics', 'overview', 'playground', 'keys', 'logs', 'cache'];
 
@@ -85,7 +86,7 @@ export default function App() {
           <ErrorBoundary onReset={() => setActiveTab('landing')}>
             {activeTab === 'landing' && <LandingPage adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
             {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} />}
-            {activeTab === 'playground' && <Playground adminToken={adminToken} />}
+            {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} />}
             {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} />}
             {activeTab === 'logs' && <RequestLogs adminToken={adminToken} />}
             {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} />}
@@ -109,17 +110,19 @@ export default function App() {
             flexWrap: 'wrap',
             gap: '1rem'
           }}>
-            <div>
-              <span>NETRA LLM Gateway · Crafted with precision by </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <span>NETRA LLM Gateway · Apache 2.0 Open-Core</span>
               <a 
                 href="https://github.com/shashankch" 
                 target="_blank" 
                 rel="noreferrer"
-                style={{ color: 'var(--text-primary)', fontWeight: 600, textDecoration: 'none' }}
+                className="author-nav-badge"
+                title="Crafted by Shashank Chandel"
               >
-                Shashank Chandel
+                <Github size={13} style={{ opacity: 0.8 }} />
+                <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.72rem' }}>by</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>@shashankch</span>
               </a>
-              <span style={{ color: 'var(--text-muted)' }}> · Apache 2.0 Open-Core</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
               <a 

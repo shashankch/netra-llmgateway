@@ -180,7 +180,7 @@ public class ChatCompletionController {
         if (refusalEscalationService != null
                 && refusalEscalationService.isEscalatable(result.getTier(), result.getResolvedModel())
                 && refusalEscalationService.isRefusal(response)) {
-            // Issue 7 fix: Respect tenant model allowlist before auto-escalating to smart tier
+            // Respect tenant model allowlist before auto-escalating to smart tier
             if (authService.isModelAllowed(tenant, "smart")) {
                 try {
                     log.info("Refusal marker detected from cheap model [{}]. Auto-escalating to smart tier...", result.getResolvedModel());

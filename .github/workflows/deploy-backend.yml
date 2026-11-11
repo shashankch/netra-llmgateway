@@ -1,4 +1,4 @@
-name: Deploy Backend to OCI Cloud VPS
+name: Deploy Backend
 
 on:
   push:
@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   test:
-    name: Run Backend Verification Suite
+    name: Run Tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -56,7 +56,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 25 (LTS)
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '25'
@@ -66,24 +66,24 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
-      - name: Run Unit & Integration Tests (108 Tests)
+      - name: Run Tests
         run: ./gradlew test
 
   build-and-push:
-    name: Build Multi-Arch Image & Push to GHCR
+    name: Build & Publish Image
     needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up QEMU (ARM64 Support for OCI Ampere A1)
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry (GHCR)
+      - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -98,8 +98,9 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=short
+            type=semver,pattern={{version}}
 
-      - name: Build and Push Multi-Arch Container Image
+      - name: Build and Push Container Image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -112,12 +113,12 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy-oci:
-    name: Deploy to OCI Cloud VPS (Rolling Over Gateway)
+    name: Deploy to Production Host
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Check OCI Secrets Availability
+      - name: Check Host Deployment Secrets
         id: check-secrets
         run: |
           if [ -n "${{ secrets.OCI_HOST }}" ] && [ -n "${{ secrets.OCI_SSH_KEY }}" ]; then
@@ -127,7 +128,7 @@ jobs:
             echo "OCI_HOST or OCI_SSH_KEY not configured. Skipping automated SSH deploy step."
           fi
 
-      - name: SSH Trigger Docker Rolling Deployment on OCI VPS
+      - name: Deploy Container via SSH
         if: steps.check-secrets.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.2.0
         with:

@@ -14,11 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Spend Visibility**: Added sub-1% spend badge and progress visibility indicator for active virtual keys.
 - **Provider Telemetry**: Added upstream call telemetry separating zero-cost cache hits from outbound provider traffic.
 - **UI Deployment Workflows**: Added deployment guides for local Docker Compose, standalone Vite development, and edge CDN hosting.
+- **Environment Variables Reference**: Documented essential backend and frontend environment variables in README, quickstart, and self-hosting documentation.
+- **Verification Commands Reference**: Documented `make load`, `make chaos`, `make cache-fuzz`, `make stress`, and `make verify-all` across public guides and contributing references.
+- **Docker Compose Profiles**: Isolated mock upstream services (`mock-alpha`, `mock-beta`) under `dev` and `test` profiles, keeping production environments lean and mock-free.
 
 ### Changed
 - **Unified Ingress Hostnames**: Migrated cloud endpoints to single-level hyphenated subdomains for wildcard SSL compatibility.
 - **Documentation Custom Domain**: Configured sovereign domain `docs-netrallm.avadhanlabs.dev` via GitHub Pages CNAME.
 - **Local Dev Port**: Enforced deterministic port 3000 binding for local console development.
+- **CI Workflow Standardization**: Aligned GitHub Actions workflow and job names to clean production conventions.
+- **Hero Banner Tagline**: Synchronized banner and landing hero copy to unified OpenAI-compatible interface phrasing.
+- **Documentation Hygiene**: Removed promotional references and cleaned up verification terminology.
 
 ### Fixed
 - **Cross-Origin Requests**: Added high-precedence CORS filter to allow cross-subdomain communication between console and gateway.
@@ -26,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Health Check Deduplication**: Unified concurrent background health probes via a shared in-flight request.
 - **Pagination Safety**: Added safe upper bounds to prevent arithmetic overflow on large cursor offsets.
 - **Documentation Deployment**: Preserved CNAME configuration across automated documentation build artifacts.
+- **Console Initial Load Probing**: Added immediate initial health probe on console mount to display live connectivity status on first render.
+- **Responsive UI Layouts**: Refactored grid templates, navbar controls, and playground containers to eliminate viewport overflow and adapt fluidly across mobile and tablet screen sizes.
+- **Playground Profile State Invariant**: Disabled unseeded demo profiles and inactive virtual keys in customer production deployments, adding inline key status feedback and direct minting shortcuts.
+- **Figure Caption Links**: Removed redundant dark-theme and legacy D2 source links from architecture diagrams.
 
 ---
 
@@ -105,3 +115,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Micro-Cost Accounting**: High-precision financial arithmetic calculating request spend in USD.
 - **Persistence Foundation**: Relational storage and vector indexing for tenants, model pricing, and audit records.
 - **Documentation Scaffolding**: Static documentation site and OpenAPI 3.1 specification.
+
+[0.7.1]: https://github.com/shashankch/netra-llmgateway/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/shashankch/netra-llmgateway/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/shashankch/netra-llmgateway/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/shashankch/netra-llmgateway/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/shashankch/netra-llmgateway/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/shashankch/netra-llmgateway/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/shashankch/netra-llmgateway/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/shashankch/netra-llmgateway/releases/tag/v0.1.0

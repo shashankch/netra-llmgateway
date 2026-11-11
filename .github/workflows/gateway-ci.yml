@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build & Test (Java 25 LTS)
+    name: Build & Test
     runs-on: ubuntu-latest
 
     services:
@@ -40,14 +40,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 25
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -55,10 +55,10 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
+      - name: Build Application
         run: ./gradlew build -x test
 
-      - name: Run Automated Test Suite
+      - name: Run Tests
         run: ./gradlew test
 
       - name: Validate Pack Integrity

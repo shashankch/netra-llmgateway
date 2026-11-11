@@ -1,4 +1,4 @@
-name: Gateway Verification CI
+name: Gateway Verification
 
 on:
   push:
@@ -8,27 +8,27 @@ on:
 
 jobs:
   verify:
-    name: Full E2E & Contract Verification
+    name: End-to-End Verification
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java 25 & Python 3.12
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Boot Verification Stack via Docker Compose
+      - name: Start Service Stack
         run: |
-          docker compose up -d --build postgres redis mock-alpha mock-beta gateway
+          docker compose --profile test up -d --build postgres redis mock-alpha mock-beta gateway
           echo "Waiting for NETRA gateway to report healthy and ready..."
           HEALTHY=false
           for i in {1..45}; do
@@ -51,12 +51,12 @@ jobs:
           echo "Gateway startup and data seeding logs:"
           docker compose logs --tail=40 gateway
 
-      - name: 1. Health Probe Verification
+      - name: 1. Service Health Check
         run: |
           curl -f http://localhost:8080/health
           curl -f http://localhost:8080/health/ready
 
-      - name: 2. Core Ingress Contract & Smoke Tests (17/17)
+      - name: 2. Contract Smoke Tests
         run: |
           python3 scripts/smoke_test.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --model fast || {
             echo "::error::Smoke test failed! Dumping gateway logs:"
@@ -64,31 +64,31 @@ jobs:
             exit 1
           }
 
-      - name: 3. Intelligent Prompt Routing Accuracy (100% Target)
+      - name: 3. Prompt Routing Evaluation
         run: |
           python3 scripts/run_routing_eval.py --url http://localhost:8080 --key netra-sk-research-4d5e6f
 
-      - name: 4. Semantic Vector Cache Evaluation (Cosine Similarity & Discrimination)
+      - name: 4. Semantic Vector Cache Evaluation
         run: |
           python3 scripts/run_cache_eval.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --alt-key netra-sk-free-7g8h9i
 
-      - name: 5. Concurrency Load Test & 0.00% Over-Admission Guarantee
+      - name: 5. Concurrency Load Test
         run: |
           python3 scripts/load_test.py --url http://localhost:8080 --key netra-sk-free-7g8h9i --model fast --requests 30 --concurrency 10 --rpm-limit 10
 
-      - name: 6. Enterprise v2 Chaos & Fault Injection Drill
+      - name: 6. Chaos & Fault Injection Drill
         run: |
           python3 scripts/v2/chaos_drill.py --url http://localhost:8080
 
-      - name: 7. Enterprise v2 Semantic Cache Adversarial Fuzzer
+      - name: 7. Cache Adversarial Fuzzer
         run: |
           python3 scripts/v2/cache_fuzzer.py --url http://localhost:8080 --key netra-sk-search-1a2b3c --alt-key netra-sk-research-4d5e6f
 
-      - name: 8. Enterprise v2 High-Concurrency Stress Benchmark
+      - name: 8. Concurrency Stress Benchmark
         run: |
           python3 scripts/v2/stress_test.py --url http://localhost:8080 --key netra-sk-research-4d5e6f --concurrency 10 --duration 5
 
-      - name: Teardown Stack
+      - name: Tear Down Services
         if: always()
         run: |
           docker compose down -v

@@ -37,12 +37,12 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'docs/requirements.txt'
 
-      - name: Install Zensical Documentation Engine
+      - name: Install Documentation Engine
         run: |
           python -m pip install --upgrade pip
           pip install -r docs/requirements.txt
 
-      - name: Build Documentation Site via Zensical
+      - name: Build Documentation Site
         run: |
           zensical build --clean --strict
           if [ -f docs/CNAME ]; then cp docs/CNAME site/CNAME; fi
