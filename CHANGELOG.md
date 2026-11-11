@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.4](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.3...netra-llmgateway-v0.7.4) (2026-11-11)
+
+
+### Bug Fixes
+
+* **gateway:** align release version 0.7.3, playground markdown rendering, and compose profiles ([#18](https://github.com/shashankch/netra-llmgateway/issues/18)) ([cf10c28](https://github.com/shashankch/netra-llmgateway/commit/cf10c284c4c8fd12670ba3208a01e0d9cb11644f))
+
 ## [0.7.3](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.2...netra-llmgateway-v0.7.3) (2026-11-11)
 
 ### Features
