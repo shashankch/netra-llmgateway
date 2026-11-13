@@ -6,9 +6,12 @@ import {
 } from 'lucide-react';
 import Pagination from './Pagination';
 import CacheContentModal from './CacheContentModal';
+import SandboxNoticeBanner from './SandboxNoticeBanner';
+import { DEMO_CACHE_STATS } from '../constants/demoFallbackData';
 
-export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavigate }) {
-  const [stats, setStats] = useState(null);
+export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavigate, onOpenAdminModal }) {
+  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
+  const [stats, setStats] = useState(() => isDemoToken ? DEMO_CACHE_STATS : null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -27,10 +30,17 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavi
       });
       if (res.ok) {
         const data = await res.json();
-        setStats(data);
+        if (data && (data.total_entries > 0 || data.total_hits > 0 || !isDemoToken)) {
+          setStats(data);
+        } else if (isDemoToken) {
+          setStats(DEMO_CACHE_STATS);
+        }
+      } else if (isDemoToken) {
+        setStats(DEMO_CACHE_STATS);
       }
     } catch (e) {
       console.error("Failed to load cache stats", e);
+      if (isDemoToken) setStats(DEMO_CACHE_STATS);
     } finally {
       setLoading(false);
     }
@@ -101,6 +111,11 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavi
           </button>
         </div>
       </div>
+
+      {/* Developer Sandbox Notice Banner */}
+      {isDemoToken && (
+        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} featureName="semantic vector cache entries and similarity thresholds" />
+      )}
 
       {/* KPI Cards */}
       <div className="kpi-grid">

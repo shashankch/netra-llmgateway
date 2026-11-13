@@ -81,11 +81,11 @@ export default function App() {
         <main className="main-content">
           <ErrorBoundary onReset={() => setActiveTab('landing')}>
             {activeTab === 'landing' && <LandingPage adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} />}
-            {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} />}
-            {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} />}
-            {activeTab === 'logs' && <RequestLogs adminToken={adminToken} />}
-            {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} />}
+            {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'logs' && <RequestLogs adminToken={adminToken} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
           </ErrorBoundary>
         </main>
 

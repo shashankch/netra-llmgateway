@@ -6,16 +6,18 @@ import {
   X, RefreshCw, AlertCircle, Sparkles, Copy, Search, Filter, Gauge, Database
 } from 'lucide-react';
 import Pagination from './Pagination';
+import SandboxNoticeBanner from './SandboxNoticeBanner';
+import { DEMO_KEYS } from '../constants/demoFallbackData';
 
 export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdminModal }) {
   const { formatCurrency, currency } = useTheme();
+  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const [keys, setKeys] = useState(() => {
     try {
       const cached = sessionStorage.getItem(`netra_tenant_keys_${adminToken || 'demo'}`);
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return isDemoToken ? DEMO_KEYS : [];
   });
   const [loading, setLoading] = useState(() => {
     try {
@@ -32,7 +34,6 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
   const [copiedKey, setCopiedKey] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
 
   const copyKeyToClipboard = (keyStr) => {
     navigator.clipboard.writeText(keyStr);
@@ -59,14 +60,18 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
       });
       if (res.ok) {
         const data = await res.json();
-        setKeys(data);
+        const activeList = (Array.isArray(data) && data.length > 0) ? data : (isDemoToken ? DEMO_KEYS : []);
+        setKeys(activeList);
         try {
-          sessionStorage.setItem(`netra_tenant_keys_${adminToken || 'demo'}`, JSON.stringify(data));
+          sessionStorage.setItem(`netra_tenant_keys_${adminToken || 'demo'}`, JSON.stringify(activeList));
           sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
         } catch {}
+      } else if (isDemoToken) {
+        setKeys(DEMO_KEYS);
       }
     } catch (e) {
       console.error("Failed to load virtual keys", e);
+      if (isDemoToken) setKeys(DEMO_KEYS);
     } finally {
       setLoading(false);
     }
@@ -100,6 +105,10 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
   const handleCreate = async (e) => {
     e.preventDefault();
     setModalError(null);
+    if (isDemoToken) {
+      setModalError("Key creation is read-only in Developer Sandbox mode. Enter your Admin Key to configure live tenant keys.");
+      return;
+    }
     try {
       const res = await fetch(getApiUrl('/admin/keys'), {
         method: 'POST',
@@ -135,6 +144,10 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
     e.preventDefault();
     if (!editTarget) return;
     setModalError(null);
+    if (isDemoToken) {
+      setModalError("Key modification is read-only in Developer Sandbox mode. Enter your Admin Key to update live tenant keys.");
+      return;
+    }
     try {
       const res = await fetch(getApiUrl(`/admin/keys/${editTarget.id}`), {
         method: 'PUT',
@@ -166,6 +179,10 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
   };
 
   const handleRevoke = async (id, virtualKey) => {
+    if (isDemoToken) {
+      alert("Key revocation is read-only in Developer Sandbox mode. Enter your Admin Key to manage live keys.");
+      return;
+    }
     if (!window.confirm(`Revoke key ${virtualKey}? Incoming requests will receive HTTP 401.`)) return;
     try {
       const res = await fetch(getApiUrl(`/admin/keys/${id}`), {
@@ -232,6 +249,11 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
           </button>
         </div>
       </div>
+
+      {/* Developer Sandbox Notice Banner */}
+      {isDemoToken && (
+        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} featureName="tenant virtual keys and rate quotas" />
+      )}
 
       {/* Search & Filter Toolbar */}
       <div className="card" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>

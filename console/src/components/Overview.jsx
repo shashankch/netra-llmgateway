@@ -11,9 +11,12 @@ import TenantSpendLeaderboard from './overview/TenantSpendLeaderboard';
 import PricingCatalogModal from './overview/PricingCatalogModal';
 import ProviderFleetModal from './overview/ProviderFleetModal';
 import OverviewDetailModals from './overview/OverviewDetailModals';
+import SandboxNoticeBanner from './SandboxNoticeBanner';
+import { DEMO_USAGE, DEMO_KEYS, DEMO_CACHE_STATS, getDemoLogs, DEMO_PROVIDER_HEALTH } from '../constants/demoFallbackData';
 
-export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }) {
+export default function Overview({ adminToken = 'netra-admin-demo', onNavigate, onOpenAdminModal }) {
   const { formatCurrency, currency } = useTheme();
+  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState(null);
   const [keys, setKeys] = useState([]);
@@ -63,13 +66,16 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
         fetch(getApiUrl('/admin/providers/health'), { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
 
-      setUsage(usageRes);
-      setKeys(keysRes || []);
-      setCacheStats(cacheRes);
-      setLogs(logsRes || []);
+      setUsage(usageRes || (isDemoToken ? DEMO_USAGE : null));
+      setKeys((keysRes && keysRes.length > 0) ? keysRes : (isDemoToken ? DEMO_KEYS : []));
+      setCacheStats(cacheRes || (isDemoToken ? DEMO_CACHE_STATS : null));
+      setLogs((logsRes && logsRes.length > 0) ? logsRes : (isDemoToken ? getDemoLogs() : []));
       setPricing(pricingRes);
-      if (healthRes !== null) {
+      if (healthRes !== null && Array.isArray(healthRes) && healthRes.length > 0) {
         setProviderHealth(healthRes);
+        setProviderHealthError(false);
+      } else if (isDemoToken) {
+        setProviderHealth(DEMO_PROVIDER_HEALTH.providers);
         setProviderHealthError(false);
       } else {
         setProviderHealth(null);
@@ -363,6 +369,11 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
           </button>
         </div>
       </div>
+
+      {/* Developer Sandbox Notice Banner */}
+      {isDemoToken && (
+        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} featureName="cluster telemetry and router efficiency" />
+      )}
 
       {/* 1. Five Headline KPI Cards */}
       <OverviewKpis
