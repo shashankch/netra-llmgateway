@@ -190,7 +190,7 @@ export default function Navbar({
 
         {/* Navigation Tabs */}
         <nav 
-          className="navbar-nav hide-scrollbar" 
+          className="navbar-nav" 
           style={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -254,7 +254,7 @@ export default function Navbar({
               {isDemoToken ? 'Sandbox' : 'Admin'}
             </span>
             <span 
-              className="font-mono"
+              className="font-mono admin-status-badge"
               style={{
                 fontSize: '0.625rem',
                 fontWeight: 700,
@@ -280,7 +280,6 @@ export default function Navbar({
               fontSize: '0.75rem',
               padding: '0.3rem 0.65rem',
               height: 32,
-              display: 'inline-flex',
               alignItems: 'center',
               gap: '0.4rem',
               textDecoration: 'none'

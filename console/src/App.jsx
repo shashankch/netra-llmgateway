@@ -89,7 +89,7 @@ export default function App() {
           </ErrorBoundary>
         </main>
 
-        <footer style={{
+        <footer className="app-footer" style={{
           borderTop: '1px solid var(--border-subtle)',
           padding: '1.5rem 2rem',
           background: 'var(--bg-surface)',

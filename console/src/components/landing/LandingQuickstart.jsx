@@ -20,7 +20,7 @@ export default function LandingQuickstart({ gatewayHost }) {
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.85rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Terminal size={16} style={{ color: 'var(--accent-lime)' }} />
           <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>Quickstart: OpenAI-Compatible Invocations</span>
@@ -43,6 +43,8 @@ export default function LandingQuickstart({ gatewayHost }) {
         fontSize: '0.8125rem',
         fontFamily: 'var(--font-mono)',
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'thin',
         color: 'var(--text-code)',
         lineHeight: 1.5
       }}>
