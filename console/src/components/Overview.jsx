@@ -11,9 +11,12 @@ import TenantSpendLeaderboard from './overview/TenantSpendLeaderboard';
 import PricingCatalogModal from './overview/PricingCatalogModal';
 import ProviderFleetModal from './overview/ProviderFleetModal';
 import OverviewDetailModals from './overview/OverviewDetailModals';
+import SandboxNoticeBanner from './SandboxNoticeBanner';
+import { DEMO_USAGE, DEMO_KEYS, DEMO_CACHE_STATS, getDemoLogs, DEMO_PROVIDER_HEALTH } from '../constants/demoFallbackData';
 
-export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }) {
+export default function Overview({ adminToken = 'netra-admin-demo', onNavigate, onOpenAdminModal }) {
   const { formatCurrency, currency } = useTheme();
+  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState(null);
   const [keys, setKeys] = useState([]);
@@ -63,13 +66,24 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
         fetch(getApiUrl('/admin/providers/health'), { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
 
-      setUsage(usageRes);
-      setKeys(keysRes || []);
-      setCacheStats(cacheRes);
-      setLogs(logsRes || []);
+      const hasLiveUsage = usageRes && ((usageRes.requests || usageRes.total_requests || 0) > 0 || (usageRes.costUsd || usageRes.cost_usd || 0) > 0);
+      setUsage(hasLiveUsage ? usageRes : (isDemoToken ? DEMO_USAGE : usageRes));
+
+      const hasLiveKeys = Array.isArray(keysRes) && keysRes.length > 0;
+      setKeys(hasLiveKeys ? keysRes : (isDemoToken ? DEMO_KEYS : []));
+
+      const hasLiveCache = cacheRes && ((cacheRes.total_entries || 0) > 0 || (cacheRes.total_hits || 0) > 0);
+      setCacheStats(hasLiveCache ? cacheRes : (isDemoToken ? DEMO_CACHE_STATS : cacheRes));
+
+      const hasLiveLogs = Array.isArray(logsRes) && logsRes.length > 0;
+      setLogs(hasLiveLogs ? logsRes : (isDemoToken ? getDemoLogs() : []));
+
       setPricing(pricingRes);
-      if (healthRes !== null) {
+      if (healthRes !== null && Array.isArray(healthRes) && healthRes.length > 0) {
         setProviderHealth(healthRes);
+        setProviderHealthError(false);
+      } else if (isDemoToken) {
+        setProviderHealth(DEMO_PROVIDER_HEALTH.providers);
         setProviderHealthError(false);
       } else {
         setProviderHealth(null);
@@ -119,28 +133,36 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
   const smartRate = smartAlias?.input_per_1m ?? smartAlias?.inputPer1m ?? 3.00;
 
   // Derived metrics from logs & backend
-  const totalRequests = usage?.requests ?? logs.length ?? 0;
-  const totalCost = usage?.cost_usd ?? 0;
+  const totalRequests = usage?.requests ?? (usage?.total_requests ?? logs.length ?? 0);
+  const totalCost = usage?.cost_usd ?? (usage?.costUsd ?? (usage?.total_spend_usd ?? 0));
   const promptTokens = (usage?.prompt_tokens != null && usage?.prompt_tokens > 0)
     ? usage.prompt_tokens
-    : logs.reduce((sum, l) => sum + (l.prompt_tokens || 0), 0);
+    : (usage?.promptTokens != null && usage?.promptTokens > 0
+      ? usage.promptTokens
+      : logs.reduce((sum, l) => sum + (l.prompt_tokens || 0), 0));
   const completionTokens = (usage?.completion_tokens != null && usage?.completion_tokens > 0)
     ? usage.completion_tokens
-    : logs.reduce((sum, l) => sum + (l.completion_tokens || 0), 0);
-  const totalTokens = promptTokens + completionTokens;
+    : (usage?.completionTokens != null && usage?.completionTokens > 0
+      ? usage.completionTokens
+      : logs.reduce((sum, l) => sum + (l.completion_tokens || 0), 0));
+  const totalTokens = (usage?.total_tokens != null && usage?.total_tokens > 0)
+    ? usage.total_tokens
+    : (promptTokens + completionTokens);
   const avgTokensPerReq = totalRequests > 0 ? Math.round(totalTokens / totalRequests) : 0;
 
   // Stream metrics: accurately isolate true SSE stream traffic from standard JSON completions
   const streamLogs = logs.filter(l => l.stream === true || l.is_stream === true);
   const streamCount = streamLogs.length;
-  const streamPct = logs.length > 0 ? Math.round((streamCount / logs.length) * 100) : 0;
+  const streamPct = (usage?.stream_ratio != null && usage?.stream_ratio > 0)
+    ? Math.round(usage.stream_ratio * 100)
+    : (logs.length > 0 ? Math.round((streamCount / logs.length) * 100) : 0);
 
-  // Latency calculation from logs
-  const latencies = logs.map(l => l.latency_ms || 0).filter(n => n > 0).sort((a, b) => a - b);
-  const p50 = latencies.length ? latencies[Math.floor(latencies.length * 0.5)] : 0;
-  const p90 = latencies.length ? latencies[Math.floor(latencies.length * 0.9)] : 0;
-  const p99 = latencies.length ? latencies[Math.floor(latencies.length * 0.99)] : 0;
-  const avgLatency = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+  // Latency calculation from logs & backend aggregates
+  const latencies = logs.map(l => l.latency_ms || l.total_latency_ms || 0).filter(n => n > 0).sort((a, b) => a - b);
+  const p50 = usage?.p50_latency_ms ?? (latencies.length ? latencies[Math.floor(latencies.length * 0.5)] : 0);
+  const p90 = usage?.p90_latency_ms ?? (latencies.length ? latencies[Math.floor(latencies.length * 0.9)] : 0);
+  const p99 = usage?.p99_latency_ms ?? (latencies.length ? latencies[Math.floor(latencies.length * 0.99)] : 0);
+  const avgLatency = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : (p50 || 0);
 
   // Disambiguate requested virtual aliases vs dynamic classifier-routed execution
   const directFast = logs.filter(l => l.requested_model === 'fast').length;
@@ -189,10 +211,10 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
 
   const autoFast = autoLogs.filter(isFastResolved).length;
   const autoSmart = autoLogs.filter(isSmartResolved).length;
-  const totalAuto = autoLogs.length;
+  const totalAuto = usage?.routed_volume ?? autoLogs.length;
 
-  const effectiveFast = directFast + autoFast;
-  const effectiveSmart = directSmart + autoSmart;
+  const effectiveFast = usage?.fast_executions ?? (directFast + autoFast);
+  const effectiveSmart = usage?.smart_executions ?? (directSmart + autoSmart);
   const totalExecutions = effectiveFast + effectiveSmart + directOther || logs.length;
   const totalModelCalls = totalExecutions;
 
@@ -203,11 +225,27 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
     return `${n.toLocaleString()} calls`;
   };
 
-  // Concrete foundation models aggregated dynamically from logs
+  // Concrete foundation models aggregated dynamically from logs or demo distribution
   const concreteModelStats = useMemo(() => {
+    if (isDemoToken && usage?.model_breakdown && Object.keys(usage.model_breakdown).length > 0) {
+      return Object.entries(usage.model_breakdown).map(([model, calls]) => {
+        let prov = 'openrouter';
+        if (model.includes('/')) prov = model.split('/')[0];
+        else if (model.startsWith('alpha')) prov = 'alpha';
+        else if (model.startsWith('beta')) prov = 'beta';
+        return {
+          name: model,
+          provider: prov,
+          calls: calls,
+          tokens: Math.round(calls * (avgTokensPerReq || 420)),
+          cost: calls * 0.0002
+        };
+      }).sort((a, b) => b.calls - a.calls);
+    }
+
     const map = {};
     logs.forEach(l => {
-      const model = l.resolved_model || l.requested_model || 'unknown';
+      const model = l.resolved_model || l.model || l.requested_model || 'unknown';
       if (!map[model]) {
         let prov = l.provider;
         if (!prov) {
@@ -236,12 +274,12 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
       ];
     }
     return list;
-  }, [logs, fastModelName, smartModelName]);
+  }, [logs, isDemoToken, usage, avgTokensPerReq, fastModelName, smartModelName]);
 
   // Chart 2: Smart Router Arbitrage Efficiency
   const totalDiverted = totalAuto > 0 ? totalAuto : (effectiveFast + effectiveSmart);
   const fastPct = totalDiverted > 0
-    ? Math.round(((totalAuto > 0 ? autoFast : effectiveFast) / totalDiverted) * 100)
+    ? Math.round(usage?.fast_ratio != null ? (usage.fast_ratio * 100) : (((totalAuto > 0 ? autoFast : effectiveFast) / totalDiverted) * 100))
     : 0;
   const smartPct = totalDiverted > 0 ? (100 - fastPct) : 0;
   const arbitrageSavingsPct = (smartRate > fastRate && smartRate > 0)
@@ -257,7 +295,9 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
     : (cacheTotal > 0 ? ((cacheHits / cacheTotal) * 100).toFixed(1) : (totalRequests > 0 ? ((cacheHits / totalRequests) * 100).toFixed(1) : '0.0'));
 
   const avgCostPerMiss = cacheMisses > 0 ? (totalCost / cacheMisses) : (totalRequests > 0 ? (totalCost / totalRequests) : 0.000030);
-  const cumulativeSaved = cacheHits > 0 ? (cacheHits * avgCostPerMiss) : 0;
+  const cumulativeSaved = (usage?.saved_spend_usd != null && usage?.saved_spend_usd > 0)
+    ? usage.saved_spend_usd
+    : (cacheHits > 0 ? (cacheHits * avgCostPerMiss) : 0);
 
   // Real upstream provider health data
   const isHealthAvailable = !providerHealthError && providerHealth !== null;
@@ -364,6 +404,11 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
         </div>
       </div>
 
+      {/* Developer Sandbox Notice Banner */}
+      {isDemoToken && (
+        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} featureName="cluster telemetry and router efficiency" />
+      )}
+
       {/* 1. Five Headline KPI Cards */}
       <OverviewKpis
         totalCost={totalCost}
@@ -383,6 +428,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate }
       {/* 2. Four Interactive Analytics Charts */}
       <OverviewCharts
         logs={logs}
+        totalRequests={totalRequests}
         modelViewMode={modelViewMode}
         setModelViewMode={setModelViewMode}
         effectiveFast={effectiveFast}

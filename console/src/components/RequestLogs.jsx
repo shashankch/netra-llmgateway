@@ -6,8 +6,11 @@ import {
   CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, RefreshCw 
 } from 'lucide-react';
 import Pagination from './Pagination';
+import SandboxNoticeBanner from './SandboxNoticeBanner';
+import { getDemoLogs } from '../constants/demoFallbackData';
 
-export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
+export default function RequestLogs({ adminToken = 'netra-admin-demo', onOpenAdminModal }) {
+  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const gatewayUrl = useGatewayUrl();
   const { formatCurrency } = useTheme();
   const [logs, setLogs] = useState([]);
@@ -86,18 +89,33 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
         const totalHeader = res.headers.get('X-Total-Count');
         const data = await res.json();
         const logsList = Array.isArray(data) ? data : [];
-        if (totalHeader !== null && totalHeader !== undefined) {
-          setTotalServerCount(parseInt(totalHeader, 10) || 0);
+        if (logsList.length === 0 && isDemoToken) {
+          const demoList = getDemoLogs();
+          setTotalServerCount(demoList.length);
+          setLogs(demoList);
         } else {
-          setTotalServerCount(logsList.length);
+          if (totalHeader !== null && totalHeader !== undefined) {
+            setTotalServerCount(parseInt(totalHeader, 10) || 0);
+          } else {
+            setTotalServerCount(logsList.length);
+          }
+          setLogs(logsList);
         }
-        setLogs(logsList);
+      } else if (isDemoToken) {
+        const demoList = getDemoLogs();
+        setTotalServerCount(demoList.length);
+        setLogs(demoList);
       }
     } catch (e) {
       if (e.name === 'AbortError') {
         return; // Ignore stale aborted requests
       }
       console.error("Failed to load request logs", e);
+      if (isDemoToken) {
+        const demoList = getDemoLogs();
+        setTotalServerCount(demoList.length);
+        setLogs(demoList);
+      }
     } finally {
       if (abortControllerRef.current === controller) {
         setLoading(false);
@@ -299,6 +317,11 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo' }) {
           </button>
         </div>
       </div>
+
+      {/* Developer Sandbox Notice Banner */}
+      {isDemoToken && (
+        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} featureName="audit logs and stream relay traces" />
+      )}
 
       {/* Filter Toolbar */}
       <div className="card" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>

@@ -78,6 +78,7 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
   });
 
   const [errorInfo, setErrorInfo] = useState(null);
+  const [hoveredProfileKey, setHoveredProfileKey] = useState(null);
   const [chunkCount, setChunkCount] = useState(() => {
     try {
       const stored = sessionStorage.getItem('netra_playground_chunk_count');
@@ -99,8 +100,21 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
     }
   });
 
-  const [tenantKeys, setTenantKeys] = useState([]);
-  const [keysLoaded, setKeysLoaded] = useState(false);
+  const [tenantKeys, setTenantKeys] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(`netra_tenant_keys_${adminToken || 'demo'}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [keysLoaded, setKeysLoaded] = useState(() => {
+    try {
+      return !!sessionStorage.getItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`);
+    } catch {
+      return false;
+    }
+  });
 
   const abortControllerRef = useRef(null);
   const responseContainerRef = useRef(null);
@@ -137,6 +151,10 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
               setKeysLoaded(true);
               if (Array.isArray(keysJson)) {
                 setTenantKeys(keysJson);
+                try {
+                  sessionStorage.setItem(`netra_tenant_keys_${adminToken || 'demo'}`, JSON.stringify(keysJson));
+                  sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
+                } catch {}
                 // If current key is default demo and no saved key in session, auto-select first active real key
                 if (keysJson.some(k => k.status === 'ACTIVE')) {
                   const firstActive = keysJson.find(k => k.status === 'ACTIVE');
@@ -154,6 +172,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
             }
           } else if (isMounted) {
             setKeysLoaded(true);
+            try {
+              sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
+            } catch {}
           }
         }
       } catch (err) {
@@ -266,6 +287,11 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
           key: k.virtual_key,
           model: (k.model_allowlist && k.model_allowlist.length > 0) ? k.model_allowlist[0] : 'fast',
           desc: `RPM: ${k.rpm_limit}, Cache: ${k.semantic_cache_enabled ? `\u2265 ${k.similarity_threshold}` : 'Off'}`,
+          rpm: `${k.rpm_limit || 60} RPM`,
+          cache: k.semantic_cache_enabled ? `Active (\u2265 ${k.similarity_threshold})` : 'Bypassed',
+          role: k.semantic_cache_enabled 
+            ? `Production profile with semantic vector caching enabled (threshold \u2265 ${k.similarity_threshold}).`
+            : `Production profile with direct upstream pass-through and admission control.`,
           disabled: !isActive,
           status: k.status || 'ACTIVE'
         };
@@ -276,6 +302,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
           key: 'netra-sk-search-1a2b3c', 
           model: 'fast', 
           desc: 'Cache threshold: 0.92, RPM: 60', 
+          rpm: '60 RPM',
+          cache: 'Tier-2 Vector (\u2265 0.92)',
+          role: 'High-throughput search inference profile with aggressive semantic caching to minimize latency.',
           disabled: isProductionUnseeded, 
           status: isProductionUnseeded ? 'UNSEEDED' : 'DEMO' 
         },
@@ -284,6 +313,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
           key: 'netra-sk-research-4d5e6f', 
           model: 'auto', 
           desc: 'Auto router, cache: disabled', 
+          rpm: '120 RPM',
+          cache: 'Bypassed (Zero Cache)',
+          role: 'Analytical research queries routed through the difficulty classifier (auto tier) to optimize cost vs reasoning.',
           disabled: isProductionUnseeded, 
           status: isProductionUnseeded ? 'UNSEEDED' : 'DEMO' 
         },
@@ -292,6 +324,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
           key: 'netra-sk-free-7g8h9i', 
           model: 'fast', 
           desc: 'RPM: 10, cache threshold: 0.85', 
+          rpm: '10 RPM',
+          cache: 'Active (\u2265 0.85)',
+          role: 'Restricted consumer tier with strict Redis rate limits to showcase real-time burst rate limiting.',
           disabled: isProductionUnseeded, 
           status: isProductionUnseeded ? 'UNSEEDED' : 'DEMO' 
         },
@@ -300,6 +335,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
           key: 'netra-sk-budget-demo-0j1k2l', 
           model: 'fast', 
           desc: 'Strict monthly limit demonstration ($0.00001 cap)', 
+          rpm: '30 RPM',
+          cache: 'Bypassed',
+          role: 'Micro-capped profile ($0.00001 spend ceiling) engineered to demonstrate atomic monthly budget exhaustion.',
           disabled: isProductionUnseeded, 
           status: isProductionUnseeded ? 'UNSEEDED' : 'DEMO' 
         },
@@ -585,36 +623,99 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
             Profile:
           </span>
           {presets.map(p => (
-            <button
-              key={p.key}
-              type="button"
-              disabled={p.disabled}
-              onClick={() => {
-                if (p.disabled) return;
-                setVirtualKey(p.key);
-                setModel(p.model);
-              }}
-              className={`btn btn-sm ${virtualKey === p.key ? 'btn-primary' : 'btn-outline'}`}
-              style={{ 
-                fontSize: '0.72rem', 
-                padding: '0.15rem 0.5rem', 
-                height: 24, 
-                gap: '0.25rem',
-                opacity: p.disabled ? 0.45 : 1,
-                cursor: p.disabled ? 'not-allowed' : 'pointer'
-              }}
-              title={p.disabled ? `${p.label} (${p.status}: Disabled in production deployment)` : `${p.label} (${p.desc})`}
+            <div 
+              key={p.key} 
+              style={{ position: 'relative', display: 'inline-block' }}
+              onMouseEnter={() => setHoveredProfileKey(p.key)}
+              onMouseLeave={() => setHoveredProfileKey(null)}
             >
-              <Zap size={11} style={{ opacity: p.disabled ? 0.5 : 1 }} />
-              <span>{p.label}</span>
-              {p.disabled && (
-                <span style={{ fontSize: '0.58rem', textTransform: 'uppercase', padding: '0 0.25rem', borderRadius: 3, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--accent-rose, #f43f5e)', marginLeft: '0.15rem' }}>
-                  {p.status === 'UNSEEDED' ? 'unseeded' : 'disabled'}
-                </span>
+              <button
+                type="button"
+                disabled={p.disabled}
+                onClick={() => {
+                  if (p.disabled) return;
+                  setVirtualKey(p.key);
+                  setModel(p.model);
+                }}
+                className={`btn btn-sm ${virtualKey === p.key ? 'btn-primary' : 'btn-outline'}`}
+                style={{ 
+                  fontSize: '0.72rem', 
+                  padding: '0.15rem 0.5rem', 
+                  height: 24, 
+                  gap: '0.25rem',
+                  opacity: p.disabled ? 0.45 : 1,
+                  cursor: p.disabled ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <Zap size={11} style={{ opacity: p.disabled ? 0.5 : 1 }} />
+                <span>{p.label}</span>
+                {p.disabled && (
+                  <span style={{ fontSize: '0.58rem', textTransform: 'uppercase', padding: '0 0.25rem', borderRadius: 3, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--accent-rose, #f43f5e)', marginLeft: '0.15rem' }}>
+                    {p.status === 'UNSEEDED' ? 'unseeded' : 'disabled'}
+                  </span>
+                )}
+              </button>
+
+              {/* Clean Professional Profile Hover Micro-Card */}
+              {hoveredProfileKey === p.key && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 100,
+                    width: '240px',
+                    background: 'var(--bg-card, #111827)',
+                    border: '1px solid var(--border-default, #1f2937)',
+                    borderRadius: '8px',
+                    padding: '0.65rem 0.75rem',
+                    boxShadow: '0 12px 28px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3)',
+                    pointerEvents: 'none',
+                    textAlign: 'left',
+                    lineHeight: 1.4
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {p.label}
+                    </span>
+                    <span 
+                      className="badge font-mono" 
+                      style={{ 
+                        fontSize: '0.58rem', 
+                        padding: '0.05rem 0.3rem',
+                        background: p.disabled ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                        color: p.disabled ? 'var(--accent-rose)' : 'var(--accent-emerald)'
+                      }}
+                    >
+                      {p.status}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '0 0 0.45rem', lineHeight: 1.35 }}>
+                    {p.role}
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem', paddingTop: '0.4rem', borderTop: '1px solid var(--border-subtle, rgba(255,255,255,0.06))', fontSize: '0.65rem' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Target Tier</span>
+                      <span className="font-mono" style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>{p.model}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Rate Limit</span>
+                      <span className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.rpm}</span>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Semantic Cache</span>
+                      <span className="font-mono" style={{ fontWeight: 500, color: 'var(--accent-lime)' }}>{p.cache}</span>
+                    </div>
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
           ))}
-          {keysLoaded && tenantKeys.length === 0 && onNavigate && (
+          {onNavigate && (
             <button
               type="button"
               onClick={() => onNavigate('keys')}

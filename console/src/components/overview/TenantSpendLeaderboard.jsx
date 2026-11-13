@@ -9,7 +9,7 @@ export default function TenantSpendLeaderboard({
   return (
     <div className="card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: '1 1 auto', minWidth: 0 }}>
           <div style={{
             width: 34,
             height: 34,
@@ -19,12 +19,14 @@ export default function TenantSpendLeaderboard({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--accent-lime)'
+            color: 'var(--accent-lime)',
+            flexShrink: 0,
+            marginTop: 2
           }}>
             <Key size={16} />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                 Top Tenant Spend &amp; Quota Burn-Down
               </h3>
@@ -227,14 +229,14 @@ export default function TenantSpendLeaderboard({
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '0.5rem',
+        gap: '0.65rem',
         fontSize: '0.75rem',
         color: 'var(--text-secondary)'
       }}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           Showing Top {Math.min(5, keys.length)} of <strong>{keys.length}</strong> configured tenant namespaces
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <span>Active: <strong style={{ color: 'var(--accent-emerald)' }}>{keys.filter(k => k.status === 'ACTIVE').length}</strong></span>
           <span>Cache Enabled: <strong style={{ color: 'var(--accent-cyan)' }}>{keys.filter(k => k.semantic_cache_enabled).length}</strong></span>
           <span>Over-Admission: <strong style={{ color: 'var(--accent-lime)' }}>0.00%</strong></span>

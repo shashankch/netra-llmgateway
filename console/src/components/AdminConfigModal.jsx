@@ -4,7 +4,8 @@ import {
   setGatewayBaseUrl, 
   normalizeGatewayUrl, 
   setHealthPollingEnabled, 
-  isHealthPollingEnabled 
+  isHealthPollingEnabled,
+  getEnvAdminToken
 } from '../config/api';
 import { 
   ShieldCheck, X, Lock, Eye, EyeOff, Globe, 
@@ -176,9 +177,16 @@ export default function AdminConfigModal({
               <label style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>
                 ADMIN ACCESS TOKEN
               </label>
-              <span className={`badge ${isDemoToken ? 'badge-warning' : 'badge-success'} font-mono`} style={{ fontSize: '0.65rem' }}>
-                {isDemoToken ? 'Demo Key' : 'Admin Key'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                {getEnvAdminToken() && (
+                  <span className="badge badge-primary font-mono" style={{ fontSize: '0.62rem' }} title="NETRA_ADMIN_TOKEN injected via build or Vercel environment variable">
+                    Env Secret Active
+                  </span>
+                )}
+                <span className={`badge ${isDemoToken ? 'badge-warning' : 'badge-success'} font-mono`} style={{ fontSize: '0.65rem' }}>
+                  {isDemoToken ? 'Demo Key' : 'Admin Key'}
+                </span>
+              </div>
             </div>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <div style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
@@ -188,7 +196,7 @@ export default function AdminConfigModal({
                 type={showSecret ? "text" : "password"}
                 value={tokenInput}
                 onChange={e => setTokenInput(e.target.value)}
-                placeholder="Enter administrative token..."
+                placeholder={getEnvAdminToken() ? "Configured via Vercel / NETRA_ADMIN_TOKEN" : "Enter administrative token..."}
                 className="font-mono input-text"
                 style={{
                   width: '100%',

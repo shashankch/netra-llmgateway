@@ -17,12 +17,12 @@ export default function LandingPage({
   adminToken = 'netra-admin-demo' 
 }) {
   const gatewayUrl = useGatewayUrl();
-  const { isOnline, isChecking, latencyMs } = useGatewayHealth();
+  const { isOnline, isChecking, latencyMs, lastChecked } = useGatewayHealth();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const gatewayHost = gatewayUrl || 'https://<YOUR_GATEWAY_URL>';
 
   const getStatusBadge = () => {
-    if (isChecking) {
+    if (isChecking || !lastChecked) {
       return {
         label: 'PROBING...',
         className: 'badge badge-neutral font-mono',

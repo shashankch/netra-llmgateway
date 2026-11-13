@@ -5,6 +5,24 @@ const backendTarget = process.env.VITE_BACKEND_TARGET || process.env.GATEWAY_TAR
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'import.meta.env.VITE_NETRA_ADMIN_TOKEN': JSON.stringify(
+      process.env.VITE_NETRA_ADMIN_TOKEN || process.env.NETRA_ADMIN_TOKEN || ''
+    ),
+  },
+  envPrefix: ['VITE_', 'NETRA_'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-analytics': ['@vercel/analytics/react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     port: 3000,
     strictPort: true,

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './context/ThemeContext';
+import { getDefaultAdminToken, getEnvAdminToken } from './config/api';
 import Navbar from './components/Navbar';
 import Overview from './components/Overview';
 import Playground from './components/Playground';
@@ -47,19 +49,20 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-  // Secure runtime admin token resolution: operator localStorage takes priority, defaulting to demo token
+  // Secure multi-tier admin token resolution: operator localStorage takes priority, then Vercel/build env var, defaulting to demo token
   const [adminToken, setAdminTokenState] = useState(() => {
-    return localStorage.getItem('netra_admin_token') || 'netra-admin-demo';
+    return getDefaultAdminToken();
   });
 
   const setAdminToken = (token) => {
     const trimmed = (token || '').trim();
+    const envToken = getEnvAdminToken();
     if (trimmed && trimmed !== 'netra-admin-demo') {
       localStorage.setItem('netra_admin_token', trimmed);
       setAdminTokenState(trimmed);
     } else {
       localStorage.removeItem('netra_admin_token');
-      setAdminTokenState('netra-admin-demo');
+      setAdminTokenState(envToken || 'netra-admin-demo');
     }
   };
 
@@ -78,15 +81,15 @@ export default function App() {
         <main className="main-content">
           <ErrorBoundary onReset={() => setActiveTab('landing')}>
             {activeTab === 'landing' && <LandingPage adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} />}
-            {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} />}
-            {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} />}
-            {activeTab === 'logs' && <RequestLogs adminToken={adminToken} />}
-            {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} />}
+            {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'logs' && <RequestLogs adminToken={adminToken} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
           </ErrorBoundary>
         </main>
 
-        <footer style={{
+        <footer className="app-footer" style={{
           borderTop: '1px solid var(--border-subtle)',
           padding: '1.5rem 2rem',
           background: 'var(--bg-surface)',
@@ -137,6 +140,7 @@ export default function App() {
             </div>
           </div>
         </footer>
+        <Analytics />
       </div>
     </ThemeProvider>
   );

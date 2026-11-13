@@ -3,6 +3,7 @@ import { BarChart2, PieChart, Database, Clock } from 'lucide-react';
 
 export default function OverviewCharts({
   logs = [],
+  totalRequests = 0,
   modelViewMode = 'alias',
   setModelViewMode,
   effectiveFast = 0,
@@ -37,11 +38,11 @@ export default function OverviewCharts({
     <div className="charts-grid">
       {/* Chart 1: Model Spend & Volume Trends */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46 }}>
-          <div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <BarChart2 size={18} style={{ color: 'var(--accent-cyan)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Model Spend &amp; Volume Trends</h3>
+              <BarChart2 size={18} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Model Spend &amp; Volume Trends</h3>
               <span className="badge badge-success font-mono" style={{ fontSize: '0.625rem', padding: '0.15rem 0.5rem', fontWeight: 700 }}>
                 LIVE
               </span>
@@ -502,11 +503,11 @@ export default function OverviewCharts({
 
       {/* Chart 2: Smart Router Arbitrage Efficiency */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <PieChart size={18} style={{ color: 'var(--accent-primary)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Smart Router Arbitrage Efficiency</h3>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <PieChart size={18} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Smart Router Arbitrage Efficiency</h3>
             </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>Intelligent Prompt Difficulty &amp; Complexity Steering</p>
           </div>
@@ -517,7 +518,7 @@ export default function OverviewCharts({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', height: 180, background: 'var(--bg-canvas)', borderRadius: 8, padding: '1rem' }}>
+        <div className="donut-legend-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', minHeight: 180, background: 'var(--bg-canvas)', borderRadius: 8, padding: '1rem' }}>
           {/* SVG Donut Chart */}
           <div style={{ position: 'relative', width: 130, height: 130 }}>
             <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
@@ -612,11 +613,11 @@ export default function OverviewCharts({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>Routed Volume</span>
               <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
-                {totalAuto} calls
+                {totalAuto.toLocaleString()} calls
               </span>
             </div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-              {logs.length > 0 ? Math.round((totalAuto / logs.length) * 100) : 0}% of fleet traffic
+              {Math.min(100, Math.round((totalAuto / (totalRequests || logs.length || totalAuto || 1)) * 100))}% of fleet traffic
             </div>
           </div>
 
@@ -638,7 +639,7 @@ export default function OverviewCharts({
               </span>
             </div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-              {totalAuto > 0 ? `${autoFast} auto-routed to fast` : `${effectiveFast} total fast executions`}
+              {effectiveFast.toLocaleString()} total fast executions
             </div>
           </div>
 
@@ -660,7 +661,7 @@ export default function OverviewCharts({
               </span>
             </div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-              {totalAuto > 0 ? `${autoSmart} escalated to frontier` : `${effectiveSmart} total smart executions`}
+              {effectiveSmart.toLocaleString()} total smart executions
             </div>
           </div>
         </div>
@@ -668,11 +669,11 @@ export default function OverviewCharts({
 
       {/* Chart 3: Semantic Cache Volume & Savings */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Database size={18} style={{ color: 'var(--accent-emerald)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Semantic Cache Volume &amp; Savings</h3>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Database size={18} style={{ color: 'var(--accent-emerald)', flexShrink: 0 }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Semantic Cache Volume &amp; Savings</h3>
             </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>Direct Upstream Calls vs. Instant Cache Hits</p>
           </div>
@@ -683,7 +684,7 @@ export default function OverviewCharts({
           </div>
         </div>
 
-        <div style={{ height: 180, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem', background: 'var(--bg-canvas)', borderRadius: 8, padding: '1.25rem' }}>
+        <div style={{ minHeight: 180, height: 'auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem', background: 'var(--bg-canvas)', borderRadius: 8, padding: '1.25rem' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
               <span style={{ fontWeight: 600 }}>Instant Cache Hits ($0 Token Cost)</span>
@@ -716,11 +717,11 @@ export default function OverviewCharts({
 
       {/* Chart 4: Latency Percentiles */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Clock size={18} style={{ color: 'var(--accent-amber)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Latency &amp; Response Times (ms)</h3>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.85rem', gap: '0.5rem', minHeight: 46, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Clock size={18} style={{ color: 'var(--accent-amber)', flexShrink: 0 }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Latency &amp; Response Times (ms)</h3>
             </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>End-to-end gateway response times across traffic</p>
           </div>
@@ -731,23 +732,23 @@ export default function OverviewCharts({
           </div>
         </div>
 
-        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'space-around', background: 'var(--bg-canvas)', borderRadius: 8, padding: '1rem' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p50 (Median)</div>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>{p50}ms</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Typical Response</div>
+        <div style={{ minHeight: 180, height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-around', background: 'var(--bg-canvas)', borderRadius: 8, padding: '1.25rem 0.5rem' }}>
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p50 (Median)</div>
+            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>{p50}ms</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>Typical</div>
           </div>
-          <div style={{ width: 1, height: 80, background: 'var(--border-strong)' }} />
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p90</div>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{p90}ms</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Under Load</div>
+          <div style={{ width: 1, height: 60, background: 'var(--border-strong)', flexShrink: 0 }} />
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p90</div>
+            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{p90}ms</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>Under Load</div>
           </div>
-          <div style={{ width: 1, height: 80, background: 'var(--border-strong)' }} />
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p99</div>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }}>{p99}ms</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Tail Latency</div>
+          <div style={{ width: 1, height: 60, background: 'var(--border-strong)', flexShrink: 0 }} />
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p99</div>
+            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }}>{p99}ms</div>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>Tail Latency</div>
           </div>
         </div>
         <div style={{ marginTop: 'auto', paddingTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', minHeight: 36, display: 'flex', alignItems: 'center' }}>

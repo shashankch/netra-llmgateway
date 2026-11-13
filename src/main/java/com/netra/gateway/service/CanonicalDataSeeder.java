@@ -51,14 +51,14 @@ public class CanonicalDataSeeder implements CommandLineRunner {
             GatewayConfigProperties configProperties,
             ObjectMapper objectMapper,
             ResourceLoader resourceLoader,
-            @org.springframework.lang.Nullable TenantAuthService tenantAuthService
+            Optional<TenantAuthService> tenantAuthService
     ) {
         this.pricingRepository = pricingRepository;
         this.tenantRepository = tenantRepository;
         this.configProperties = configProperties;
         this.objectMapper = objectMapper;
         this.resourceLoader = resourceLoader;
-        this.tenantAuthService = tenantAuthService;
+        this.tenantAuthService = tenantAuthService.orElse(null);
     }
 
     public CanonicalDataSeeder(
@@ -68,7 +68,7 @@ public class CanonicalDataSeeder implements CommandLineRunner {
             ObjectMapper objectMapper,
             ResourceLoader resourceLoader
     ) {
-        this(pricingRepository, tenantRepository, configProperties, objectMapper, resourceLoader, null);
+        this(pricingRepository, tenantRepository, configProperties, objectMapper, resourceLoader, Optional.empty());
     }
 
     @Override
