@@ -53,4 +53,4 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
 
 7. **Submitting Pull Requests:** Push your branch and open a PR against `main`. Provide a clear summary of changes, rationale, and test results.
 
-8. **Questions & Maintenance:** For questions, architectural discussions, or project maintenance inquiries, contact the project maintainer at **shashakchandel@gmail.com** or open a GitHub Discussion.
+8. **Questions & Maintenance:** For questions, architectural discussions, or project maintenance inquiries, contact the project maintainer at **shashankchandel@gmail.com** or open a GitHub Discussion.
