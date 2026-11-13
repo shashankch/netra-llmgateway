@@ -126,7 +126,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-oci:
+  deploy-backend:
     name: Deploy to Production Host
     needs: [release-please, build-and-push]
     runs-on: ubuntu-latest
@@ -135,24 +135,26 @@ jobs:
       - name: Check Host Deployment Secrets
         id: check-secrets
         run: |
-          if [ -n "${{ secrets.OCI_HOST }}" ] && [ -n "${{ secrets.OCI_SSH_KEY }}" ]; then
+          DEPLOY_TARGET_HOST="${{ secrets.DEPLOY_HOST || secrets.OCI_HOST }}"
+          DEPLOY_TARGET_KEY="${{ secrets.DEPLOY_SSH_KEY || secrets.OCI_SSH_KEY }}"
+          if [ -n "$DEPLOY_TARGET_HOST" ] && [ -n "$DEPLOY_TARGET_KEY" ]; then
             echo "configured=true" >> $GITHUB_OUTPUT
           else
             echo "configured=false" >> $GITHUB_OUTPUT
-            echo "OCI_HOST or OCI_SSH_KEY not configured. Skipping automated SSH deploy step."
+            echo "Host deployment secrets (DEPLOY_HOST/OCI_HOST, DEPLOY_SSH_KEY/OCI_SSH_KEY) not configured. Skipping automated SSH deploy step."
           fi
 
       - name: Deploy Container via SSH
         if: steps.check-secrets.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USERNAME || 'ubuntu' }}
-          key: ${{ secrets.OCI_SSH_KEY }}
-          port: ${{ secrets.OCI_SSH_PORT || 22 }}
+          host: ${{ secrets.DEPLOY_HOST || secrets.OCI_HOST }}
+          username: ${{ secrets.DEPLOY_USERNAME || secrets.OCI_USERNAME || 'ubuntu' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY || secrets.OCI_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || secrets.OCI_SSH_PORT || 22 }}
           script: |
             set -e
-            APP_DIR="${{ secrets.OCI_APP_DIR || '$HOME/netra-llmgateway' }}"
+            APP_DIR="${{ secrets.DEPLOY_APP_DIR || secrets.OCI_APP_DIR || '$HOME/netra-llmgateway' }}"
             cd "$APP_DIR" || cd "/opt/netra-llmgateway"
             echo "==> Pulling latest repository state..."
             git pull origin main
