@@ -100,8 +100,21 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
     }
   });
 
-  const [tenantKeys, setTenantKeys] = useState([]);
-  const [keysLoaded, setKeysLoaded] = useState(false);
+  const [tenantKeys, setTenantKeys] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(`netra_tenant_keys_${adminToken || 'demo'}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [keysLoaded, setKeysLoaded] = useState(() => {
+    try {
+      return !!sessionStorage.getItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`);
+    } catch {
+      return false;
+    }
+  });
 
   const abortControllerRef = useRef(null);
   const responseContainerRef = useRef(null);
@@ -138,6 +151,10 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
               setKeysLoaded(true);
               if (Array.isArray(keysJson)) {
                 setTenantKeys(keysJson);
+                try {
+                  sessionStorage.setItem(`netra_tenant_keys_${adminToken || 'demo'}`, JSON.stringify(keysJson));
+                  sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
+                } catch {}
                 // If current key is default demo and no saved key in session, auto-select first active real key
                 if (keysJson.some(k => k.status === 'ACTIVE')) {
                   const firstActive = keysJson.find(k => k.status === 'ACTIVE');
@@ -155,6 +172,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
             }
           } else if (isMounted) {
             setKeysLoaded(true);
+            try {
+              sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
+            } catch {}
           }
         }
       } catch (err) {
@@ -695,7 +715,7 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
               )}
             </div>
           ))}
-          {keysLoaded && tenantKeys.length === 0 && onNavigate && (
+          {onNavigate && (
             <button
               type="button"
               onClick={() => onNavigate('keys')}

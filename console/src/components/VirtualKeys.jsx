@@ -9,8 +9,21 @@ import Pagination from './Pagination';
 
 export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdminModal }) {
   const { formatCurrency, currency } = useTheme();
-  const [keys, setKeys] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [keys, setKeys] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(`netra_tenant_keys_${adminToken || 'demo'}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      return !sessionStorage.getItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`);
+    } catch {
+      return true;
+    }
+  });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [modalError, setModalError] = useState(null);
@@ -47,6 +60,10 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
       if (res.ok) {
         const data = await res.json();
         setKeys(data);
+        try {
+          sessionStorage.setItem(`netra_tenant_keys_${adminToken || 'demo'}`, JSON.stringify(data));
+          sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
+        } catch {}
       }
     } catch (e) {
       console.error("Failed to load virtual keys", e);
