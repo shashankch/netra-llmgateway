@@ -56,7 +56,7 @@ export default function DifferentiatorWidgets({
                 stroke="var(--border-strong)"
                 strokeWidth="3.6"
               />
-              {logs.length > 0 && streamPct > 0 && (
+              {streamPct > 0 && (
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
@@ -75,7 +75,7 @@ export default function DifferentiatorWidgets({
               <span style={{ 
                 fontSize: '1.25rem', 
                 fontWeight: 800, 
-                color: (logs.length > 0 && streamPct > 0) ? 'var(--accent-lime)' : 'var(--text-muted)', 
+                color: streamPct > 0 ? 'var(--accent-lime)' : 'var(--text-muted)', 
                 fontFamily: 'var(--font-mono)' 
               }}>
                 {streamPct}%
@@ -89,7 +89,7 @@ export default function DifferentiatorWidgets({
                 textAlign: 'center',
                 lineHeight: 1.2
               }}>
-                {logs.length > 0 ? 'Stream Ratio' : 'No Traffic'}
+                {(logs.length > 0 || streamPct > 0) ? 'Stream Ratio' : 'No Traffic'}
               </span>
             </div>
           </div>

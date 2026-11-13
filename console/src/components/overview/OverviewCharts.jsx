@@ -3,6 +3,7 @@ import { BarChart2, PieChart, Database, Clock } from 'lucide-react';
 
 export default function OverviewCharts({
   logs = [],
+  totalRequests = 0,
   modelViewMode = 'alias',
   setModelViewMode,
   effectiveFast = 0,
@@ -612,11 +613,11 @@ export default function OverviewCharts({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>Routed Volume</span>
               <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
-                {totalAuto} calls
+                {totalAuto.toLocaleString()} calls
               </span>
             </div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-              {logs.length > 0 ? Math.round((totalAuto / logs.length) * 100) : 0}% of fleet traffic
+              {Math.min(100, Math.round((totalAuto / (totalRequests || logs.length || totalAuto || 1)) * 100))}% of fleet traffic
             </div>
           </div>
 
@@ -638,7 +639,7 @@ export default function OverviewCharts({
               </span>
             </div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-              {totalAuto > 0 ? `${autoFast} auto-routed to fast` : `${effectiveFast} total fast executions`}
+              {effectiveFast.toLocaleString()} total fast executions
             </div>
           </div>
 
@@ -660,7 +661,7 @@ export default function OverviewCharts({
               </span>
             </div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-              {totalAuto > 0 ? `${autoSmart} escalated to frontier` : `${effectiveSmart} total smart executions`}
+              {effectiveSmart.toLocaleString()} total smart executions
             </div>
           </div>
         </div>

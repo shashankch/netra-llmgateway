@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { ShieldCheck, ArrowRight } from 'lucide-react';
 
-export default function SandboxNoticeBanner({ onOpenAdminModal, featureName = "telemetry and governance" }) {
+export default function SandboxNoticeBanner({ onOpenAdminModal, featureName = "cluster telemetry and router efficiency" }) {
   return (
     <div 
       className="sandbox-notice-banner"
@@ -10,21 +10,39 @@ export default function SandboxNoticeBanner({ onOpenAdminModal, featureName = "t
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '0.75rem',
+        gap: '0.85rem',
         padding: '0.65rem 1rem',
-        background: 'rgba(245, 158, 11, 0.08)',
-        border: '1px solid rgba(245, 158, 11, 0.3)',
+        background: 'rgba(245, 158, 11, 0.05)',
+        border: '1px solid rgba(245, 158, 11, 0.22)',
         borderRadius: 8,
         fontSize: '0.75rem',
         color: 'var(--text-primary)',
-        marginBottom: '1rem'
+        marginBottom: '1rem',
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1 }}>
-        <ShieldCheck size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
-        <span style={{ lineHeight: 1.4 }}>
-          <strong style={{ color: '#f59e0b' }}>Developer Sandbox Mode</strong> — Showing demonstrative {featureName}. Inference requests in the <strong>Playground</strong> execute live against the gateway.
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          padding: '0.2rem 0.55rem',
+          borderRadius: 9999,
+          background: 'rgba(245, 158, 11, 0.14)',
+          border: '1px solid rgba(245, 158, 11, 0.32)',
+          color: '#f59e0b',
+          fontWeight: 700,
+          fontSize: '0.6875rem',
+          letterSpacing: '0.03em',
+          textTransform: 'uppercase',
+          flexShrink: 0
+        }}>
+          <ShieldCheck size={13} style={{ flexShrink: 0 }} />
+          <span>Sandbox Mode</span>
+        </div>
+        <div style={{ color: 'var(--text-secondary)', lineHeight: 1.45, fontSize: '0.75rem' }}>
+          Displaying demonstrative {featureName}. Prompts evaluated in the <strong style={{ color: 'var(--text-primary)' }}>Playground</strong> execute live against the gateway.
+        </div>
       </div>
       {onOpenAdminModal && (
         <button
@@ -33,20 +51,22 @@ export default function SandboxNoticeBanner({ onOpenAdminModal, featureName = "t
           className="btn btn-outline btn-sm"
           style={{
             fontSize: '0.7rem',
-            padding: '0.2rem 0.55rem',
-            height: 26,
+            padding: '0.25rem 0.65rem',
+            height: 28,
             borderColor: 'rgba(245, 158, 11, 0.45)',
             color: '#f59e0b',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.3rem',
+            gap: '0.35rem',
             flexShrink: 0,
-            cursor: 'pointer'
+            cursor: 'pointer',
+            fontWeight: 600,
+            borderRadius: 6
           }}
           title="Configure dedicated admin token to view private cluster telemetry"
         >
           <span>Connect Admin Key</span>
-          <ArrowUpRight size={12} />
+          <ArrowRight size={12} />
         </button>
       )}
     </div>
