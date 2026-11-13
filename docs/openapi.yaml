@@ -17,7 +17,7 @@ info:
   version: 0.7.4 # x-release-please-version
   contact:
     name: Shashank Chandel
-    email: shashankchandel@gmail.com
+    email: shashakchandel@gmail.com
     url: https://github.com/shashankch/netra-llmgateway
   license:
     name: Apache-2.0

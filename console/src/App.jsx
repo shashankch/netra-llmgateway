@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './context/ThemeContext';
+import { getDefaultAdminToken, getEnvAdminToken } from './config/api';
 import Navbar from './components/Navbar';
 import Overview from './components/Overview';
 import Playground from './components/Playground';
@@ -47,19 +49,20 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-  // Secure runtime admin token resolution: operator localStorage takes priority, defaulting to demo token
+  // Secure multi-tier admin token resolution: operator localStorage takes priority, then Vercel/build env var, defaulting to demo token
   const [adminToken, setAdminTokenState] = useState(() => {
-    return localStorage.getItem('netra_admin_token') || 'netra-admin-demo';
+    return getDefaultAdminToken();
   });
 
   const setAdminToken = (token) => {
     const trimmed = (token || '').trim();
+    const envToken = getEnvAdminToken();
     if (trimmed && trimmed !== 'netra-admin-demo') {
       localStorage.setItem('netra_admin_token', trimmed);
       setAdminTokenState(trimmed);
     } else {
       localStorage.removeItem('netra_admin_token');
-      setAdminTokenState('netra-admin-demo');
+      setAdminTokenState(envToken || 'netra-admin-demo');
     }
   };
 
@@ -137,6 +140,7 @@ export default function App() {
             </div>
           </div>
         </footer>
+        <Analytics />
       </div>
     </ThemeProvider>
   );

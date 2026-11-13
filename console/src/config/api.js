@@ -37,6 +37,37 @@ export function getGatewayBaseUrl() {
   return envUrl ? normalizeGatewayUrl(envUrl) : '';
 }
 
+/**
+ * Resolves the build-time or Vercel environment variable for NETRA_ADMIN_TOKEN.
+ * Supports VITE_NETRA_ADMIN_TOKEN, NETRA_ADMIN_TOKEN, and VITE_ADMIN_TOKEN.
+ */
+export function getEnvAdminToken() {
+  const envToken = (
+    import.meta.env.VITE_NETRA_ADMIN_TOKEN ||
+    import.meta.env.NETRA_ADMIN_TOKEN ||
+    import.meta.env.VITE_ADMIN_TOKEN ||
+    ''
+  ).trim();
+  return envToken;
+}
+
+/**
+ * Multi-tier Admin Token resolution:
+ * 1. Runtime override via localStorage ('netra_admin_token')
+ * 2. Build-time / Vercel Environment Variable (NETRA_ADMIN_TOKEN / VITE_NETRA_ADMIN_TOKEN)
+ * 3. Default demo sandbox token ('netra-admin-demo')
+ */
+export function getDefaultAdminToken() {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('netra_admin_token');
+    if (custom && custom.trim()) {
+      return custom.trim();
+    }
+  }
+  const envToken = getEnvAdminToken();
+  return envToken || 'netra-admin-demo';
+}
+
 export function setGatewayBaseUrl(url) {
   if (typeof window !== 'undefined') {
     const normalized = normalizeGatewayUrl(url);
@@ -102,16 +133,54 @@ export function setHealthPollingEnabled(enabled) {
   }
 }
 
-// Singleton state across all console components
-let currentHealth = {
-  isOnline: false,
-  isChecking: false,
-  isPollingEnabled: isHealthPollingEnabled(),
-  lastChecked: null,
-  latencyMs: null,
-  consecutiveFailures: 0,
-  version: CONSOLE_VERSION,
-};
+// Singleton state across all console components with SessionStorage Stale-While-Revalidate caching
+function getInitialHealth() {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem('netra_gateway_health_cache');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed.isOnline === 'boolean' && Date.now() - (parsed.lastChecked || 0) < 60000) {
+          return {
+            ...parsed,
+            isChecking: false,
+            isPollingEnabled: isHealthPollingEnabled(),
+            consecutiveFailures: 0,
+            version: parsed.version || CONSOLE_VERSION,
+          };
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return {
+    isOnline: false,
+    isChecking: false,
+    isPollingEnabled: isHealthPollingEnabled(),
+    lastChecked: null,
+    latencyMs: null,
+    consecutiveFailures: 0,
+    version: CONSOLE_VERSION,
+  };
+}
+
+function saveHealthCache(h) {
+  if (typeof window !== 'undefined' && h && h.lastChecked) {
+    try {
+      sessionStorage.setItem('netra_gateway_health_cache', JSON.stringify({
+        isOnline: h.isOnline,
+        lastChecked: h.lastChecked,
+        latencyMs: h.latencyMs,
+        version: h.version,
+      }));
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+let currentHealth = getInitialHealth();
 
 let inFlightHealthPromise = null;
 const healthListeners = new Set();
@@ -240,6 +309,7 @@ export async function checkGatewayHealth() {
       inFlightHealthPromise = null;
     }
 
+    saveHealthCache(currentHealth);
     notifyListeners();
 
     // Schedule next adaptive probe if enabled
