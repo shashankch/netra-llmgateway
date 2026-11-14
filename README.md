@@ -97,7 +97,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.3"}
+# {"status":"ok","service":"netra-gateway","version":"0.7.5"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -371,7 +371,8 @@ make console-serve      # or: cd console && npm run preview
 #### Frontend Operations Console (`console/.env`)
 | Variable | Default / Example | Purpose |
 |---|---|---|
-| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway-netrallm.avadhanlabs.dev`) |
+| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway-netrallm.avadhanlabs.dev` or leave empty for same-origin proxy) |
+| `VITE_NETRA_ADMIN_TOKEN` | `""` (falls back to `netra-admin-demo`) | Optional build/runtime admin bearer token for `/admin/*` endpoints |
 | `VITE_BACKEND_TARGET` | `http://localhost:8080` | Backend target used by Vite dev server reverse proxy |
 
 ---
@@ -448,7 +449,7 @@ The repository includes a comprehensive `Makefile` for developer workflows:
 | **Tier 1: Local & Sandbox** | Docker Compose Engine | `docker-compose.yml` & `Makefile` | `http://localhost:8080` (API) • `http://localhost:3000` (Console) |
 | **Tier 2: Developer PaaS** | Railway, Render, Fly.io, Vercel | `deploy/paas/` (`railway.toml`, `render.yaml`, `fly.toml`, `vercel.json`) | Turnkey auto-assigned HTTPS edge routes |
 | **Tier 3: Production Cloud VM & VPS** | AWS EC2, GCP, OCI Compute, Hetzner | `deploy/cloud-vps/setup-vps.sh` | Zero-open-port Cloudflare Zero Trust tunnel |
-| **Reference Cloud Ingress** | `avadhanlabs.dev` (Demo / Pre-Prod Reference) | Custom domain DNS / Tunnel mapping | `gateway-netrallm.avadhanlabs.dev` • `console-netrallm.avadhanlabs.dev` • `docs-netrallm.avadhanlabs.dev` |
+| **Reference Cloud Ingress** | `avadhanlabs.dev` (Live Reference Example) | Custom domain DNS / Tunnel mapping | `gateway-netrallm.avadhanlabs.dev` • `console-netrallm.avadhanlabs.dev` • `docs-netrallm.avadhanlabs.dev` |
 | **Documentation Site** | GitHub Pages | `zensical.toml` | [docs-netrallm.avadhanlabs.dev](https://docs-netrallm.avadhanlabs.dev/) |
 
 ---

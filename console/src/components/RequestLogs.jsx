@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { getApiUrl, useGatewayUrl } from '../config/api';
+import { getApiUrl, useGatewayUrl, reportAdminAuthFailure, reportAdminAuthSuccess, useAdminAuthStatus, useGatewayHealth } from '../config/api';
 import { 
   FileText, Play, Pause, Filter, Search, 
-  CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, RefreshCw 
+  CheckCircle, AlertTriangle, ShieldAlert, XCircle, ChevronDown, ChevronRight, RefreshCw 
 } from 'lucide-react';
 import Pagination from './Pagination';
 import SandboxNoticeBanner from './SandboxNoticeBanner';
@@ -12,9 +12,14 @@ import { getDemoLogs } from '../constants/demoFallbackData';
 export default function RequestLogs({ adminToken = 'netra-admin-demo', onOpenAdminModal, onNavigate }) {
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const gatewayUrl = useGatewayUrl();
+  const authStatus = useAdminAuthStatus();
+  const { isOnline } = useGatewayHealth();
+  const isStreamDisabled = isDemoToken || authStatus.isUnauthorized || !isOnline;
   const { formatCurrency } = useTheme();
-  const [logs, setLogs] = useState([]);
-  const [isLive, setIsLive] = useState(true);
+  const [logs, setLogs] = useState(() => {
+    return isDemoToken ? getDemoLogs() : [];
+  });
+  const [isLive, setIsLive] = useState(!isStreamDisabled);
   const [filterKey, setFilterKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
@@ -22,7 +27,9 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo', onOpenAdm
   const [expandedId, setExpandedId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [totalServerCount, setTotalServerCount] = useState(0);
+  const [totalServerCount, setTotalServerCount] = useState(() => {
+    return isDemoToken ? getDemoLogs().length : 0;
+  });
 
   const eventSourceRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -85,7 +92,20 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo', onOpenAdm
         signal: controller.signal,
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
-      if (res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        if (!isDemoToken) {
+          reportAdminAuthFailure(res.status);
+          setLogs([]);
+          setTotalServerCount(0);
+        } else {
+          // In Sandbox Demo Mode, 401 is expected on live clusters with custom tokens; load demo logs
+          const demoList = getDemoLogs();
+          setTotalServerCount(demoList.length);
+          setLogs(demoList);
+        }
+        return;
+      } else if (res.ok) {
+        reportAdminAuthSuccess();
         const totalHeader = res.headers.get('X-Total-Count');
         const data = await res.json();
         const logsList = Array.isArray(data) ? data : [];
@@ -154,7 +174,9 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo', onOpenAdm
           headers: { 'Authorization': `Bearer ${adminToken}` }
         }).catch(() => null);
 
-        if (ticketRes && ticketRes.ok) {
+        if (ticketRes && (ticketRes.status === 401 || ticketRes.status === 403)) {
+          if (!isDemoToken) reportAdminAuthFailure(ticketRes.status);
+        } else if (ticketRes && ticketRes.ok) {
           const data = await ticketRes.json().catch(() => null);
           if (data && data.ticket) {
             streamUrl = `/admin/logs/stream?ticket=${encodeURIComponent(data.ticket)}`;
@@ -300,11 +322,30 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo', onOpenAdm
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button
             onClick={() => setIsLive(!isLive)}
-            className={`btn btn-sm ${isLive ? 'btn-primary' : 'btn-secondary'}`}
+            disabled={isStreamDisabled}
+            className={`btn btn-sm ${isLive && !isStreamDisabled ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              opacity: isStreamDisabled ? 0.5 : 1,
+              cursor: isStreamDisabled ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem'
+            }}
+            title={
+              isDemoToken
+                ? 'Live SSE streaming requires configured admin token'
+                : authStatus.isUnauthorized
+                  ? 'Admin token rejected - live streaming disabled'
+                  : !isOnline
+                    ? 'Gateway offline - live streaming disabled'
+                    : isLive
+                      ? 'Pause real-time activity stream'
+                      : 'Resume real-time activity stream'
+            }
           >
-            {isLive ? <Pause size={14} /> : <Play size={14} />}
-            <span>{isLive ? 'Pause Stream' : 'Resume Stream'}</span>
-            {isLive && <span className="pulse-indicator" style={{ marginLeft: 4 }} />}
+            {isLive && !isStreamDisabled ? <Pause size={14} /> : <Play size={14} />}
+            <span>{isLive && !isStreamDisabled ? 'Pause Stream' : 'Resume Stream'}</span>
+            {isLive && !isStreamDisabled && <span className="pulse-indicator" style={{ marginLeft: 4 }} />}
           </button>
           <button 
             onClick={() => fetchLogs(currentPage, pageSize)} 
@@ -318,10 +359,13 @@ export default function RequestLogs({ adminToken = 'netra-admin-demo', onOpenAdm
         </div>
       </div>
 
-      {/* Developer Sandbox Notice Banner */}
-      {isDemoToken && (
-        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} onNavigate={onNavigate} featureName="audit logs and stream relay traces" />
-      )}
+      {/* Unified System & Sandbox Notice Banner */}
+      <SandboxNoticeBanner 
+        adminToken={adminToken}
+        onOpenAdminModal={onOpenAdminModal} 
+        onNavigate={onNavigate} 
+        featureName="audit logs and stream relay traces" 
+      />
 
       {/* Filter Toolbar */}
       <div className="card" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>

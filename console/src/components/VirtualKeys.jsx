@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { getApiUrl } from '../config/api';
+import { getApiUrl, reportAdminAuthFailure, reportAdminAuthSuccess, useAdminAuthStatus, useGatewayHealth } from '../config/api';
 import { 
-  Key, Plus, Edit2, Trash2, ShieldCheck, Check, 
+  Key, Plus, Edit2, Trash2, ShieldCheck, ShieldAlert, Check, 
   X, RefreshCw, AlertCircle, Sparkles, Copy, Search, Filter, Gauge, Database
 } from 'lucide-react';
 import Pagination from './Pagination';
@@ -11,7 +11,10 @@ import { DEMO_KEYS } from '../constants/demoFallbackData';
 
 export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdminModal, onNavigate }) {
   const { formatCurrency, currency } = useTheme();
+  const authStatus = useAdminAuthStatus();
+  const { isOnline } = useGatewayHealth();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
+  const isCreateDisabled = isDemoToken || authStatus.isUnauthorized || !isOnline;
   const [keys, setKeys] = useState(() => {
     try {
       const cached = sessionStorage.getItem(`netra_tenant_keys_${adminToken || 'demo'}`);
@@ -58,7 +61,16 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
       const res = await fetch(getApiUrl('/admin/keys'), {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
-      if (res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        if (!isDemoToken) {
+          reportAdminAuthFailure(res.status);
+          setKeys([]);
+        } else {
+          setKeys(DEMO_KEYS);
+        }
+        return;
+      } else if (res.ok) {
+        reportAdminAuthSuccess();
         const data = await res.json();
         const activeList = (Array.isArray(data) && data.length > 0) ? data : (isDemoToken ? DEMO_KEYS : []);
         setKeys(activeList);
@@ -118,7 +130,13 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
         },
         body: JSON.stringify(newKey)
       });
+      if (res.status === 401 || res.status === 403) {
+        reportAdminAuthFailure(res.status);
+        setModalError('Admin authentication failed. Verify your admin token.');
+        return;
+      }
       if (res.ok) {
+        reportAdminAuthSuccess();
         setShowCreateModal(false);
         setModalError(null);
         fetchKeys();
@@ -165,7 +183,13 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
           is_active: editTarget.is_active
         })
       });
+      if (res.status === 401 || res.status === 403) {
+        reportAdminAuthFailure(res.status);
+        setModalError('Admin authentication failed. Verify your admin token.');
+        return;
+      }
       if (res.ok) {
+        reportAdminAuthSuccess();
         setEditTarget(null);
         setModalError(null);
         fetchKeys();
@@ -183,13 +207,19 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
       alert("Key revocation is read-only in Developer Sandbox mode. Enter your Admin Key to manage live keys.");
       return;
     }
-    if (!window.confirm(`Revoke key ${virtualKey}? Incoming requests will receive HTTP 401.`)) return;
+    if (!window.confirm(`Revoke key ${virtualKey}? Incoming requests using this key will be unauthorized.`)) return;
     try {
       const res = await fetch(getApiUrl(`/admin/keys/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
+      if (res.status === 401 || res.status === 403) {
+        reportAdminAuthFailure(res.status);
+        alert('Admin authentication failed. Verify your admin token.');
+        return;
+      }
       if (res.ok) {
+        reportAdminAuthSuccess();
         fetchKeys();
       } else {
         const errData = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
@@ -243,17 +273,40 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             <span>Refresh</span>
           </button>
-          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary btn-sm">
+          <button 
+            onClick={() => setShowCreateModal(true)} 
+            disabled={isCreateDisabled}
+            className="btn btn-primary btn-sm"
+            style={{
+              opacity: isCreateDisabled ? 0.5 : 1,
+              cursor: isCreateDisabled ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem'
+            }}
+            title={
+              isDemoToken
+                ? 'Configured admin token required to create API keys'
+                : authStatus.isUnauthorized
+                  ? 'Admin token rejected - key creation disabled'
+                  : !isOnline
+                    ? 'Gateway offline - key creation disabled'
+                    : 'Create new virtual API key'
+            }
+          >
             <Plus size={14} />
             <span>Create API Key</span>
           </button>
         </div>
       </div>
 
-      {/* Developer Sandbox Notice Banner */}
-      {isDemoToken && (
-        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} onNavigate={onNavigate} featureName="tenant virtual keys and rate quotas" />
-      )}
+      {/* Unified System & Sandbox Notice Banner */}
+      <SandboxNoticeBanner 
+        adminToken={adminToken}
+        onOpenAdminModal={onOpenAdminModal} 
+        onNavigate={onNavigate} 
+        featureName="tenant virtual keys and rate quotas" 
+      />
 
       {/* Search & Filter Toolbar */}
       <div className="card" style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './context/ThemeContext';
-import { getDefaultAdminToken, getEnvAdminToken } from './config/api';
+import { getDefaultAdminToken, getEnvAdminToken, useAdminAuthStatus, checkGatewayHealth, probeAdminAuth } from './config/api';
 import Navbar from './components/Navbar';
 import Overview from './components/Overview';
 import Playground from './components/Playground';
@@ -11,7 +11,7 @@ import CacheInspector from './components/CacheInspector';
 import LandingPage from './components/LandingPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { VALID_TABS } from './constants/navigation';
-import { Github } from 'lucide-react';
+import { Github, Bug } from 'lucide-react';
 
 const getInitialTab = () => {
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
@@ -48,45 +48,56 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-  // Secure multi-tier admin token resolution: operator localStorage takes priority, then Vercel/build env var, defaulting to demo token
+  // Multi-tier admin token resolution: respects explicit user inputs (even 'netra-admin-demo'),
+  // falling back to Vercel/build environment variable, and lastly to demo token
   const [adminToken, setAdminTokenState] = useState(() => {
     return getDefaultAdminToken();
   });
+  const authStatus = useAdminAuthStatus();
+  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
 
-  const setAdminToken = (token) => {
+  const setAdminToken = async (token) => {
     const trimmed = (token || '').trim();
-    const envToken = getEnvAdminToken();
-    if (trimmed && trimmed !== 'netra-admin-demo') {
+    let effectiveToken = trimmed;
+    if (trimmed) {
+      // User explicitly entered or applied a value (whether custom secret or 'netra-admin-demo')
       localStorage.setItem('netra_admin_token', trimmed);
       setAdminTokenState(trimmed);
     } else {
+      // Cleared: revert to Vercel/build environment variable, then demo fallback
       localStorage.removeItem('netra_admin_token');
-      setAdminTokenState(envToken || 'netra-admin-demo');
+      const envToken = getEnvAdminToken();
+      effectiveToken = envToken || 'netra-admin-demo';
+      setAdminTokenState(effectiveToken);
     }
+    // Actively verify gateway reachability and admin credentials immediately
+    checkGatewayHealth();
+    await probeAdminAuth(effectiveToken);
   };
 
   return (
     <ThemeProvider>
-      <div className="app-container">
-        <Navbar 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          adminToken={adminToken}
-          onUpdateAdminToken={setAdminToken}
-          showAdminModal={showAdminModal}
-          setShowAdminModal={setShowAdminModal}
-        />
-        
-        <main className="main-content">
-          <ErrorBoundary onReset={() => setActiveTab('landing')}>
-            {activeTab === 'landing' && <LandingPage adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            {activeTab === 'logs' && <RequestLogs adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-          </ErrorBoundary>
-        </main>
+      <ErrorBoundary onReset={() => window.location.reload()}>
+        <div className="app-container">
+          <Navbar 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            adminToken={adminToken}
+            onUpdateAdminToken={setAdminToken}
+            showAdminModal={showAdminModal}
+            setShowAdminModal={setShowAdminModal}
+          />
+          
+          <main className="main-content">
+            <ErrorBoundary onReset={() => setActiveTab('landing')}>
+              {activeTab === 'landing' && <LandingPage adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+              {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+              {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+              {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+              {activeTab === 'logs' && <RequestLogs adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+              {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+            </ErrorBoundary>
+          </main>
 
         <footer className="app-footer" style={{
           borderTop: '1px solid var(--border-subtle)',
@@ -136,11 +147,34 @@ export default function App() {
               >
                 GitHub
               </a>
+              <a 
+                href="https://github.com/shashankch/netra-llmgateway/issues/new" 
+                target="_blank" 
+                rel="noreferrer"
+                style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+              >
+                Report Issue
+              </a>
             </div>
           </div>
         </footer>
+
+        {/* Floating Bug / Feedback Action Button */}
+        <a
+          href="https://github.com/shashankch/netra-llmgateway/issues/new"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="floating-bug-btn"
+          title="Report a Bug or Feedback on GitHub"
+          aria-label="Report Bug or Feedback"
+        >
+          <Bug size={14} style={{ color: 'var(--accent-rose)', flexShrink: 0 }} />
+          <span className="floating-bug-text">Report Bug</span>
+        </a>
+
         <Analytics />
       </div>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

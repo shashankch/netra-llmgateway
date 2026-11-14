@@ -1,16 +1,16 @@
 <h1 align="center" style="text-align: center !important;" id="netra-llm-gateway-semantic-cache">NETRA LLM Gateway &amp; Semantic Cache</h1>
 
-<p align="center">
-  <img src="assets/netra-banner.svg" alt="NETRA Enterprise AI Gateway Banner" width="100%" style="border-radius: 12px; margin: 1rem 0 1rem;">
+<p align="center" style="margin: 0.5rem 0 1rem;">
+  <img src="assets/netra-banner.svg" alt="NETRA Enterprise AI Gateway Banner" style="max-width: 680px; width: 100%; border-radius: 8px; margin: 0 auto; display: block;">
 </p>
 
-<p align="center">
+<p align="center" style="margin: 0.75rem 0 1.5rem;">
   <a href="https://github.com/shashankch/netra-llmgateway/releases/latest"><img src="https://img.shields.io/github/v/release/shashankch/netra-llmgateway?color=059669&label=release&logo=github&labelColor=0B0F19&style=flat" alt="Latest Release"/></a>
   <a href="https://github.com/shashankch/netra-llmgateway/actions/workflows/gateway-ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/shashankch/netra-llmgateway/gateway-ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white&labelColor=0B0F19&style=flat" alt="CI Status"/></a>
   <a href="https://github.com/shashankch/netra-llmgateway/tree/main"><img src="https://img.shields.io/badge/branch-main-38bdf8.svg?style=flat&logo=git&labelColor=0B0F19" alt="Branch Main"/></a>
 </p>
 
-**NETRA** (*Sanskrit: नेत्र / Vision / Aperture / Insight*) is an enterprise-grade, sovereign AI Gateway and tenant-isolated Semantic Vector Cache. Sitting in the critical path between application microservices and foundation model providers, NETRA delivers predictable latency, multi-provider fast-failover, race-safe atomic admission control, and sub-5ms semantic cache hits.
+> **NETRA** (*Sanskrit: नेत्र &middot; Vision / Aperture / Insight*) is an enterprise-grade, sovereign AI Gateway and tenant-isolated Semantic Vector Cache. Sitting in the critical path between application microservices and foundation model providers, NETRA delivers predictable latency, multi-provider fast-failover, race-safe atomic admission control, and sub-5ms semantic cache hits.
 
 ---
 
@@ -88,7 +88,7 @@ Verify service readiness:
 
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.3"}
+# {"status":"ok","service":"netra-gateway","version":"0.7.5"}
 ```
 
 Inspect live provider health & circuit breaker telemetry:
@@ -213,6 +213,7 @@ make verify-all         # Executes all 7 verification drills sequentially
 | Variable | Default / Example | Purpose |
 |---|---|---|
 | `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway.<yourdomain.com>` or leave empty for same-origin proxy) |
+| `VITE_NETRA_ADMIN_TOKEN` | `""` (falls back to `netra-admin-demo`) | Optional build/runtime admin bearer token for `/admin/*` endpoints |
 | `VITE_BACKEND_TARGET` | `http://localhost:8080` | Backend target used by Vite dev server reverse proxy |
 
 ---

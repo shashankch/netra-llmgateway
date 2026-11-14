@@ -1,78 +1,241 @@
 import React from 'react';
-import { ShieldCheck, ArrowRight } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, ArrowRight } from 'lucide-react';
+import { useGatewayHealth, useAdminAuthStatus, useGatewayUrl } from '../config/api';
 
+/**
+ * Single Unified Notice Banner for Operations Console views.
+ * Handles all mutually exclusive infrastructure and auth states:
+ * 1. Fully Authenticated Production (isOnline && !isDemoToken && !isUnauthorized) -> 0 banners
+ * 2. Admin Auth Rejected (isOnline && !isDemoToken && isUnauthorized) -> Single Red Auth Banner
+ * 3. Gateway Offline (!isOnline && lastChecked) -> Single Offline Banner
+ * 4. Sandbox Mode (isDemoToken) -> Single Yellow Sandbox Banner
+ */
 export default function SandboxNoticeBanner({ 
+  adminToken = 'netra-admin-demo',
   onOpenAdminModal, 
   onNavigate,
   featureName = "cluster telemetry and router efficiency" 
 }) {
-  return (
-    <div 
-      className="sandbox-notice-banner"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '0.85rem',
-        padding: '0.65rem 1rem',
-        background: 'rgba(245, 158, 11, 0.05)',
-        border: '1px solid rgba(245, 158, 11, 0.22)',
-        borderRadius: 8,
-        fontSize: '0.75rem',
-        color: 'var(--text-primary)',
-        marginBottom: '1rem',
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.35rem',
-          padding: '0.2rem 0.55rem',
-          borderRadius: 9999,
-          background: 'rgba(245, 158, 11, 0.14)',
-          border: '1px solid rgba(245, 158, 11, 0.32)',
-          color: '#f59e0b',
-          fontWeight: 700,
-          fontSize: '0.6875rem',
-          letterSpacing: '0.03em',
-          textTransform: 'uppercase',
-          flexShrink: 0
-        }}>
-          <ShieldCheck size={13} style={{ flexShrink: 0 }} />
-          <span>Sandbox Mode</span>
-        </div>
-        <div style={{ color: 'var(--text-secondary)', lineHeight: 1.45, fontSize: '0.75rem' }}>
-          Displaying demonstrative {featureName}. Prompts evaluated in the{' '}
-          {onNavigate ? (
-            <button
-              type="button"
-              onClick={() => onNavigate('playground')}
-              className="sandbox-inline-link"
-              title="Jump to Interactive Prompt Playground"
-            >
-              Playground
-            </button>
-          ) : (
-            <strong style={{ color: 'var(--text-primary)' }}>Playground</strong>
-          )}{' '}
-          execute live against the gateway.
-        </div>
-      </div>
+  const { isOnline, lastChecked } = useGatewayHealth();
+  const authStatus = useAdminAuthStatus();
+  const gatewayUrl = useGatewayUrl();
+  const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
 
-      {onOpenAdminModal && (
-        <button
-          type="button"
-          onClick={onOpenAdminModal}
-          className="sandbox-btn-admin"
-          title="Configure dedicated admin token to view private cluster telemetry"
-        >
-          <span>Connect Admin Key</span>
-          <ArrowRight size={12} />
-        </button>
-      )}
-    </div>
-  );
+  // State 1: Fully Authenticated Live Production -> Zero banners
+  if (isOnline && !isDemoToken && !authStatus.isUnauthorized) {
+    return null;
+  }
+
+  // State 2: Admin Auth Rejected (HTTP 401 / 403 on custom token)
+  if (isOnline && !isDemoToken && authStatus.isUnauthorized) {
+    return (
+      <div 
+        className="sandbox-notice-banner"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.85rem',
+          padding: '0.65rem 1rem',
+          background: 'rgba(239, 68, 68, 0.06)',
+          border: '1px solid rgba(239, 68, 68, 0.28)',
+          borderRadius: 8,
+          fontSize: '0.75rem',
+          color: 'var(--text-primary)',
+          marginBottom: '1rem',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.2rem 0.55rem',
+            borderRadius: 9999,
+            background: 'rgba(239, 68, 68, 0.14)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            color: 'var(--accent-rose, #f43f5e)',
+            fontWeight: 700,
+            fontSize: '0.6875rem',
+            letterSpacing: '0.03em',
+            textTransform: 'uppercase',
+            flexShrink: 0
+          }}>
+            <ShieldAlert size={13} style={{ flexShrink: 0 }} />
+            <span>Admin Token Rejected</span>
+          </div>
+          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.45, fontSize: '0.75rem' }}>
+            Gateway rejected administrative access. Displaying demonstrative {featureName}. Prompts evaluated in the{' '}
+            {onNavigate ? (
+              <button
+                type="button"
+                onClick={() => onNavigate('playground')}
+                className="sandbox-inline-link"
+                style={{ color: 'var(--accent-rose, #f43f5e)', textDecoration: 'underline' }}
+                title="Jump to Interactive Prompt Playground"
+              >
+                Playground
+              </button>
+            ) : (
+              <strong style={{ color: 'var(--text-primary)' }}>Playground</strong>
+            )}{' '}
+            execute live with virtual keys.
+          </div>
+        </div>
+
+        {onOpenAdminModal && (
+          <button
+            type="button"
+            onClick={onOpenAdminModal}
+            className="sandbox-btn-admin"
+            style={{
+              borderColor: 'rgba(239, 68, 68, 0.35)',
+              color: 'var(--accent-rose, #f43f5e)'
+            }}
+            title="Configure valid admin token"
+          >
+            <span>Update Admin Key</span>
+            <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // State 3: Gateway Endpoint is Offline / Unreachable
+  if (!isOnline && lastChecked) {
+    return (
+      <div 
+        className="sandbox-notice-banner"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.85rem',
+          padding: '0.65rem 1rem',
+          background: 'rgba(100, 116, 139, 0.08)',
+          border: '1px solid rgba(100, 116, 139, 0.25)',
+          borderRadius: 8,
+          fontSize: '0.75rem',
+          color: 'var(--text-primary)',
+          marginBottom: '1rem',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.2rem 0.55rem',
+            borderRadius: 9999,
+            background: 'rgba(100, 116, 139, 0.15)',
+            border: '1px solid rgba(100, 116, 139, 0.3)',
+            color: 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: '0.6875rem',
+            letterSpacing: '0.03em',
+            textTransform: 'uppercase',
+            flexShrink: 0
+          }}>
+            <ShieldAlert size={13} style={{ flexShrink: 0 }} />
+            <span>Gateway Offline</span>
+          </div>
+          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.45, fontSize: '0.75rem' }}>
+            Gateway endpoint ({gatewayUrl || 'same-origin'}) is unreachable. Displaying demonstrative {featureName}.
+          </div>
+        </div>
+
+        {onOpenAdminModal && (
+          <button
+            type="button"
+            onClick={onOpenAdminModal}
+            className="sandbox-btn-admin"
+            title="Configure target gateway endpoint"
+          >
+            <span>Configure Endpoint</span>
+            <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // State 4: Standard Sandbox Mode (Demo Token, No Custom Auth Failure)
+  if (isDemoToken) {
+    return (
+      <div 
+        className="sandbox-notice-banner"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.85rem',
+          padding: '0.65rem 1rem',
+          background: 'rgba(245, 158, 11, 0.05)',
+          border: '1px solid rgba(245, 158, 11, 0.22)',
+          borderRadius: 8,
+          fontSize: '0.75rem',
+          color: 'var(--text-primary)',
+          marginBottom: '1rem',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.2rem 0.55rem',
+            borderRadius: 9999,
+            background: 'rgba(245, 158, 11, 0.14)',
+            border: '1px solid rgba(245, 158, 11, 0.32)',
+            color: '#f59e0b',
+            fontWeight: 700,
+            fontSize: '0.6875rem',
+            letterSpacing: '0.03em',
+            textTransform: 'uppercase',
+            flexShrink: 0
+          }}>
+            <ShieldCheck size={13} style={{ flexShrink: 0 }} />
+            <span>Sandbox Mode</span>
+          </div>
+          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.45, fontSize: '0.75rem' }}>
+            Displaying demonstrative {featureName}. Prompts evaluated in the{' '}
+            {onNavigate ? (
+              <button
+                type="button"
+                onClick={() => onNavigate('playground')}
+                className="sandbox-inline-link"
+                title="Jump to Interactive Prompt Playground"
+              >
+                Playground
+              </button>
+            ) : (
+              <strong style={{ color: 'var(--text-primary)' }}>Playground</strong>
+            )}{' '}
+            execute live against the gateway.
+          </div>
+        </div>
+
+        {onOpenAdminModal && (
+          <button
+            type="button"
+            onClick={onOpenAdminModal}
+            className="sandbox-btn-admin"
+            title="Configure dedicated admin token to view private cluster telemetry"
+          >
+            <span>Connect Admin Key</span>
+            <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }

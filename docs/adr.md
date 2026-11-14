@@ -371,3 +371,4 @@ Homegrown credential databases and signup pipelines are explicitly rejected in f
 - **Positive:** Eliminates vulnerability surface from custom authentication pipelines, password reset mechanisms, and credential storage.
 - **Positive:** Seamless integration with enterprise identity providers via standard OIDC claims.
 - **Trade-off:** Multi-tenant workspace isolation relies on an external OIDC provider.
+

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { useGatewayHealth, CONSOLE_VERSION } from '../config/api';
+import { useGatewayHealth, useAdminAuthStatus, CONSOLE_VERSION } from '../config/api';
 import NetraLogo from './NetraLogo';
 import AdminConfigModal from './AdminConfigModal';
 import { 
@@ -27,6 +27,7 @@ export default function Navbar({
 
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const healthState = useGatewayHealth();
+  const authStatus = useAdminAuthStatus();
   const { isOnline, isChecking, latencyMs, lastChecked } = healthState;
 
   const rawVersion = healthState?.version || CONSOLE_VERSION;
@@ -34,7 +35,15 @@ export default function Navbar({
 
   // Multi-Environment & Health Status Matrix for Navbar Indicators
   const getStatusDot = () => {
-    if (isChecking || !lastChecked) {
+    // 1. Detect if admin token was rejected on the control plane
+    if (!isDemoToken && isOnline && authStatus.isUnauthorized) {
+      return {
+        className: 'pulse-indicator auth-failed',
+        title: 'Gateway online, but Admin Access Token was rejected — Click to update token',
+      };
+    }
+    // 2. Cold-start check only: do not flicker during background revalidations if lastChecked exists
+    if (!lastChecked && isChecking) {
       return {
         className: 'pulse-indicator checking',
         title: 'Probing Gateway health endpoint...',
@@ -66,7 +75,20 @@ export default function Navbar({
   };
 
   const getAdminKeyBtnInfo = () => {
-    if (isChecking || !lastChecked) {
+    // 1. Detect if admin token was rejected on the control plane
+    if (!isDemoToken && isOnline && authStatus.isUnauthorized) {
+      return {
+        borderColor: 'rgba(239, 68, 68, 0.4)',
+        background: 'rgba(239, 68, 68, 0.08)',
+        iconColor: 'var(--accent-rose)',
+        badgeText: 'TOKEN INVALID',
+        badgeBg: 'rgba(239, 68, 68, 0.2)',
+        badgeColor: 'var(--accent-rose)',
+        title: 'Admin Access Token Rejected — Click to re-enter valid credentials',
+      };
+    }
+    // 2. Cold-start check only: do not flicker during background revalidations if lastChecked exists
+    if (!lastChecked && isChecking) {
       return {
         borderColor: 'rgba(6, 182, 212, 0.3)',
         background: 'rgba(6, 182, 212, 0.06)',
@@ -196,6 +218,8 @@ export default function Navbar({
             alignItems: 'center', 
             gap: '0.2rem', 
             overflowX: 'auto', 
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
             flexShrink: 1, 
             minWidth: 0, 
             WebkitOverflowScrolling: 'touch' 

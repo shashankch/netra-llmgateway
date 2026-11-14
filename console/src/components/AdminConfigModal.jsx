@@ -5,7 +5,10 @@ import {
   normalizeGatewayUrl, 
   setHealthPollingEnabled, 
   isHealthPollingEnabled,
-  getEnvAdminToken
+  getEnvAdminToken,
+  useAdminAuthStatus,
+  probeAdminAuth,
+  checkGatewayHealth
 } from '../config/api';
 import { 
   ShieldCheck, X, Lock, Eye, EyeOff, Globe, 
@@ -23,9 +26,15 @@ export default function AdminConfigModal({
   const [gatewayUrlInput, setGatewayUrlInput] = useState(() => getGatewayBaseUrl());
   const [pollingInput, setPollingInput] = useState(() => isHealthPollingEnabled());
   const [showSecret, setShowSecret] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTestingAuth, setIsTestingAuth] = useState(false);
 
-  const { isOnline, isChecking, lastChecked, checkNow } = healthState;
+  const isOnline = Boolean(healthState?.isOnline);
+  const isChecking = Boolean(healthState?.isChecking);
+  const lastChecked = healthState?.lastChecked;
+  const authStatus = useAdminAuthStatus();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
+  const isInputDemoToken = !tokenInput || tokenInput === 'netra-admin-demo';
 
   useEffect(() => {
     if (isOpen) {
@@ -49,7 +58,17 @@ export default function AdminConfigModal({
   if (!isOpen) return null;
 
   const getGatewayModalStatus = () => {
-    if (isChecking) {
+    if (!isInputDemoToken && isOnline && authStatus.isUnauthorized) {
+      return {
+        dotBg: 'var(--accent-rose)',
+        dotGlow: '0 0 8px var(--accent-rose)',
+        title: 'Admin Token Rejected',
+        badgeText: 'UNAUTHORIZED',
+        badgeClass: 'badge-danger',
+        desc: 'Gateway host is online, but rejected this admin token. Verify cluster secret.',
+      };
+    }
+    if (isChecking || isTestingAuth) {
       return {
         dotBg: 'var(--accent-cyan)',
         dotGlow: '0 0 8px var(--accent-cyan)',
@@ -59,7 +78,7 @@ export default function AdminConfigModal({
         desc: 'Testing connection to control plane endpoint...',
       };
     }
-    if (isDemoToken) {
+    if (isInputDemoToken) {
       if (isOnline) {
         return {
           dotBg: '#f59e0b',
@@ -102,18 +121,28 @@ export default function AdminConfigModal({
 
   const modalStatus = getGatewayModalStatus();
 
+  const handleTestConnection = async () => {
+    setIsTestingAuth(true);
+    const cleanUrl = normalizeGatewayUrl(gatewayUrlInput);
+    await checkGatewayHealth();
+    await probeAdminAuth(tokenInput, cleanUrl);
+    setIsTestingAuth(false);
+  };
+
   const handleSaveToken = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const cleanUrl = normalizeGatewayUrl(gatewayUrlInput);
     setGatewayBaseUrl(cleanUrl);
     setGatewayUrlInput(cleanUrl);
-    if (onUpdateAdminToken) {
-      onUpdateAdminToken(tokenInput);
-    }
     setHealthPollingEnabled(pollingInput);
-    if (pollingInput) {
-      checkNow();
+    if (onUpdateAdminToken) {
+      await onUpdateAdminToken(tokenInput);
+    } else {
+      await checkGatewayHealth();
+      await probeAdminAuth(tokenInput, cleanUrl);
     }
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -183,8 +212,8 @@ export default function AdminConfigModal({
                     Env Secret Active
                   </span>
                 )}
-                <span className={`badge ${isDemoToken ? 'badge-warning' : 'badge-success'} font-mono`} style={{ fontSize: '0.65rem' }}>
-                  {isDemoToken ? 'Demo Key' : 'Admin Key'}
+                <span className={`badge ${isInputDemoToken ? 'badge-warning' : 'badge-success'} font-mono`} style={{ fontSize: '0.65rem' }}>
+                  {isInputDemoToken ? 'Demo Key' : 'Admin Key'}
                 </span>
               </div>
             </div>
@@ -351,8 +380,8 @@ export default function AdminConfigModal({
 
                 <button
                   type="button"
-                  onClick={() => checkNow()}
-                  disabled={isChecking}
+                  onClick={handleTestConnection}
+                  disabled={isChecking || isTestingAuth}
                   className="btn btn-outline btn-sm"
                   style={{
                     fontSize: '0.75rem',
@@ -366,8 +395,8 @@ export default function AdminConfigModal({
                     flexShrink: 0
                   }}
                 >
-                  <RefreshCw size={13} className={isChecking ? "animate-spin" : ""} />
-                  <span>{isChecking ? 'Checking...' : 'Test Connection'}</span>
+                  <RefreshCw size={13} className={(isChecking || isTestingAuth) ? "animate-spin" : ""} />
+                  <span>{(isChecking || isTestingAuth) ? 'Testing...' : 'Test Connection'}</span>
                 </button>
               </div>
 
@@ -415,11 +444,12 @@ export default function AdminConfigModal({
               </button>
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="btn btn-primary btn-sm"
                 style={{ fontWeight: 700, fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
               >
-                <CheckCircle2 size={14} />
-                <span>Save &amp; Apply</span>
+                <CheckCircle2 size={14} className={isSubmitting ? "animate-spin" : ""} />
+                <span>{isSubmitting ? 'Saving & Testing...' : 'Save & Apply'}</span>
               </button>
             </div>
           </div>

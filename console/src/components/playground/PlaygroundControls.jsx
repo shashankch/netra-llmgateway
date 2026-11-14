@@ -30,7 +30,10 @@ export default function PlaygroundControls({
   executing,
   handleSend,
   handleStop,
-  onNavigate
+  onNavigate,
+  onOpenAdminModal,
+  hasAuthError,
+  isMintDisabled
 }) {
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
 
@@ -121,25 +124,36 @@ export default function PlaygroundControls({
               ))}
             </datalist>
           )}
-          {isSelectedKeyDisabled && (
+          {isSelectedKeyDisabled ? (
             <div style={{ marginTop: '0.25rem', fontSize: '0.68rem', color: 'var(--accent-amber, #f59e0b)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <AlertTriangle size={11} />
               <span>
                 {currentKeyObj 
                   ? `Virtual key is ${currentKeyObj.status}. Inference requests will be blocked.` 
-                  : 'Key not seeded in production database. Requests will fail with 401.'}
+                  : 'Key not seeded in production database. Requests will fail unauthorized.'}
               </span>
               {onNavigate && (
                 <button 
                   type="button" 
-                  onClick={() => onNavigate('keys')} 
-                  style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.68rem', padding: 0 }}
+                  onClick={() => onNavigate('keys')}
+                  disabled={isMintDisabled}
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: isMintDisabled ? 'var(--text-muted)' : 'var(--accent-primary)', 
+                    textDecoration: isMintDisabled ? 'none' : 'underline', 
+                    cursor: isMintDisabled ? 'not-allowed' : 'pointer', 
+                    fontSize: '0.68rem', 
+                    padding: 0,
+                    opacity: isMintDisabled ? 0.6 : 1
+                  }}
+                  title={isMintDisabled ? "Configured admin token required to mint keys" : "Navigate to Virtual Keys to create key"}
                 >
                   Mint key
                 </button>
               )}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Router Classification Badges + Stream / JSON Slider */}
