@@ -45,8 +45,8 @@ make dev
 - <img src="assets/icons/openai.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Mock Provider Alpha (dev profile):** `http://localhost:9001`
 - <img src="assets/icons/terminal.svg" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"> **Mock Provider Beta (dev profile):** `http://localhost:9002`
 
-!!! info "Docker Compose Profiles: Clean Production vs. Development"
-    Mock upstream containers (`mock-alpha`, `mock-beta`) and the local Ops Console container (`console`) are isolated under profiles (`["dev", "test"]` and `["local", "console"]`). Standard `docker compose up -d` boots strictly core backend data plane infrastructure (`gateway`, `postgres`, `redis`), eliminating unnecessary memory overhead in production environments where the UI is hosted on Vercel.
+!!! tip "Docker Compose Profiles: Clean Production vs. Development"
+    Mock upstream containers (`mock-alpha`, `mock-beta`) and the local Ops Console container (`console`) are isolated under profiles (`["dev", "test"]` and `["local", "console"]`). Standard `docker compose up -d` boots strictly core backend data plane infrastructure (`gateway`, `postgres`, `redis`), eliminating unnecessary memory overhead in production environments where the UI is deployed externally or hosted via CDN.
 
 !!! tip "Port Allocation & Local vLLM Drills"
     The documentation preview server (`make docs-serve`) binds to port 8000 by default. If testing with an in-VPC vLLM instance locally on port 8000, specify an alternate port (`uv run --with zensical zensical serve --dev-addr 127.0.0.1:8008`) or route to `VLLM_BASE_URL=http://localhost:8001/v1`.
@@ -94,7 +94,7 @@ cd console && vercel --prod
 #### Frontend Operations Console (`console/.env`)
 | Variable | Default / Example | Purpose |
 |---|---|---|
-| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway-netrallm.avadhanlabs.dev`) |
+| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway.<yourdomain.com>` or leave empty for same-origin proxy) |
 | `VITE_BACKEND_TARGET` | `http://localhost:8080` | Backend target used by Vite dev server reverse proxy |
 
 ---
@@ -144,39 +144,44 @@ Deploy the React 19 Ops Console to Vercel's global CDN with automatic reverse-pr
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/v1/:path*", "destination": "https://gateway-netrallm.avadhanlabs.dev/v1/:path*" },
-    { "source": "/admin/:path*", "destination": "https://gateway-netrallm.avadhanlabs.dev/admin/:path*" },
-    { "source": "/health", "destination": "https://gateway-netrallm.avadhanlabs.dev/health" },
+    { "source": "/v1/:path*", "destination": "https://gateway.<yourdomain.com>/v1/:path*" },
+    { "source": "/admin/:path*", "destination": "https://gateway.<yourdomain.com>/admin/:path*" },
+    { "source": "/health", "destination": "https://gateway.<yourdomain.com>/health" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
 ```
+*(Shown with generic `gateway.<yourdomain.com>`; on our live reference deployment, this routes to `gateway-netrallm.avadhanlabs.dev`)*.
 
-### 3.5 Production Ingress & Custom Domain Topology (`avadhanlabs.dev`)
+### 3.5 Production Ingress & Custom Domain Topology
 
-When deploying to production with a custom domain (e.g. registered via Name.com), map the following subdomains:
+When deploying to production under your custom domain (e.g. `yourdomain.com`), configure your DNS records and reverse proxy ingress according to your team's naming conventions. Subdomains can be customized as desired (for example: `api.yourdomain.com`, `gateway.yourdomain.com`, `llm.yourdomain.com`).
 
-| Component | Target URL | Ingress Routing | Health Verification |
-|---|---|---|---|
-| **Core Gateway API** | `https://gateway-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Reverse Proxy &rarr; Port `8080` | `curl -f https://gateway-netrallm.avadhanlabs.dev/health` |
-| **Operations Console** | `https://console-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Vercel &rarr; Port `3000` | Browser or `curl -I https://console-netrallm.avadhanlabs.dev` |
-| **Documentation Site** | `https://docs-netrallm.avadhanlabs.dev` | GitHub Pages | `curl -I https://docs-netrallm.avadhanlabs.dev` |
+*(Note: The domain `avadhanlabs.dev` is provided throughout these docs strictly as an illustrative reference deployment. You can choose any domain, host, or subdomain schema that matches your organization's infrastructure).*
+
+The reference topology below illustrates a standard production setup:
+
+| Component | Target Subdomain Pattern | Live Reference Example | Ingress Routing | Health Verification |
+|---|---|---|---|---|
+| **Core Gateway API** | `https://gateway.<yourdomain.com>` | `https://gateway-netrallm.avadhanlabs.dev` | Reverse Proxy / Ingress / Cloudflare Tunnel &rarr; Port `8080` | `curl -f https://gateway.<yourdomain.com>/health` |
+| **Operations Console** | `https://console.<yourdomain.com>` | `https://console-netrallm.avadhanlabs.dev` | Cloudflare Tunnel / Vercel Edge &rarr; Port `3000` | Browser or `curl -I https://console.<yourdomain.com>` |
+| **Documentation Site** | `https://docs.<yourdomain.com>` | `https://docs-netrallm.avadhanlabs.dev` | Static Edge Hosting / GitHub Pages | `curl -I https://docs.<yourdomain.com>` |
 
 #### DNS Records Configuration
 
-Configure the following CNAME records in your DNS management provider (e.g. Name.com or Cloudflare Zero Trust):
+Configure standard CNAME records in your DNS provider (e.g. Cloudflare, Route53, Name.com):
 
-- **`gateway-netrallm` (CNAME):**  
-  Points to the Cloudflare Tunnel UUID target or your VPS public IP.
+- **Gateway API CNAME (e.g. `gateway` or `gateway-netrallm`):**  
+  Points to your reverse proxy hostname, load balancer, Cloudflare Tunnel target, or VPS public IP.
 
-- **`console-netrallm` (CNAME):**  
-  Points to the Cloudflare Tunnel target or Vercel edge router (`cname.vercel-dns.com`).
+- **Console UI CNAME (e.g. `console` or `console-netrallm`):**  
+  Points to your edge hosting router (such as `cname.vercel-dns.com` if using Vercel) or your self-hosted reverse proxy.
 
-- **`docs-netrallm` (CNAME):**  
-  Points to `shashankch.github.io.` (GitHub Pages custom domain).
+- **Documentation CNAME (e.g. `docs` or `docs-netrallm`):**  
+  Points to your static documentation host (such as `shashankch.github.io.` if hosted via GitHub Pages).
 
 !!! tip "Cloudflare SSL / Gray Cloud Configuration for GitHub Pages"
-    Configure the `docs-netrallm` record as **DNS Only (Gray Cloud)** in Cloudflare. This ensures GitHub Pages can independently verify domain ownership and issue Let's Encrypt TLS certificates without triggering Cloudflare Error 525 (SSL Handshake Failed).
+    If routing documentation via GitHub Pages through Cloudflare DNS, configure the record as **DNS Only (Gray Cloud)**. This ensures GitHub Pages can independently verify domain ownership and issue Let's Encrypt TLS certificates without triggering Cloudflare Error 525 (SSL Handshake Failed).
 
 ---
 
@@ -185,10 +190,10 @@ Configure the following CNAME records in your DNS management provider (e.g. Name
 The Ops Console includes native configuration controls to communicate across origins:
 
 - **Configurable Gateway Endpoint:**  
-  Supports both Same-Origin deployments (empty string, proxying `/v1` and `/admin` through Vite or Vercel) and Custom Remote endpoints (e.g., `https://gateway-netrallm.avadhanlabs.dev`) with a 1-click "Use Default Origin" reset button.
+  Supports both Same-Origin deployments (relative `/` paths with Vite/Vercel rewrites) and Remote Custom Endpoints (e.g., `https://gateway.yourdomain.com` or the reference `https://gateway-netrallm.avadhanlabs.dev`), complete with a 1-click "Use Default Origin" reset button.
 
-- **High-Precedence CORS Filter:**  
-  The gateway runs a dedicated `FilterRegistrationBean<CorsFilter>` bean configured at `Ordered.HIGHEST_PRECEDENCE`, intercepting preflight `OPTIONS` requests before Spring security/servlet dispatchers to permit cross-subdomain API calls.
+- **Seamless Cross-Origin Ingress (CORS):**  
+  The gateway includes automated CORS handling enabled by default. It responds to browser preflight `OPTIONS` requests with permissive cross-origin headers, allowing your front-end console to communicate securely with the gateway across separate subdomains (e.g., `console.yourdomain.com` calling `gateway.yourdomain.com`) without requiring an extra reverse-proxy layer.
 
 - **Interactive Connectivity Probe:**  
   Provides real-time gateway reachability and round-trip latency pings (`GET /health`) directly from the settings dialog.

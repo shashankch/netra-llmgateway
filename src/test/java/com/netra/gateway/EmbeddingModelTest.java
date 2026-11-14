@@ -1,9 +1,14 @@
 package com.netra.gateway;
 
+import com.netra.gateway.model.dto.ChatMessage;
+import com.netra.gateway.service.EmbeddingService;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2QuantizedEmbeddingModel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,7 +32,7 @@ class EmbeddingModelTest {
     @DisplayName("Verify in-JVM ONNX all-MiniLM-L6-v2 generates 384-dim embeddings and evaluates paraphrase pairs")
     void testParaphraseMatchingAndRejection() {
         for (int i = 0; i < 5; i++) {
-            String randSalt = "(" + java.util.UUID.randomUUID().toString().substring(0, 8) + ")";
+            String randSalt = "(" + UUID.randomUUID().toString().substring(0, 8) + ")";
             String p1 = randSalt + " How do I cancel my subscription on the console?";
             String p2 = randSalt + " What are the steps to cancel my console subscription?";
             String p3 = randSalt + " How do I upgrade my subscription on the console?";
@@ -49,24 +54,24 @@ class EmbeddingModelTest {
     @Test
     @DisplayName("Verify deterministic Unicode NFC and whitespace normalization in EmbeddingService")
     void testDeterministicNormalization() {
-        com.netra.gateway.service.EmbeddingService service = new com.netra.gateway.service.EmbeddingService();
+        EmbeddingService service = new EmbeddingService();
 
         // 1. Unicode NFC normalization: decomposed 'e' + combining acute ('\u0065\u0301') vs precomposed 'é' ('\u00E9')
         String decomposed = "cafe\u0301";
         String precomposed = "caf\u00E9";
-        assertThat(com.netra.gateway.service.EmbeddingService.normalizeText(decomposed))
-                .isEqualTo(com.netra.gateway.service.EmbeddingService.normalizeText(precomposed))
+        assertThat(EmbeddingService.normalizeText(decomposed))
+                .isEqualTo(EmbeddingService.normalizeText(precomposed))
                 .isEqualTo("café");
 
         // 2. Whitespace collapsing and non-breaking spaces
         String messy = "What   is  \u00A0 the\tcapital  of \r\n France?  ";
-        String cleaned = com.netra.gateway.service.EmbeddingService.normalizeText(messy);
+        String cleaned = EmbeddingService.normalizeText(messy);
         assertThat(cleaned).isEqualTo("What is the capital of \n France?");
 
         // 3. Multi-turn message canonicalization
-        var messages = java.util.List.of(
-                new com.netra.gateway.model.dto.ChatMessage("system", "You are   a helpful   assistant. "),
-                new com.netra.gateway.model.dto.ChatMessage("user", "Hello\u00A0world!  ")
+        var messages = List.of(
+                new ChatMessage("system", "You are   a helpful   assistant. "),
+                new ChatMessage("user", "Hello\u00A0world!  ")
         );
         String canonicalKey = service.extractCacheKeyText(messages);
         assertThat(canonicalKey).isEqualTo("system: You are a helpful assistant.\nuser: Hello world!");

@@ -6,7 +6,9 @@ import dev.langchain4j.model.embedding.onnx.allminilml6v2q.AllMiniLmL6V2Quantize
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * In-JVM ONNX Vector Embedding Service.
@@ -42,7 +44,7 @@ public class EmbeddingService {
             return "";
         }
         // 1. Unicode NFC normalization (replaces decomposed diacritics with composed characters)
-        String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC);
+        String normalized = Normalizer.normalize(text, Normalizer.Form.NFC);
         // 2. Canonicalize non-breaking spaces (\u00A0, \u2007, \u202F) and carriage returns
         normalized = normalized.replace('\u00A0', ' ')
                 .replace('\u2007', ' ')
@@ -61,7 +63,7 @@ public class EmbeddingService {
         if (text == null || text.isBlank()) {
             return "";
         }
-        String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC);
+        String normalized = Normalizer.normalize(text, Normalizer.Form.NFC);
         return normalized.replace('\u00A0', ' ')
                 .replace('\u2007', ' ')
                 .replace('\u202F', ' ')
@@ -116,7 +118,7 @@ public class EmbeddingService {
     public String formatVectorLiteral(float[] vector) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < vector.length; i++) {
-            sb.append(String.format(java.util.Locale.US, "%.6f", vector[i]));
+            sb.append(String.format(Locale.US, "%.6f", vector[i]));
             if (i < vector.length - 1) {
                 sb.append(",");
             }

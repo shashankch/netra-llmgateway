@@ -5,6 +5,7 @@ import com.netra.gateway.model.dto.CacheStatsResponse;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.dto.ChatMessage;
 import com.netra.gateway.model.dto.UsageInfo;
+import com.netra.gateway.model.dto.UsageSummaryProjection;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.repository.CacheEntryRepository;
 import com.netra.gateway.repository.RequestLogRepository;
@@ -255,7 +256,7 @@ class SemanticCacheTest {
         when(cacheEntryRepository.count()).thenReturn(100L);
         when(tenantRepository.findAll()).thenReturn(List.of(searchTenant, freeTierTenant));
 
-        com.netra.gateway.model.dto.UsageSummaryProjection mockSummary = new com.netra.gateway.model.dto.UsageSummaryProjection() {
+        UsageSummaryProjection mockSummary = new UsageSummaryProjection() {
             @Override public long getRequestCount() { return 50L; }
             @Override public long getTotalPromptTokens() { return 500L; }
             @Override public long getTotalCompletionTokens() { return 500L; }

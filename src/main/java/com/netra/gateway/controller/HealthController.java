@@ -1,5 +1,6 @@
 package com.netra.gateway.controller;
 
+import com.netra.gateway.service.CanonicalDataSeeder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.data.redis.connection.RedisConnection;
@@ -27,7 +28,7 @@ public class HealthController {
     private BuildProperties buildProperties;
 
     @Autowired(required = false)
-    private com.netra.gateway.service.CanonicalDataSeeder canonicalDataSeeder;
+    private CanonicalDataSeeder canonicalDataSeeder;
 
     private String getVersion() {
         return buildProperties != null ? buildProperties.getVersion() : "0.7.3";

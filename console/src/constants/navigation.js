@@ -10,3 +10,5 @@ export const NAV_ITEMS = [
   { id: 'logs', label: 'Request Logs', iconName: 'Activity', title: 'Live Request Telemetry & SSE Stream' },
   { id: 'cache', label: 'Semantic Cache', iconName: 'Database', title: 'Vector Cache Inspection' }
 ];
+
+export const VALID_TABS = ['landing', 'analytics', 'overview', 'playground', 'keys', 'logs', 'cache'];

@@ -1,7 +1,10 @@
 package com.netra.gateway.exception;
 
+import com.netra.gateway.context.RequestContext;
 import com.netra.gateway.model.dto.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,7 +19,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RateLimitException.class)
     public ResponseEntity<ErrorResponse> handleRateLimitException(RateLimitException ex) {
         log.warn("Rate limit breached: {}", ex.getMessage());
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        HttpHeaders headers = new HttpHeaders();
         headers.set("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
         headers.set("RateLimit-Limit", String.valueOf(ex.getRpmLimit()));
         headers.set("RateLimit-Remaining", "0");
@@ -54,10 +57,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, jakarta.servlet.http.HttpServletRequest request) {
-        String requestId = com.netra.gateway.context.RequestContext.currentRequestId();
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
+        String requestId = RequestContext.currentRequestId();
         if (requestId == null && request != null) {
-            Object attr = request.getAttribute(com.netra.gateway.context.RequestContext.REQUEST_ID_ATTR);
+            Object attr = request.getAttribute(RequestContext.REQUEST_ID_ATTR);
             if (attr != null) {
                 requestId = attr.toString();
             }

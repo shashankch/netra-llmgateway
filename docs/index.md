@@ -152,8 +152,8 @@ RateLimit-Policy: 60;w=60
 }
 ```
 
-!!! tip "Cloud Ingress Endpoints (`avadhanlabs.dev`) [Pre-Prod / Demo Only]"
-    *(These endpoints are provided for pre-prod and demo evaluation; for production workloads, deploy your own self-hosted instance.)*
+!!! tip "Live Reference Ingress Endpoints"
+    *(The endpoints below demonstrate an active cloud reference deployment hosted on `avadhanlabs.dev`. For enterprise and production workloads, deploy your own self-hosted NETRA instance under your organization's custom domain).*
 
     * **Gateway Data Plane:** `https://gateway-netrallm.avadhanlabs.dev/v1/chat/completions`
     * **Operations Console:** `https://console-netrallm.avadhanlabs.dev`
@@ -212,7 +212,7 @@ make verify-all         # Executes all 7 verification drills sequentially
 #### Frontend Operations Console (`console/.env`)
 | Variable | Default / Example | Purpose |
 |---|---|---|
-| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway-netrallm.avadhanlabs.dev`) |
+| `VITE_GATEWAY_URL` | `""` (relative `/` proxy) | Target gateway base URL (e.g. `https://gateway.<yourdomain.com>` or leave empty for same-origin proxy) |
 | `VITE_BACKEND_TARGET` | `http://localhost:8080` | Backend target used by Vite dev server reverse proxy |
 
 ---

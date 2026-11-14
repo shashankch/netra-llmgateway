@@ -4,16 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'data/**'
-      - 'Dockerfile'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle/**'
-      - 'deploy/cloud-vps/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 concurrency:
@@ -21,12 +11,30 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
   packages: write
 
 jobs:
+  release-please:
+    name: Run Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
   test:
     name: Run Tests
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -55,6 +63,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.ref }}
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -71,11 +81,14 @@ jobs:
 
   build-and-push:
     name: Build & Publish Image
-    needs: test
+    needs: [release-please, test]
+    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -98,7 +111,8 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=short
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name || 'latest' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name || 'latest' }}
 
       - name: Build and Push Container Image
         uses: docker/build-push-action@v6
@@ -112,33 +126,35 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-oci:
+  deploy-backend:
     name: Deploy to Production Host
-    needs: build-and-push
+    needs: [release-please, build-and-push]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: ${{ (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
     steps:
       - name: Check Host Deployment Secrets
         id: check-secrets
         run: |
-          if [ -n "${{ secrets.OCI_HOST }}" ] && [ -n "${{ secrets.OCI_SSH_KEY }}" ]; then
+          DEPLOY_TARGET_HOST="${{ secrets.DEPLOY_HOST || secrets.OCI_HOST }}"
+          DEPLOY_TARGET_KEY="${{ secrets.DEPLOY_SSH_KEY || secrets.OCI_SSH_KEY }}"
+          if [ -n "$DEPLOY_TARGET_HOST" ] && [ -n "$DEPLOY_TARGET_KEY" ]; then
             echo "configured=true" >> $GITHUB_OUTPUT
           else
             echo "configured=false" >> $GITHUB_OUTPUT
-            echo "OCI_HOST or OCI_SSH_KEY not configured. Skipping automated SSH deploy step."
+            echo "Host deployment secrets (DEPLOY_HOST/OCI_HOST, DEPLOY_SSH_KEY/OCI_SSH_KEY) not configured. Skipping automated SSH deploy step."
           fi
 
       - name: Deploy Container via SSH
         if: steps.check-secrets.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USERNAME || 'ubuntu' }}
-          key: ${{ secrets.OCI_SSH_KEY }}
-          port: ${{ secrets.OCI_SSH_PORT || 22 }}
+          host: ${{ secrets.DEPLOY_HOST || secrets.OCI_HOST }}
+          username: ${{ secrets.DEPLOY_USERNAME || secrets.OCI_USERNAME || 'ubuntu' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY || secrets.OCI_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || secrets.OCI_SSH_PORT || 22 }}
           script: |
             set -e
-            APP_DIR="${{ secrets.OCI_APP_DIR || '$HOME/netra-llmgateway' }}"
+            APP_DIR="${{ secrets.DEPLOY_APP_DIR || secrets.OCI_APP_DIR || '$HOME/netra-llmgateway' }}"
             cd "$APP_DIR" || cd "/opt/netra-llmgateway"
             echo "==> Pulling latest repository state..."
             git pull origin main

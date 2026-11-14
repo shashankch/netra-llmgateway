@@ -2,6 +2,7 @@ package com.netra.gateway.repository;
 
 import com.netra.gateway.model.dto.CacheMatchProjection;
 import com.netra.gateway.model.entity.CacheEntry;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -61,9 +62,9 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
     @Query("SELECT COUNT(c) FROM CacheEntry c WHERE LOWER(c.virtualKey) = LOWER(:virtualKey)")
     long countByVirtualKey(@Param("virtualKey") String virtualKey);
 
-    List<CacheEntry> findByVirtualKeyIgnoreCaseOrderByCreatedAtDesc(String virtualKey, org.springframework.data.domain.Pageable pageable);
+    List<CacheEntry> findByVirtualKeyIgnoreCaseOrderByCreatedAtDesc(String virtualKey, Pageable pageable);
 
-    List<CacheEntry> findAllByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
+    List<CacheEntry> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     @Query("SELECT c FROM CacheEntry c WHERE LOWER(c.virtualKey) = LOWER(:virtualKey) " +
            "AND (LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%'))) " +
@@ -71,14 +72,14 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
     List<CacheEntry> findByVirtualKeyAndSearch(
             @Param("virtualKey") String virtualKey,
             @Param("search") String search,
-            org.springframework.data.domain.Pageable pageable
+            Pageable pageable
     );
 
     @Query("SELECT c FROM CacheEntry c WHERE LOWER(c.promptText) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(c.modelAlias) LIKE LOWER(CONCAT('%', :search, '%')) " +
            "ORDER BY c.createdAt DESC")
     List<CacheEntry> findBySearch(
             @Param("search") String search,
-            org.springframework.data.domain.Pageable pageable
+            Pageable pageable
     );
 
     long countByVirtualKeyIgnoreCase(String virtualKey);

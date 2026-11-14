@@ -5,21 +5,25 @@ import com.netra.gateway.config.GatewayConfigProperties;
 import com.netra.gateway.config.JacksonConfig;
 import com.netra.gateway.controller.AdminController;
 import com.netra.gateway.model.dto.CacheEntryDetailDto;
+import com.netra.gateway.model.dto.CacheStatsResponse;
 import com.netra.gateway.model.dto.CreateTenantRequest;
+import com.netra.gateway.model.dto.OffsetBasedPageRequest;
+import com.netra.gateway.model.dto.ProviderHealthSnapshot;
 import com.netra.gateway.model.dto.UpdateTenantRequest;
 import com.netra.gateway.model.dto.UsageSummaryProjection;
-import com.netra.gateway.model.entity.MonthlySpend;
 import com.netra.gateway.model.entity.ModelPricing;
+import com.netra.gateway.model.entity.MonthlySpend;
 import com.netra.gateway.model.entity.RequestLog;
 import com.netra.gateway.model.entity.Tenant;
+import com.netra.gateway.repository.ModelPricingRepository;
 import com.netra.gateway.repository.MonthlySpendRepository;
 import com.netra.gateway.repository.RequestLogRepository;
 import com.netra.gateway.repository.TenantRepository;
 import com.netra.gateway.service.ForexRateService;
 import com.netra.gateway.service.LogStreamBroadcaster;
+import com.netra.gateway.service.ProviderCircuitBreakerService;
 import com.netra.gateway.service.SemanticCacheService;
 import com.netra.gateway.service.TenantAuthService;
-import com.netra.gateway.model.dto.OffsetBasedPageRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -27,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -38,11 +41,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import com.netra.gateway.model.dto.ProviderHealthSnapshot;
-import com.netra.gateway.service.ProviderCircuitBreakerService;
 import static org.hamcrest.Matchers.nullValue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -92,7 +93,7 @@ class AdminControllerContractTest {
     private ProviderCircuitBreakerService providerCircuitBreakerService;
 
     @MockitoBean
-    private com.netra.gateway.repository.ModelPricingRepository modelPricingRepository;
+    private ModelPricingRepository modelPricingRepository;
 
     @Test
     @DisplayName("GET /admin/usage returns 200 with reconciled metrics")
@@ -316,12 +317,12 @@ class AdminControllerContractTest {
     @Test
     @DisplayName("GET /admin/cache/stats returns 200 with cache metrics and per-key breakdown")
     void testGetCacheStats() throws Exception {
-        com.netra.gateway.model.dto.CacheStatsResponse mockStats = com.netra.gateway.model.dto.CacheStatsResponse.builder()
+        CacheStatsResponse mockStats = CacheStatsResponse.builder()
                 .totalEntries(150L)
                 .totalHits(120L)
                 .totalMisses(30L)
                 .hitRate(0.80)
-                .keys(java.util.Map.of("netra-sk-search-1a2b3c", com.netra.gateway.model.dto.CacheStatsResponse.KeyCacheStats.builder()
+                .keys(Map.of("netra-sk-search-1a2b3c", CacheStatsResponse.KeyCacheStats.builder()
                         .entries(150L)
                         .hits(120L)
                         .misses(30L)

@@ -2,6 +2,7 @@ package com.netra.gateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netra.gateway.config.GatewayConfigProperties;
+import com.netra.gateway.exception.ModelNotFoundException;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatMessage;
@@ -33,6 +34,17 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -90,7 +102,7 @@ class MultiProviderRoutingTest {
         beta.setBaseUrl("http://localhost:9002");
         beta.setApiKey("mock-beta-key");
 
-        configProperties.setProviders(new java.util.ArrayList<>(List.of(alpha, beta)));
+        configProperties.setProviders(new ArrayList<>(List.of(alpha, beta)));
 
         // Configure fast and smart aliases with primary + fallbacks
         GatewayConfigProperties.ModelAliasConfig fastConfig = new GatewayConfigProperties.ModelAliasConfig();
@@ -107,7 +119,7 @@ class MultiProviderRoutingTest {
                 "complex", "smart"
         ));
 
-        configProperties.setModelAliases(new java.util.HashMap<>(Map.of(
+        configProperties.setModelAliases(new HashMap<>(Map.of(
                 "fast", fastConfig,
                 "smart", smartConfig,
                 "auto", autoConfig
@@ -487,16 +499,16 @@ class MultiProviderRoutingTest {
 
         when(pricingRepository.findByModel("unpriced/expensive-frontier-model")).thenReturn(Optional.empty());
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+        assertThatThrownBy(() ->
                 upstreamClientService.resolveCandidateChain("unpriced/expensive-frontier-model", List.of())
-        ).isInstanceOf(com.netra.gateway.exception.ModelNotFoundException.class);
+        ).isInstanceOf(ModelNotFoundException.class);
 
         when(pricingRepository.findByModel("expensive-frontier-model")).thenReturn(Optional.empty());
         when(pricingRepository.findByModel("openrouter/expensive-frontier-model")).thenReturn(Optional.empty());
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+        assertThatThrownBy(() ->
                 upstreamClientService.resolveCandidateChain("openrouter/expensive-frontier-model", List.of())
-        ).isInstanceOf(com.netra.gateway.exception.ModelNotFoundException.class);
+        ).isInstanceOf(ModelNotFoundException.class);
     }
 
     @Test
@@ -557,7 +569,7 @@ class MultiProviderRoutingTest {
 
         UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain("fast", request.getMessages());
 
-        org.junit.jupiter.api.Assertions.assertThrows(com.netra.gateway.exception.UpstreamException.class, () -> {
+        assertThrows(UpstreamException.class, () -> {
             upstreamClientService.forwardWithFailover(request, chain);
         });
     }

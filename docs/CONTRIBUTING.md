@@ -45,12 +45,16 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
    ```
 
 6. **Commit Message Conventions:**
-   NETRA adheres to the **Conventional Commits** specification (`v1.0.0`) to drive automated semantic releases via Google's Release Please bot:
-   - `feat:` Introduces a new feature or capability (triggers a minor release, e.g. `0.7.3` &rarr; `0.8.0`).
-   - `fix:` Fixes a bug or recovers degraded behavior (triggers a patch release, e.g. `0.7.3` &rarr; `0.7.4`).
-   - `feat!:` or `BREAKING CHANGE:` Introduces a breaking API change (triggers a major release).
-   - `docs:`, `chore:`, `refactor:`, `test:`, `ci:` Internal maintenance or documentation updates (no release triggered).
+   NETRA adheres to the **Conventional Commits** specification (`v1.0.0`) to maintain clear git history hygiene, automated semantic versioning, and structured changelogs:
+   - `feat:` Introduces a new feature or capability (triggers a minor version increment, e.g. `0.7.3` &rarr; `0.8.0`).
+   - `fix:` Fixes a bug or recovers degraded behavior (triggers a patch version increment, e.g. `0.7.3` &rarr; `0.7.4`).
+   - `feat!:` or `BREAKING CHANGE:` Introduces a breaking API change (triggers a major version increment).
+   - `docs:`, `chore:`, `refactor:`, `test:`, `ci:` Maintenance, build, or documentation updates.
 
-7. **Submitting Pull Requests:** Push your branch and open a PR against `main`. Provide a clear summary of changes, rationale, and test results.
+7. **Automated CI Gates & PR Submission:**
+   Push your branch and open a PR against `main`. Ensure your PR description includes a concise summary of changes and verification evidence. All pull requests automatically trigger the GitHub Actions validation pipelines:
+   - **Gateway CI (`gateway-ci.yml`):** Compiles backend code on Java 25, runs the Gradle test suite, and executes GitHub CodeQL static analysis.
+   - **Console CI (`console-ci.yml`):** Runs ESLint validation and production bundle compilation on Node.js 20.
+   - **Verification Matrix (`gateway-verification.yml`):** Verifies contract smoke tests, difficulty routing evaluation, and cache fuzzing against live services.
 
-8. **Questions & Maintenance:** For questions, architectural discussions, or project maintenance inquiries, contact the project maintainer at **shashankchandel@gmail.com** or open a GitHub Discussion.
+8. **Questions & Maintenance:** For questions, architectural discussions, or project maintenance inquiries, contact the project maintainer at **shashakchandel@gmail.com** or open a GitHub Discussion.

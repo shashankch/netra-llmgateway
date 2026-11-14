@@ -1,5 +1,6 @@
 package com.netra.gateway.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -8,12 +9,15 @@ import com.netra.gateway.model.dto.CacheMatchProjection;
 import com.netra.gateway.model.dto.CacheStatsResponse;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.dto.ChatMessage;
+import com.netra.gateway.model.dto.OffsetBasedPageRequest;
+import com.netra.gateway.model.entity.CacheEntry;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.repository.CacheEntryRepository;
 import com.netra.gateway.repository.RequestLogRepository;
 import com.netra.gateway.repository.TenantRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -491,8 +495,8 @@ public class SemanticCacheService {
         List<CacheEntryDetailDto> results = new ArrayList<>();
 
         try {
-            org.springframework.data.domain.Pageable pageable = new com.netra.gateway.model.dto.OffsetBasedPageRequest(safeOffset, safeLimit);
-            List<com.netra.gateway.model.entity.CacheEntry> dbEntries;
+            Pageable pageable = new OffsetBasedPageRequest(safeOffset, safeLimit);
+            List<CacheEntry> dbEntries;
             if (cleanKey != null && cleanSearch != null) {
                 dbEntries = cacheEntryRepository.findByVirtualKeyAndSearch(cleanKey, cleanSearch, pageable);
             } else if (cleanKey != null) {
@@ -503,7 +507,7 @@ public class SemanticCacheService {
                 dbEntries = cacheEntryRepository.findAllByOrderByCreatedAtDesc(pageable);
             }
 
-            for (com.netra.gateway.model.entity.CacheEntry c : dbEntries) {
+            for (CacheEntry c : dbEntries) {
                 results.add(mapToDetailDto(c, tenantThresholds));
             }
             if (!results.isEmpty() || countDbEntries(cleanKey, cleanSearch) > 0) {
@@ -593,7 +597,7 @@ public class SemanticCacheService {
         return deleted;
     }
 
-    private CacheEntryDetailDto mapToDetailDto(com.netra.gateway.model.entity.CacheEntry c, Map<String, Double> tenantThresholds) {
+    private CacheEntryDetailDto mapToDetailDto(CacheEntry c, Map<String, Double> tenantThresholds) {
         Double threshold = tenantThresholds.get(c.getVirtualKey());
         return CacheEntryDetailDto.builder()
                 .id(c.getId())
@@ -614,10 +618,10 @@ public class SemanticCacheService {
     private String extractCompletionText(String responseJson) {
         if (responseJson == null || responseJson.isBlank()) return "";
         try {
-            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseJson);
-            com.fasterxml.jackson.databind.JsonNode choices = root.path("choices");
+            JsonNode root = objectMapper.readTree(responseJson);
+            JsonNode choices = root.path("choices");
             if (choices.isArray() && !choices.isEmpty()) {
-                com.fasterxml.jackson.databind.JsonNode message = choices.get(0).path("message");
+                JsonNode message = choices.get(0).path("message");
                 if (message.has("content")) {
                     return message.path("content").asText();
                 }

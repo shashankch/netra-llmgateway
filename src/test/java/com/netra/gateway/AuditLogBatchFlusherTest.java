@@ -14,6 +14,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.TransientDataAccessException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -257,13 +259,13 @@ class AuditLogBatchFlusherTest {
         );
 
         // Batch saveAll throws DataIntegrityViolationException on the full batch
-        org.mockito.Mockito.doAnswer(invocation -> {
+        doAnswer(invocation -> {
             List<RequestLog> list = invocation.getArgument(0);
             if (list.size() > 1) {
-                throw new org.springframework.dao.DataIntegrityViolationException("Batch constraint failure");
+                throw new DataIntegrityViolationException("Batch constraint failure");
             }
             if (list.get(0).getRequestId().equals("req_corrupted")) {
-                throw new org.springframework.dao.DataIntegrityViolationException("Row constraint violation");
+                throw new DataIntegrityViolationException("Row constraint violation");
             }
             return list;
         }).when(requestLogRepository).saveAll(any());
@@ -300,7 +302,7 @@ class AuditLogBatchFlusherTest {
         );
 
         // Entire DB is down: throws transient exception on both batch and individual attempts
-        org.mockito.Mockito.doThrow(new org.springframework.dao.TransientDataAccessException("DB connection down") {})
+        doThrow(new TransientDataAccessException("DB connection down") {})
                 .when(requestLogRepository).saveAll(any());
 
         int flushed = auditLogService.flushBatch();

@@ -2,22 +2,30 @@ package com.netra.gateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netra.gateway.config.GatewayConfigProperties;
+import com.netra.gateway.config.HttpClientConfig;
+import com.netra.gateway.config.JacksonConfig;
 import com.netra.gateway.controller.ChatCompletionController;
+import com.netra.gateway.exception.BudgetExceededException;
+import com.netra.gateway.exception.ModelNotFoundException;
+import com.netra.gateway.exception.RateLimitException;
+import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.dto.ChatMessage;
 import com.netra.gateway.model.dto.UsageInfo;
 import com.netra.gateway.model.entity.Tenant;
-import com.netra.gateway.repository.MonthlySpendRepository;
-import com.netra.gateway.repository.RequestLogRepository;
 import com.netra.gateway.repository.TenantRepository;
+import com.netra.gateway.service.AdmissionResult;
 import com.netra.gateway.service.AdmissionService;
+import com.netra.gateway.service.AuditLogService;
 import com.netra.gateway.service.CostCalculationService;
+import com.netra.gateway.service.RefusalEscalationService;
+import com.netra.gateway.service.SemanticCacheService;
+import com.netra.gateway.service.SemanticCacheService.CacheHitResult;
 import com.netra.gateway.service.StreamingRelayService;
 import com.netra.gateway.service.TenantAuthService;
 import com.netra.gateway.service.UpstreamClientService;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,21 +36,23 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-import com.netra.gateway.config.HttpClientConfig;
-import com.netra.gateway.config.JacksonConfig;
 
 @WebMvcTest(ChatCompletionController.class)
 @Import({TenantAuthService.class, JacksonConfig.class, HttpClientConfig.class})
@@ -68,16 +78,16 @@ class ChatCompletionContractTest {
     private AdmissionService admissionService;
 
     @MockitoBean
-    private com.netra.gateway.service.AuditLogService auditLogService;
+    private AuditLogService auditLogService;
 
     @MockitoBean
     private StreamingRelayService streamingRelayService;
 
     @MockitoBean
-    private com.netra.gateway.service.SemanticCacheService semanticCacheService;
+    private SemanticCacheService semanticCacheService;
 
     @MockitoBean
-    private com.netra.gateway.service.RefusalEscalationService refusalEscalationService;
+    private RefusalEscalationService refusalEscalationService;
 
     private Tenant searchTenant;
 
@@ -97,7 +107,7 @@ class ChatCompletionContractTest {
         lenient().when(upstreamClientService.resolveCandidateChain(eq("fast"), any())).thenReturn(defaultChain);
         lenient().when(upstreamClientService.resolveTarget("fast")).thenReturn(defaultTarget);
         lenient().when(semanticCacheService.lookup(any(), any(), any())).thenReturn(Optional.empty());
-        lenient().when(admissionService.checkAdmission(any(), any())).thenReturn(com.netra.gateway.service.AdmissionResult.defaultAdmitted(60));
+        lenient().when(admissionService.checkAdmission(any(), any())).thenReturn(AdmissionResult.defaultAdmitted(60));
     }
 
     @Test
@@ -126,9 +136,9 @@ class ChatCompletionContractTest {
                 .build();
 
         when(upstreamClientService.resolveCandidateChain(eq("no-such-model-xyz"), any()))
-                .thenThrow(new com.netra.gateway.exception.ModelNotFoundException("no-such-model-xyz"));
+                .thenThrow(new ModelNotFoundException("no-such-model-xyz"));
         when(upstreamClientService.resolveTarget("no-such-model-xyz"))
-                .thenThrow(new com.netra.gateway.exception.ModelNotFoundException("no-such-model-xyz"));
+                .thenThrow(new ModelNotFoundException("no-such-model-xyz"));
 
         mockMvc.perform(post("/v1/chat/completions")
                         .header("Authorization", "Bearer netra-sk-search-1a2b3c")
@@ -321,7 +331,7 @@ class ChatCompletionContractTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", org.hamcrest.Matchers.containsString("text/event-stream")))
+                .andExpect(header().string("Content-Type", containsString("text/event-stream")))
                 .andExpect(header().string("x-netra-provider", "alpha/alpha-small"))
                 .andExpect(header().string("x-netra-cache", "miss"))
                 .andExpect(header().string("x-netra-fallback", "false"));
@@ -338,7 +348,7 @@ class ChatCompletionContractTest {
         UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
 
-        org.mockito.Mockito.doThrow(new com.netra.gateway.exception.RateLimitException(10))
+        doThrow(new RateLimitException(10))
                 .when(admissionService).checkAdmission(any(), any());
 
         mockMvc.perform(post("/v1/chat/completions")
@@ -362,7 +372,7 @@ class ChatCompletionContractTest {
         UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
 
-        org.mockito.Mockito.doThrow(new com.netra.gateway.exception.BudgetExceededException(new BigDecimal("5.00")))
+        doThrow(new BudgetExceededException(new BigDecimal("5.00")))
                 .when(admissionService).checkAdmission(any(), any());
 
         mockMvc.perform(post("/v1/chat/completions")
@@ -383,7 +393,7 @@ class ChatCompletionContractTest {
                 .messages(List.of(new ChatMessage("user", "rate limit test")))
                 .build();
 
-        org.mockito.Mockito.doThrow(new com.netra.gateway.exception.RateLimitException(60, 60))
+        doThrow(new RateLimitException(60, 60))
                 .when(admissionService).checkAdmission(any(), any());
 
         mockMvc.perform(post("/v1/chat/completions")
@@ -411,9 +421,9 @@ class ChatCompletionContractTest {
         UpstreamClientService.ResolvedTarget target = new UpstreamClientService.ResolvedTarget("alpha", "alpha-small", false);
         when(upstreamClientService.resolveTarget("fast")).thenReturn(target);
         when(upstreamClientService.forwardNonStreaming(any(), eq(target)))
-                .thenThrow(new com.netra.gateway.exception.UpstreamException("Alpha provider is down"));
+                .thenThrow(new UpstreamException("Alpha provider is down"));
         when(upstreamClientService.forwardWithFailover(any(), any()))
-                .thenThrow(new com.netra.gateway.exception.UpstreamException("Alpha provider is down"));
+                .thenThrow(new UpstreamException("Alpha provider is down"));
 
         mockMvc.perform(post("/v1/chat/completions")
                         .header("Authorization", "Bearer netra-sk-search-1a2b3c")
@@ -422,7 +432,7 @@ class ChatCompletionContractTest {
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error.type").value("upstream_error"));
 
-        org.mockito.Mockito.verify(admissionService).rollbackAdmission(eq("netra-sk-search-1a2b3c"), anyString());
+        verify(admissionService).rollbackAdmission(eq("netra-sk-search-1a2b3c"), anyString());
     }
 
     @Test
@@ -446,9 +456,9 @@ class ChatCompletionContractTest {
                 .usage(UsageInfo.builder().promptTokens(10).completionTokens(10).totalTokens(20).build())
                 .build();
 
-        com.netra.gateway.service.SemanticCacheService.CacheHitResult hit =
-                new com.netra.gateway.service.SemanticCacheService.CacheHitResult(
-                        java.util.UUID.randomUUID(),
+        CacheHitResult hit =
+                new CacheHitResult(
+                        UUID.randomUUID(),
                         "netra-sk-search-1a2b3c",
                         "fast",
                         "alpha/alpha-small",
@@ -468,7 +478,7 @@ class ChatCompletionContractTest {
                 .andExpect(header().string("x-netra-fallback", "false"))
                 .andExpect(header().string("x-netra-route-reason", "semantic_cache_hit"))
                 .andExpect(header().string("x-netra-provider", "alpha/alpha-small"))
-                .andExpect(jsonPath("$.id").value(org.hamcrest.Matchers.startsWith("chatcmpl-")))
+                .andExpect(jsonPath("$.id").value(startsWith("chatcmpl-")))
                 .andExpect(jsonPath("$.created").isNumber())
                 .andExpect(jsonPath("$.choices[0].message.content").value("cached answer"));
     }

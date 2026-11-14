@@ -11,18 +11,14 @@ import com.netra.gateway.model.entity.ModelPricing;
 import com.netra.gateway.repository.ModelPricingRepository;
 import lombok.Builder;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,14 +45,14 @@ public class UpstreamClientService {
         this(configProperties, pricingRepository, objectMapper, httpClient, difficultyClassifier, null);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public UpstreamClientService(
             GatewayConfigProperties configProperties,
             ModelPricingRepository pricingRepository,
             ObjectMapper objectMapper,
             HttpClient httpClient,
             PromptDifficultyClassifier difficultyClassifier,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService
+            @Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService
     ) {
         this.configProperties = configProperties;
         this.pricingRepository = pricingRepository;

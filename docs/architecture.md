@@ -20,7 +20,7 @@ Every incoming HTTP request to `POST /v1/chat/completions` traverses five decoup
 
 ### Stage 1: Virtual Key Authentication & L1 Ingress Cache
 
-- Intercepts all requests via a high-precedence CORS filter (`Ordered.HIGHEST_PRECEDENCE`), safely handling cross-origin preflight `OPTIONS` calls across subdomains (`console-*` -> `gateway-*`) and exposing all `x-netra-*` and IETF `RateLimit-*` headers.
+- Intercepts all requests via a dedicated CORS security filter, safely authorizing cross-origin preflight `OPTIONS` calls across decoupled subdomains (`console.*` &rarr; `gateway.*`) and exposing all `x-netra-*` and IETF `RateLimit-*` headers.
 - Binds Java 25 Scoped Values for zero-allocation, immutable context propagation across the request lifecycle and child virtual threads.
 - Evaluates the incoming HTTP `Authorization: Bearer netra-sk-*` header.
 - Validates the key against an in-memory Caffeine L1 cache (<50μs) to eliminate database read IOPS on the fast path.

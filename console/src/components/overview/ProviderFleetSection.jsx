@@ -161,14 +161,14 @@ export default function ProviderFleetSection({
             >
               <div style={{
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
                 gap: '0.75rem',
                 paddingBottom: '1rem',
                 borderBottom: '1px solid var(--border-subtle)'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                   <div style={{
                     width: 40,
                     height: 40,
@@ -178,7 +178,9 @@ export default function ProviderFleetSection({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--accent-emerald)'
+                    color: 'var(--accent-emerald)',
+                    flexShrink: 0,
+                    marginTop: '2px'
                   }}>
                     <Cpu size={20} />
                   </div>
@@ -229,7 +231,7 @@ export default function ProviderFleetSection({
               {/* 4-KPI Metric Rail */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
                 gap: '0.85rem'
               }}>
                 <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '0.85rem 1rem' }}>

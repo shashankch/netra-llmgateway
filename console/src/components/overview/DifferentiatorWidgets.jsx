@@ -20,12 +20,12 @@ export default function DifferentiatorWidgets({
   return (
     <div className="charts-grid">
       {/* Widget 1: Stream Delivery & Token Efficiency */}
-      <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem', gap: '0.5rem', minHeight: 46 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Gauge size={18} style={{ color: 'var(--accent-lime)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Stream Delivery &amp; Token Efficiency</h3>
+      <div className="card" style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem', gap: '0.5rem', minHeight: 46, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Gauge size={18} style={{ color: 'var(--accent-lime)', flexShrink: 0 }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Stream Delivery &amp; Token Efficiency</h3>
             </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>
               Real-time token generation throughput, stream ratio, and unbuffered SSE relay performance
@@ -38,8 +38,8 @@ export default function DifferentiatorWidgets({
           </div>
         </div>
 
-        <div style={{
-          height: 180,
+        <div className="stream-tokens-container" style={{
+          minHeight: 180,
           background: 'var(--bg-canvas)',
           borderRadius: 8,
           padding: '1.25rem 1.5rem',
@@ -56,7 +56,7 @@ export default function DifferentiatorWidgets({
                 stroke="var(--border-strong)"
                 strokeWidth="3.6"
               />
-              {logs.length > 0 && streamPct > 0 && (
+              {streamPct > 0 && (
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
@@ -75,7 +75,7 @@ export default function DifferentiatorWidgets({
               <span style={{ 
                 fontSize: '1.25rem', 
                 fontWeight: 800, 
-                color: (logs.length > 0 && streamPct > 0) ? 'var(--accent-lime)' : 'var(--text-muted)', 
+                color: streamPct > 0 ? 'var(--accent-lime)' : 'var(--text-muted)', 
                 fontFamily: 'var(--font-mono)' 
               }}>
                 {streamPct}%
@@ -89,7 +89,7 @@ export default function DifferentiatorWidgets({
                 textAlign: 'center',
                 lineHeight: 1.2
               }}>
-                {logs.length > 0 ? 'Stream Ratio' : 'No Traffic'}
+                {(logs.length > 0 || streamPct > 0) ? 'Stream Ratio' : 'No Traffic'}
               </span>
             </div>
           </div>
@@ -133,12 +133,12 @@ export default function DifferentiatorWidgets({
       </div>
 
       {/* Widget 2: Semantic Cache & Accuracy Guard */}
-      <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem', gap: '0.5rem', minHeight: 46 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Sparkles size={18} style={{ color: 'var(--accent-emerald)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Semantic Cache &amp; Accuracy Guard</h3>
+      <div className="card" style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem', gap: '0.5rem', minHeight: 46, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Sparkles size={18} style={{ color: 'var(--accent-emerald)', flexShrink: 0 }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Semantic Cache &amp; Accuracy Guard</h3>
             </div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>
               Precision similarity threshold (&ge; {configuredThreshold}) ensures high-speed response reuse while guarding against near-misses
@@ -151,7 +151,17 @@ export default function DifferentiatorWidgets({
           </div>
         </div>
 
-        <div style={{ height: 180, background: 'var(--bg-canvas)', borderRadius: 8, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{
+          minHeight: 180,
+          height: 'auto',
+          background: 'var(--bg-canvas)',
+          borderRadius: 8,
+          padding: '1.25rem 1.25rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.85rem',
+          justifyContent: 'space-between'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
               <strong>Precision Threshold Boundary</strong>

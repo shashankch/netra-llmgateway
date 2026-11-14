@@ -2,6 +2,7 @@ package com.netra.gateway.service;
 
 import com.netra.gateway.exception.BudgetExceededException;
 import com.netra.gateway.exception.RateLimitException;
+import com.netra.gateway.model.entity.MonthlySpend;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.repository.MonthlySpendRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.YearMonth;
 import java.util.List;
@@ -40,9 +42,9 @@ public class AdmissionService {
         try {
             if (Boolean.FALSE.equals(redisTemplate.hasKey(spendKey))) {
                 BigDecimal initialSpend = monthlySpendRepository.findByVirtualKeyAndYearMonth(virtualKey, yearMonth)
-                        .map(com.netra.gateway.model.entity.MonthlySpend::getTotalSpendUsd)
+                        .map(MonthlySpend::getTotalSpendUsd)
                         .orElse(BigDecimal.ZERO);
-                redisTemplate.opsForValue().setIfAbsent(spendKey, initialSpend.setScale(6, java.math.RoundingMode.HALF_UP).toPlainString(), Duration.ofDays(90));
+                redisTemplate.opsForValue().setIfAbsent(spendKey, initialSpend.setScale(6, RoundingMode.HALF_UP).toPlainString(), Duration.ofDays(90));
             }
         } catch (Exception e) {
             log.warn("Failed to check/seed spend key in Redis: {}", e.getMessage());
