@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.6](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.5...netra-llmgateway-v0.7.6) (2026-11-14)
+
+
+### Bug Fixes
+
+* **console,ci,docs:** eliminate navbar flicker, unify banner state machine, and harden release re-runs ([#22](https://github.com/shashankch/netra-llmgateway/issues/22)) ([#22](https://github.com/shashankch/netra-llmgateway/issues/22)) ([81a7187](https://github.com/shashankch/netra-llmgateway/commit/81a7187efcc7357e50b9502c7b0b0d7c6df53bdd))
+
 ## [0.7.5](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.4...netra-llmgateway-v0.7.5) (2026-11-14)
 
 
