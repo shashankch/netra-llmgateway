@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.5](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.4...netra-llmgateway-v0.7.5) (2026-11-14)
+
+
+### Features
+
+* **console,ci,clean-code:** implement developer sandbox mode, harden CI/CD security, and enforce clean coding standards ([#20](https://github.com/shashankch/netra-llmgateway/issues/20)) ([de149b2](https://github.com/shashankch/netra-llmgateway/commit/de149b2eecdd5e6e7df273be0d28ba2555b15acb))
+
 ## [0.7.4](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.3...netra-llmgateway-v0.7.4) (2026-11-11)
 
 
