@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { getApiUrl } from '../config/api';
-import { RefreshCw } from 'lucide-react';
+import { getApiUrl, reportAdminAuthFailure, reportAdminAuthSuccess, useAdminAuthStatus } from '../config/api';
+import { RefreshCw, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 import OverviewKpis from './overview/OverviewKpis';
 import OverviewCharts from './overview/OverviewCharts';
@@ -16,6 +16,7 @@ import { DEMO_USAGE, DEMO_KEYS, DEMO_CACHE_STATS, getDemoLogs, DEMO_PROVIDER_HEA
 
 export default function Overview({ adminToken = 'netra-admin-demo', onNavigate, onOpenAdminModal }) {
   const { formatCurrency, currency } = useTheme();
+  const authStatus = useAdminAuthStatus();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState(null);
@@ -35,7 +36,10 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate, 
       setIsFetchingPricing(true);
       const headers = adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {};
       const res = await fetch(getApiUrl('/admin/pricing'), { headers });
-      if (res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        if (!isDemoToken) reportAdminAuthFailure(res.status);
+      } else if (res.ok) {
+        reportAdminAuthSuccess();
         const json = await res.json();
         setPricing(json);
       }
@@ -57,14 +61,30 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate, 
       setLoading(true);
       const headers = { 'Authorization': `Bearer ${adminToken}` };
 
-      const [usageRes, keysRes, cacheRes, logsRes, pricingRes, healthRes] = await Promise.all([
-        fetch(getApiUrl('/admin/usage?key=all'), { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(getApiUrl('/admin/keys'), { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch(getApiUrl('/admin/cache/stats'), { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(getApiUrl('/admin/logs?limit=50'), { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch(getApiUrl('/admin/pricing'), { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(getApiUrl('/admin/providers/health'), { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
+      const responses = await Promise.all([
+        fetch(getApiUrl('/admin/usage?key=all'), { headers }).catch(() => null),
+        fetch(getApiUrl('/admin/keys'), { headers }).catch(() => null),
+        fetch(getApiUrl('/admin/cache/stats'), { headers }).catch(() => null),
+        fetch(getApiUrl('/admin/logs?limit=50'), { headers }).catch(() => null),
+        fetch(getApiUrl('/admin/pricing'), { headers }).catch(() => null),
+        fetch(getApiUrl('/admin/providers/health'), { headers }).catch(() => null),
       ]);
+
+      const [usageResRaw, keysResRaw, cacheResRaw, logsResRaw, pricingResRaw, healthResRaw] = responses;
+
+      const hasAuthError = responses.some(r => r && (r.status === 401 || r.status === 403));
+      if (hasAuthError && !isDemoToken) {
+        reportAdminAuthFailure(401);
+      } else if (responses.some(r => r && r.ok)) {
+        reportAdminAuthSuccess();
+      }
+
+      const usageRes = (usageResRaw && usageResRaw.ok) ? await usageResRaw.json().catch(() => null) : null;
+      const keysRes = (keysResRaw && keysResRaw.ok) ? await keysResRaw.json().catch(() => []) : [];
+      const cacheRes = (cacheResRaw && cacheResRaw.ok) ? await cacheResRaw.json().catch(() => null) : null;
+      const logsRes = (logsResRaw && logsResRaw.ok) ? await logsResRaw.json().catch(() => []) : [];
+      const pricingRes = (pricingResRaw && pricingResRaw.ok) ? await pricingResRaw.json().catch(() => null) : null;
+      const healthRes = (healthResRaw && healthResRaw.ok) ? await healthResRaw.json().catch(() => null) : null;
 
       const hasLiveUsage = usageRes && ((usageRes.requests || usageRes.total_requests || 0) > 0 || (usageRes.costUsd || usageRes.cost_usd || 0) > 0);
       setUsage(hasLiveUsage ? usageRes : (isDemoToken ? DEMO_USAGE : usageRes));
@@ -404,10 +424,13 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate, 
         </div>
       </div>
 
-      {/* Developer Sandbox Notice Banner */}
-      {isDemoToken && (
-        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} onNavigate={onNavigate} featureName="cluster telemetry and router efficiency" />
-      )}
+      {/* Unified System & Sandbox Notice Banner */}
+      <SandboxNoticeBanner 
+        adminToken={adminToken}
+        onOpenAdminModal={onOpenAdminModal} 
+        onNavigate={onNavigate} 
+        featureName="cluster telemetry and router efficiency" 
+      />
 
       {/* 1. Five Headline KPI Cards */}
       <OverviewKpis

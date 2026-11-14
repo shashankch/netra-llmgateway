@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, RotateCcw } from 'lucide-react';
+import { ShieldAlert, RotateCcw, Bug } from 'lucide-react';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -24,6 +24,13 @@ export default class ErrorBoundary extends React.Component {
       window.location.hash = 'landing';
       window.location.reload();
     }
+  };
+
+  getReportUrl = () => {
+    const error = this.state.error;
+    const title = error ? `[Bug]: Console Error: ${error.message?.slice(0, 80)}` : '[Bug]: Unexpected Console Rendering Error';
+    const body = `### Summary\nAn unexpected client-side error occurred in the Operations Console.\n\n### Error Details\n\`\`\`\n${error?.name || 'Error'}: ${error?.message || 'Unknown'}\n\`\`\`\n\n### Component Stack\n\`\`\`\n${this.state.errorInfo?.componentStack?.slice(0, 1000) || 'N/A'}\n\`\`\`\n\n### Environment\n- URL: ${typeof window !== 'undefined' ? window.location.href : 'N/A'}\n- User-Agent: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'}`;
+    return `https://github.com/shashankch/netra-llmgateway/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
   };
 
   render() {
@@ -89,7 +96,7 @@ export default class ErrorBoundary extends React.Component {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
               <button
                 onClick={this.handleReset}
                 className="btn btn-primary btn-sm"
@@ -98,6 +105,16 @@ export default class ErrorBoundary extends React.Component {
                 <RotateCcw size={14} />
                 <span>Recover Console</span>
               </button>
+              <a
+                href={this.getReportUrl()}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="btn btn-secondary btn-sm"
+                style={{ gap: '0.35rem', padding: '0.5rem 1.25rem' }}
+              >
+                <Bug size={14} />
+                <span>Report on GitHub</span>
+              </a>
             </div>
           </div>
         </div>

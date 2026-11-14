@@ -53,14 +53,14 @@ export function getEnvAdminToken() {
 
 /**
  * Multi-tier Admin Token resolution:
- * 1. Runtime override via localStorage ('netra_admin_token')
+ * 1. Runtime override via localStorage ('netra_admin_token') - respects user-entered values (even 'netra-admin-demo')
  * 2. Build-time / Vercel Environment Variable (NETRA_ADMIN_TOKEN / VITE_NETRA_ADMIN_TOKEN)
  * 3. Default demo sandbox token ('netra-admin-demo')
  */
 export function getDefaultAdminToken() {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('netra_admin_token');
-    if (custom && custom.trim()) {
+    if (custom !== null && custom.trim() !== '') {
       return custom.trim();
     }
   }
@@ -113,6 +113,132 @@ export function getApiUrl(path) {
     return `${base}${cleanPath}`;
   }
   return cleanPath;
+}
+
+// ============================================================================
+// Admin Authentication State Tracking (401 / 403 Detection)
+// ============================================================================
+
+let adminAuthStatus = {
+  isUnauthorized: false,
+  statusCode: null,
+  lastFailedAt: null,
+  errorMessage: null,
+};
+
+const authListeners = new Set();
+
+function notifyAuthListeners() {
+  authListeners.forEach(listener => {
+    try {
+      listener(adminAuthStatus);
+    } catch (e) {
+      // ignore
+    }
+  });
+}
+
+export function reportAdminAuthFailure(status = 401, message = 'Unauthorized') {
+  if (getDefaultAdminToken() === 'netra-admin-demo') {
+    // The demo token is expected to return 401 on live clusters with custom tokens;
+    // do not flag as an unauthorized error state while in demo mode.
+    return;
+  }
+  if (!adminAuthStatus.isUnauthorized || adminAuthStatus.statusCode !== status) {
+    adminAuthStatus = {
+      isUnauthorized: true,
+      statusCode: status,
+      lastFailedAt: Date.now(),
+      errorMessage: message,
+    };
+    notifyAuthListeners();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('netra-admin-auth-changed', { detail: adminAuthStatus }));
+    }
+  }
+}
+
+export function reportAdminAuthSuccess() {
+  if (adminAuthStatus.isUnauthorized) {
+    adminAuthStatus = {
+      isUnauthorized: false,
+      statusCode: null,
+      lastFailedAt: null,
+      errorMessage: null,
+    };
+    notifyAuthListeners();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('netra-admin-auth-changed', { detail: adminAuthStatus }));
+    }
+  }
+}
+
+export function useAdminAuthStatus() {
+  const [status, setStatus] = useState(adminAuthStatus);
+
+  useEffect(() => {
+    const listener = (s) => setStatus({ ...s });
+    authListeners.add(listener);
+    return () => authListeners.delete(listener);
+  }, []);
+
+  return status;
+}
+
+/**
+ * Actively probes the admin endpoint (/admin/usage) to verify admin credentials.
+ * Updates adminAuthStatus immediately so navbar, modal, and banners update without requiring page navigation.
+ */
+export async function probeAdminAuth(token = getDefaultAdminToken(), gatewayUrl = getGatewayBaseUrl()) {
+  const trimmed = (token || '').trim();
+  if (!trimmed || trimmed === 'netra-admin-demo') {
+    reportAdminAuthSuccess();
+    return { ok: true, isDemo: true, status: 200 };
+  }
+
+  const cleanUrl = normalizeGatewayUrl(gatewayUrl);
+  const target = cleanUrl ? `${cleanUrl}/admin/usage` : '/admin/usage';
+
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+
+    const res = await fetch(target, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${trimmed}`
+      },
+      signal: controller ? controller.signal : undefined
+    });
+
+    if (timeoutId) clearTimeout(timeoutId);
+
+    if (res.status === 401 || res.status === 403) {
+      if (!adminAuthStatus.isUnauthorized || adminAuthStatus.statusCode !== res.status) {
+        adminAuthStatus = {
+          isUnauthorized: true,
+          statusCode: res.status,
+          lastFailedAt: Date.now(),
+          errorMessage: 'Admin access token rejected by gateway',
+        };
+        notifyAuthListeners();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('netra-admin-auth-changed', { detail: adminAuthStatus }));
+        }
+      }
+      return { ok: false, status: res.status };
+    }
+
+    if (res.ok) {
+      reportAdminAuthSuccess();
+      return { ok: true, status: res.status };
+    }
+
+    return { ok: true, status: res.status };
+  } catch (err) {
+    return { ok: false, error: err };
+  }
 }
 
 // ============================================================================
@@ -283,6 +409,9 @@ export async function checkGatewayHealth() {
             consecutiveFailures: isHealthy ? 0 : (currentHealth.consecutiveFailures || 0) + 1,
             version: data.version || CONSOLE_VERSION,
           };
+          if (isHealthy && getDefaultAdminToken() !== 'netra-admin-demo') {
+            probeAdminAuth().catch(() => {});
+          }
         }
       } else {
         currentHealth = {

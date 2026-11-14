@@ -201,6 +201,12 @@ The Ops Console includes native configuration controls to communicate across ori
 - **Free-Tier Friendly Health Polling:**  
   Background health monitoring uses the Page Visibility API (suspends polling when the browser tab is hidden), adaptive exponential backoff (30s baseline extending to 120s backoff), and an operator toggle to avoid waking sleeping or scale-to-zero compute instances.
 
+- **Hierarchical Credential Precedence & Non-Destructive Resets:**  
+  Admin Access Token resolution follows a strict 3-tier hierarchy: operator browser input (`localStorage`) &rarr; build/runtime environment variables (`VITE_NETRA_ADMIN_TOKEN`) &rarr; hardcoded demo fallbacks (`netra-admin-demo`). The "Reset to Demo Defaults" action mutates local draft modal inputs and only persists upon clicking "Save & Apply", preventing accidental credential loss.
+
+- **Plane-Isolated Health & Diagnostic Reporting:**  
+  Console health indicators use Stale-While-Revalidate (SWR) probing to eliminate navigation flicker. If a target gateway rotates its `NETRA_ADMIN_TOKEN`, the console displays an explicit `TOKEN REJECTED` badge and a single actionable `Admin Token Rejected` banner without impacting Playground LLM inference, which authenticates independently via tenant virtual keys. Control-plane actions (e.g. streaming logs, creating virtual keys, or minting keys) are contextually disabled until an authenticated admin token is configured.
+
 ---
 
 ## 4. Tier 3: Production Enterprise Cloud Deployment

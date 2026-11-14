@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGatewayUrl, useGatewayHealth } from '../config/api';
+import { useGatewayUrl, useGatewayHealth, useAdminAuthStatus } from '../config/api';
 import LandingHero from './landing/LandingHero';
 import LandingFeatures from './landing/LandingFeatures';
 import LandingQuickstart from './landing/LandingQuickstart';
@@ -18,11 +18,29 @@ export default function LandingPage({
 }) {
   const gatewayUrl = useGatewayUrl();
   const { isOnline, isChecking, latencyMs, lastChecked } = useGatewayHealth();
+  const authStatus = useAdminAuthStatus();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const gatewayHost = gatewayUrl || 'https://<YOUR_GATEWAY_URL>';
 
   const getStatusBadge = () => {
-    if (isChecking || !lastChecked) {
+    // 1. Detect if admin token was rejected on the control plane (prevents false 'PROD ONLINE' state)
+    if (!isDemoToken && isOnline && authStatus.isUnauthorized) {
+      return {
+        label: 'TOKEN REJECTED',
+        className: 'badge font-mono',
+        style: {
+          background: 'rgba(239, 68, 68, 0.15)',
+          color: '#ef4444',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          letterSpacing: '0.04em',
+          fontWeight: 700
+        },
+        title: 'Gateway is online, but Admin Access Token was rejected • Click to configure'
+      };
+    }
+
+    // 2. Cold-start check only: do not flicker during background revalidations if lastChecked exists
+    if (!lastChecked && isChecking) {
       return {
         label: 'PROBING...',
         className: 'badge badge-neutral font-mono',

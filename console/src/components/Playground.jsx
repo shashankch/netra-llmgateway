@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { getApiUrl, useGatewayHealth } from '../config/api';
+import { getApiUrl, useGatewayHealth, reportAdminAuthFailure, reportAdminAuthSuccess, useAdminAuthStatus } from '../config/api';
 import { DEFAULT_PLAYGROUND_PRESETS } from '../constants/demoFallbackData';
 import PlaygroundControls from './playground/PlaygroundControls';
 import PlaygroundResponsePane from './playground/PlaygroundResponsePane';
@@ -10,10 +10,13 @@ import { Zap } from 'lucide-react';
  * Interactive prompt execution and model evaluation sandbox.
  * Designed with a fixed-height workbench layout matching production LLM developer consoles.
  */
-export default function Playground({ adminToken = 'netra-admin-demo', onNavigate }) {
+export default function Playground({ adminToken = 'netra-admin-demo', onNavigate, onOpenAdminModal }) {
   const { formatCurrency } = useTheme();
   const { isOnline } = useGatewayHealth();
+  const globalAuthStatus = useAdminAuthStatus();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
+  const isMintDisabled = isDemoToken || globalAuthStatus.isUnauthorized || !isOnline;
+  const [authError, setAuthError] = useState(false);
 
   // Selected virtual key with sessionStorage persistence across tab navigation
   const [virtualKey, setVirtualKey] = useState(() => {
@@ -147,6 +150,8 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
         }
         if (keysRes.status === 'fulfilled') {
           if (keysRes.value.ok) {
+            reportAdminAuthSuccess();
+            if (isMounted) setAuthError(false);
             const keysJson = await keysRes.value.json();
             if (isMounted) {
               setKeysLoaded(true);
@@ -171,11 +176,19 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
                 }
               }
             }
-          } else if (isMounted) {
-            setKeysLoaded(true);
-            try {
-              sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
-            } catch {}
+          } else {
+            if (keysRes.value.status === 401 || keysRes.value.status === 403) {
+              if (!isDemoToken) {
+                reportAdminAuthFailure(keysRes.value.status);
+                if (isMounted) setAuthError(true);
+              }
+            }
+            if (isMounted) {
+              setKeysLoaded(true);
+              try {
+                sessionStorage.setItem(`netra_tenant_keys_loaded_${adminToken || 'demo'}`, 'true');
+              } catch {}
+            }
           }
         }
       } catch (err) {
@@ -276,8 +289,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
   };
 
   // Only consider keys "unseeded" in a genuine production deployment:
-  // Gateway must be online, not in demo token mode, and database returned 0 keys
-  const isProductionUnseeded = isOnline && !isDemoToken && keysLoaded && tenantKeys.length === 0;
+  // Gateway must be online, not in demo token mode, keys loaded without auth failure, and database returned 0 keys
+  const hasAuthError = !isDemoToken && (authError || globalAuthStatus.isUnauthorized);
+  const isProductionUnseeded = isOnline && !isDemoToken && keysLoaded && !hasAuthError && tenantKeys.length === 0;
 
   // Dynamic profiles from live database or pre-seeded fallbacks
   const presets = tenantKeys.length > 0
@@ -679,9 +693,19 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
             <button
               type="button"
               onClick={() => onNavigate('keys')}
+              disabled={isMintDisabled}
               className="btn btn-sm btn-outline"
-              style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', height: 24, gap: '0.25rem', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
-              title="Mint a virtual key in Virtual Keys manager"
+              style={{ 
+                fontSize: '0.72rem', 
+                padding: '0.15rem 0.5rem', 
+                height: 24, 
+                gap: '0.25rem', 
+                borderColor: isMintDisabled ? 'var(--border-subtle)' : 'var(--accent-primary)', 
+                color: isMintDisabled ? 'var(--text-muted)' : 'var(--accent-primary)',
+                opacity: isMintDisabled ? 0.5 : 1,
+                cursor: isMintDisabled ? 'not-allowed' : 'pointer'
+              }}
+              title={isDemoToken ? "Admin token required to mint virtual keys" : globalAuthStatus.isUnauthorized ? "Admin token rejected - key creation disabled" : !isOnline ? "Gateway offline - key creation disabled" : "Mint a virtual key in Virtual Keys manager"}
             >
               + Mint Key
             </button>
@@ -710,6 +734,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
           handleSend={handleSend}
           handleStop={handleStop}
           onNavigate={onNavigate}
+          onOpenAdminModal={onOpenAdminModal}
+          hasAuthError={hasAuthError}
+          isMintDisabled={isMintDisabled}
         />
 
         <PlaygroundResponsePane

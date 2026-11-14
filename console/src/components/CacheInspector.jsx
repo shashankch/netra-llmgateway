@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getApiUrl } from '../config/api';
+import { getApiUrl, reportAdminAuthFailure, reportAdminAuthSuccess, useAdminAuthStatus } from '../config/api';
 import { 
-  Database, ShieldCheck, Zap, Layers, RefreshCw, 
+  Database, ShieldCheck, ShieldAlert, Zap, Layers, RefreshCw, 
   Eye, Copy, Check, Search
 } from 'lucide-react';
 import Pagination from './Pagination';
@@ -10,6 +10,7 @@ import SandboxNoticeBanner from './SandboxNoticeBanner';
 import { DEMO_CACHE_STATS } from '../constants/demoFallbackData';
 
 export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavigate, onOpenAdminModal }) {
+  const authStatus = useAdminAuthStatus();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const [stats, setStats] = useState(() => isDemoToken ? DEMO_CACHE_STATS : null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,16 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavi
       const res = await fetch(getApiUrl('/admin/cache/stats'), {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
-      if (res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        if (!isDemoToken) {
+          reportAdminAuthFailure(res.status);
+          setStats(null);
+        } else {
+          setStats(DEMO_CACHE_STATS);
+        }
+        return;
+      } else if (res.ok) {
+        reportAdminAuthSuccess();
         const data = await res.json();
         if (data && (data.total_entries > 0 || data.total_hits > 0 || !isDemoToken)) {
           setStats(data);
@@ -112,10 +122,13 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavi
         </div>
       </div>
 
-      {/* Developer Sandbox Notice Banner */}
-      {isDemoToken && (
-        <SandboxNoticeBanner onOpenAdminModal={onOpenAdminModal} onNavigate={onNavigate} featureName="semantic vector cache entries and similarity thresholds" />
-      )}
+      {/* Unified System & Sandbox Notice Banner */}
+      <SandboxNoticeBanner 
+        adminToken={adminToken}
+        onOpenAdminModal={onOpenAdminModal} 
+        onNavigate={onNavigate} 
+        featureName="semantic vector cache entries and similarity thresholds" 
+      />
 
       {/* KPI Cards */}
       <div className="kpi-grid">

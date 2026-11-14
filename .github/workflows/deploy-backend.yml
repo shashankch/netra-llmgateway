@@ -5,6 +5,17 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force run build, test, and deploy even if no new release was detected'
+        required: false
+        type: boolean
+        default: true
+      target_tag:
+        description: 'Target release tag (e.g. netra-llmgateway-v0.7.5, leave empty to auto-detect)'
+        required: false
+        type: string
+        default: ''
 
 concurrency:
   group: "deploy-backend"
@@ -17,12 +28,12 @@ permissions:
 
 jobs:
   release-please:
-    name: Run Release Please
+    name: Run Release Please & Detect Releases
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      release_created: ${{ steps.release.outputs.release_created == 'true' || steps.check-existing.outputs.release_detected == 'true' || inputs.force_deploy == true || github.event_name == 'workflow_dispatch' }}
+      tag_name: ${{ steps.release.outputs.tag_name || steps.check-existing.outputs.tag_name || inputs.target_tag || '' }}
+      version: ${{ steps.release.outputs.version || steps.check-existing.outputs.version || '' }}
     steps:
       - name: Run Release Please
         uses: googleapis/release-please-action@v4
@@ -31,10 +42,41 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      - name: Checkout Code For Release Detection
+        if: ${{ steps.release.outputs.release_created != 'true' }}
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 10
+
+      - name: Check Existing Release on Re-run
+        id: check-existing
+        if: ${{ steps.release.outputs.release_created != 'true' }}
+        run: |
+          git fetch --tags origin || true
+          COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null || true)
+          TAG_ON_HEAD=$(git tag --points-at HEAD 2>/dev/null | grep -E '^netra-llmgateway-v' | head -n 1 || true)
+          if [ -n "$TAG_ON_HEAD" ]; then
+            VERSION=${TAG_ON_HEAD#netra-llmgateway-v}
+            echo "Detected release tag on HEAD: $TAG_ON_HEAD (version $VERSION)"
+            echo "release_detected=true" >> "$GITHUB_OUTPUT"
+            echo "tag_name=$TAG_ON_HEAD" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          elif [[ "$COMMIT_MSG" =~ chore\(main\):\ release\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            TAG="netra-llmgateway-v${VERSION}"
+            echo "Detected release commit on HEAD: $COMMIT_MSG (version $VERSION, tag $TAG)"
+            echo "release_detected=true" >> "$GITHUB_OUTPUT"
+            echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release commit or tag detected on HEAD."
+            echo "release_detected=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
     name: Run Tests
     needs: [release-please]
-    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' || needs.release-please.outputs.release_created == true }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -82,7 +124,7 @@ jobs:
   build-and-push:
     name: Build & Publish Image
     needs: [release-please, test]
-    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' || needs.release-please.outputs.release_created == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -111,8 +153,10 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=short
-            type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name || 'latest' }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name || 'latest' }}
+            type=raw,value=${{ needs.release-please.outputs.version }},enable=${{ needs.release-please.outputs.version != '' }}
+            type=raw,value=${{ needs.release-please.outputs.tag_name }},enable=${{ needs.release-please.outputs.tag_name != '' }}
+            type=semver,pattern={{version}},prefix=netra-llmgateway-v,value=${{ needs.release-please.outputs.tag_name }},enable=${{ needs.release-please.outputs.tag_name != '' }}
+            type=semver,pattern={{major}}.{{minor}},prefix=netra-llmgateway-v,value=${{ needs.release-please.outputs.tag_name }},enable=${{ needs.release-please.outputs.tag_name != '' }}
 
       - name: Build and Push Container Image
         uses: docker/build-push-action@v6
@@ -130,7 +174,7 @@ jobs:
     name: Deploy to Production Host
     needs: [release-please, build-and-push]
     runs-on: ubuntu-latest
-    if: ${{ (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
+    if: ${{ (needs.release-please.outputs.release_created == 'true' || needs.release-please.outputs.release_created == true) && github.ref == 'refs/heads/main' }}
     steps:
       - name: Check Host Deployment Secrets
         id: check-secrets
@@ -138,9 +182,9 @@ jobs:
           DEPLOY_TARGET_HOST="${{ secrets.DEPLOY_HOST || secrets.OCI_HOST }}"
           DEPLOY_TARGET_KEY="${{ secrets.DEPLOY_SSH_KEY || secrets.OCI_SSH_KEY }}"
           if [ -n "$DEPLOY_TARGET_HOST" ] && [ -n "$DEPLOY_TARGET_KEY" ]; then
-            echo "configured=true" >> $GITHUB_OUTPUT
+            echo "configured=true" >> "$GITHUB_OUTPUT"
           else
-            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "Host deployment secrets (DEPLOY_HOST/OCI_HOST, DEPLOY_SSH_KEY/OCI_SSH_KEY) not configured. Skipping automated SSH deploy step."
           fi
 
