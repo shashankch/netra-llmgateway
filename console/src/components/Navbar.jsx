@@ -27,14 +27,14 @@ export default function Navbar({
 
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const healthState = useGatewayHealth();
-  const { isOnline, isChecking, latencyMs } = healthState;
+  const { isOnline, isChecking, latencyMs, lastChecked } = healthState;
 
   const rawVersion = healthState?.version || CONSOLE_VERSION;
   const displayVersion = rawVersion ? (rawVersion.startsWith('v') ? rawVersion : `v${rawVersion}`) : `v${CONSOLE_VERSION}`;
 
   // Multi-Environment & Health Status Matrix for Navbar Indicators
   const getStatusDot = () => {
-    if (isChecking) {
+    if (isChecking || !lastChecked) {
       return {
         className: 'pulse-indicator checking',
         title: 'Probing Gateway health endpoint...',
@@ -66,15 +66,15 @@ export default function Navbar({
   };
 
   const getAdminKeyBtnInfo = () => {
-    if (isChecking) {
+    if (isChecking || !lastChecked) {
       return {
         borderColor: 'rgba(6, 182, 212, 0.3)',
         background: 'rgba(6, 182, 212, 0.06)',
         iconColor: 'var(--accent-cyan)',
-        badgeText: 'CHECKING',
+        badgeText: 'CONNECTING',
         badgeBg: 'rgba(6, 182, 212, 0.15)',
         badgeColor: 'var(--accent-cyan)',
-        title: 'Probing Gateway health endpoint...',
+        title: 'Connecting to Gateway health endpoint...',
       };
     }
     if (isDemoToken) {
@@ -190,7 +190,7 @@ export default function Navbar({
 
         {/* Navigation Tabs */}
         <nav 
-          className="navbar-nav hide-scrollbar" 
+          className="navbar-nav" 
           style={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -254,7 +254,7 @@ export default function Navbar({
               {isDemoToken ? 'Sandbox' : 'Admin'}
             </span>
             <span 
-              className="font-mono"
+              className="font-mono admin-status-badge"
               style={{
                 fontSize: '0.625rem',
                 fontWeight: 700,
@@ -280,7 +280,6 @@ export default function Navbar({
               fontSize: '0.75rem',
               padding: '0.3rem 0.65rem',
               height: 32,
-              display: 'inline-flex',
               alignItems: 'center',
               gap: '0.4rem',
               textDecoration: 'none'

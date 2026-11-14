@@ -19,10 +19,11 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -127,12 +128,12 @@ class AdmissionServiceTest {
         when(redisTemplate.hasKey(anyString())).thenReturn(false);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(monthlySpendRepository.findByVirtualKeyAndYearMonth(anyString(), anyString()))
-                .thenReturn(java.util.Optional.empty());
+                .thenReturn(Optional.empty());
         when(redisTemplate.execute(eq(admissionScript), anyList(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(200L, 1L));
 
         admissionService.checkAdmission(testTenant, "req_123");
 
-        verify(valueOperations).setIfAbsent(contains("netra:spend:"), eq("0.000000"), any(java.time.Duration.class));
+        verify(valueOperations).setIfAbsent(contains("netra:spend:"), eq("0.000000"), any(Duration.class));
     }
 }

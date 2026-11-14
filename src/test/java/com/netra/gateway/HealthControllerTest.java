@@ -1,6 +1,8 @@
 package com.netra.gateway;
 
 import com.netra.gateway.controller.HealthController;
+import com.netra.gateway.service.CanonicalDataSeeder;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +36,9 @@ class HealthControllerTest {
     private StringRedisTemplate redisTemplate;
 
     @MockitoBean
-    private com.netra.gateway.service.CanonicalDataSeeder canonicalDataSeeder;
+    private CanonicalDataSeeder canonicalDataSeeder;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void setUp() {
         if (canonicalDataSeeder != null) {
             when(canonicalDataSeeder.isSeedingComplete()).thenReturn(true);

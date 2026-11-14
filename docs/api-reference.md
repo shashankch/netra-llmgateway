@@ -8,8 +8,8 @@ An OpenAPI 3.1.0 specification is maintained directly at [`docs/openapi.yaml`](o
 
 | Environment | Base URL | Description |
 |---|---|---|
-| **Production Cloud Gateway** | `https://gateway-netrallm.avadhanlabs.dev` | Live production data plane |
-| **Local Docker Development** | `http://localhost:8080` | Local container environment |
+| **Production Cloud Gateway** | `https://gateway-netrallm.avadhanlabs.dev` *(reference example)* | Live cloud data plane *(replace with your custom domain in self-hosted deployments)* |
+| **Local Docker Development** | `http://localhost:8080` | Local container environment (`make up` / `make dev`) |
 
 ---
 

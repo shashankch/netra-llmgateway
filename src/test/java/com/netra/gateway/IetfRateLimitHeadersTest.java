@@ -5,6 +5,7 @@ import com.netra.gateway.config.GatewayConfigProperties;
 import com.netra.gateway.config.HttpClientConfig;
 import com.netra.gateway.config.JacksonConfig;
 import com.netra.gateway.controller.ChatCompletionController;
+import com.netra.gateway.exception.RateLimitException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.dto.ChatMessage;
@@ -137,7 +138,7 @@ class IetfRateLimitHeadersTest {
         UpstreamClientService.CandidateChain chain = new UpstreamClientService.CandidateChain("fast", "fast", "alias_fast", List.of(target));
         when(upstreamClientService.resolveCandidateChain(eq("fast"), any())).thenReturn(chain);
 
-        when(admissionService.checkAdmission(any(), any())).thenThrow(new com.netra.gateway.exception.RateLimitException(60, 25));
+        when(admissionService.checkAdmission(any(), any())).thenThrow(new RateLimitException(60, 25));
 
         mockMvc.perform(post("/v1/chat/completions")
                         .header("Authorization", "Bearer netra-sk-search-1a2b3c")

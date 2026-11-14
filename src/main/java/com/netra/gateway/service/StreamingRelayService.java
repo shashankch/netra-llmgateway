@@ -3,6 +3,7 @@ package com.netra.gateway.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netra.gateway.config.GatewayConfigProperties;
+import com.netra.gateway.context.RequestContext;
 import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
@@ -11,8 +12,9 @@ import com.netra.gateway.model.dto.ChatMessage;
 import com.netra.gateway.model.dto.UsageInfo;
 import com.netra.gateway.model.entity.Tenant;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
@@ -78,7 +80,7 @@ public class StreamingRelayService {
         this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, semanticCacheService, null);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public StreamingRelayService(
             HttpClient httpClient,
             ObjectMapper objectMapper,
@@ -86,8 +88,8 @@ public class StreamingRelayService {
             CostCalculationService costService,
             AdmissionService admissionService,
             AuditLogService auditLogService,
-            @org.springframework.context.annotation.Lazy SemanticCacheService semanticCacheService,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService
+            @Lazy SemanticCacheService semanticCacheService,
+            @Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService
     ) {
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
@@ -167,7 +169,7 @@ public class StreamingRelayService {
 
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(60_000L);
 
-        com.netra.gateway.context.RequestContext ctx = com.netra.gateway.context.RequestContext.get();
+        RequestContext ctx = RequestContext.get();
         Runnable replayTask = () -> {
             try {
                 ChatCompletionResponse resp = cacheHit.response();
@@ -565,7 +567,7 @@ public class StreamingRelayService {
         });
 
         // Launch unbuffered stream pump on dedicated Java 25 Virtual Thread
-        com.netra.gateway.context.RequestContext relayContext = com.netra.gateway.context.RequestContext.get();
+        RequestContext relayContext = RequestContext.get();
         Runnable relayTask = () -> {
             long streamStartTimeNanos = System.nanoTime();
             long firstChunkLatencyNanos = 0;

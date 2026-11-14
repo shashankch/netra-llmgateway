@@ -12,19 +12,24 @@ import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.AuditLogService;
 import com.netra.gateway.service.CostCalculationService;
 import com.netra.gateway.service.RefusalEscalationService;
+import com.netra.gateway.service.SemanticCacheService;
+import com.netra.gateway.service.SemanticCacheService.CacheHitResult;
 import com.netra.gateway.service.StreamingRelayService;
 import com.netra.gateway.service.TenantAuthService;
 import com.netra.gateway.service.UpstreamClientService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -39,15 +44,15 @@ public class ChatCompletionController {
     private final CostCalculationService costService;
     private final AuditLogService auditLogService;
     private final StreamingRelayService streamingRelayService;
-    private final com.netra.gateway.service.SemanticCacheService semanticCacheService;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private final SemanticCacheService semanticCacheService;
+    @Autowired(required = false)
     private RefusalEscalationService refusalEscalationService;
 
     @PostMapping(value = "/chat/completions", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_EVENT_STREAM_VALUE})
     public Object createChatCompletion(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
             @RequestBody(required = false) ChatCompletionRequest request,
-            jakarta.servlet.http.HttpServletRequest servletRequest,
+            HttpServletRequest servletRequest,
             HttpServletResponse servletResponse
     ) {
         long startTime = System.currentTimeMillis();
@@ -110,11 +115,11 @@ public class ChatCompletionController {
                     }
 
                     // 6. Semantic Vector Cache Lookup (Two-Tier: Tier 1 Exact Hash + Tier 2 pgvector HNSW)
-                    java.util.Optional<com.netra.gateway.service.SemanticCacheService.CacheHitResult> cacheHitOpt =
+                    Optional<CacheHitResult> cacheHitOpt =
                             semanticCacheService.lookup(tenant, request.getModel(), request.getMessages());
 
                     if (cacheHitOpt.isPresent()) {
-                        com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit = cacheHitOpt.get();
+                        CacheHitResult cacheHit = cacheHitOpt.get();
                         if (isStream) {
                             return streamingRelayService.replayCachedStream(requestId, tenant, request, cacheHit, startTime, servletResponse, admission);
                         } else {
@@ -284,7 +289,7 @@ public class ChatCompletionController {
             String requestId,
             Tenant tenant,
             ChatCompletionRequest request,
-            com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit,
+            CacheHitResult cacheHit,
             long startTime,
             AdmissionResult admission
     ) {
@@ -327,7 +332,7 @@ public class ChatCompletionController {
                 200,
                 promptTokens,
                 completionTokens,
-                BigDecimal.ZERO.setScale(6, java.math.RoundingMode.HALF_UP),
+                BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP),
                 "hit",
                 false,
                 "semantic_cache_hit",

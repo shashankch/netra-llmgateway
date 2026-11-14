@@ -13,7 +13,7 @@ export default function LandingHero({
   return (
     <div className="hero-banner-container" style={{ margin: '0.5rem 0 1rem' }}>
       {/* Top Window Bar */}
-      <div className="hero-tab-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="hero-tab-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-lime)' }} />
           <span>NETRA ENTERPRISE GATEWAY</span>

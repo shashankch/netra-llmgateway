@@ -1,22 +1,33 @@
 package com.netra.gateway.controller;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.netra.gateway.config.GatewayConfigProperties;
 import com.netra.gateway.exception.AuthenticationException;
 import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.model.dto.*;
+import com.netra.gateway.model.entity.ModelPricing;
 import com.netra.gateway.model.entity.MonthlySpend;
 import com.netra.gateway.model.entity.RequestLog;
 import com.netra.gateway.model.entity.Tenant;
+import com.netra.gateway.repository.ModelPricingRepository;
 import com.netra.gateway.repository.MonthlySpendRepository;
 import com.netra.gateway.repository.RequestLogRepository;
 import com.netra.gateway.repository.TenantRepository;
 import com.netra.gateway.service.ForexRateService;
 import com.netra.gateway.service.LogStreamBroadcaster;
+import com.netra.gateway.service.ProviderCircuitBreakerService;
 import com.netra.gateway.service.SemanticCacheService;
 import com.netra.gateway.service.TenantAuthService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,17 +36,21 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
-import com.netra.gateway.repository.ModelPricingRepository;
-import com.netra.gateway.model.entity.ModelPricing;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -52,23 +67,23 @@ public class AdminController {
     private final ForexRateService forexRateService;
     private final LogStreamBroadcaster logStreamBroadcaster;
     private final ModelPricingRepository modelPricingRepository;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.netra.gateway.service.ProviderCircuitBreakerService providerCircuitBreakerService;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private org.springframework.core.env.Environment env;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    @Autowired(required = false)
+    private ProviderCircuitBreakerService providerCircuitBreakerService;
+    @Autowired(required = false)
+    private Environment env;
+    @Autowired(required = false)
+    private StringRedisTemplate redisTemplate;
 
     // Short-lived, single-use stream tickets for secure EventSource connections
-    private final com.github.benmanes.caffeine.cache.Cache<String, Instant> streamTicketCache =
-            com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+    private final Cache<String, Instant> streamTicketCache =
+            Caffeine.newBuilder()
                     .maximumSize(500)
-                    .expireAfterWrite(java.time.Duration.ofSeconds(60))
+                    .expireAfterWrite(Duration.ofSeconds(60))
                     .build();
 
-    @jakarta.annotation.PostConstruct
+    @PostConstruct
     public void validateProductionSecurity() {
-        if (env != null && java.util.Arrays.asList(env.getActiveProfiles()).contains("prod")) {
+        if (env != null && Arrays.asList(env.getActiveProfiles()).contains("prod")) {
             String token = configProperties.getAdminToken();
             if (token == null || token.isBlank() || "netra-admin-demo".equals(token.trim())) {
                 throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Production profile (prod) requires a secure, non-demo NETRA_ADMIN_TOKEN to be configured!");
@@ -214,11 +229,11 @@ public class AdminController {
         validateAdminAuth(authHeader);
 
         int maxLimit = Math.min(Math.max(limit, 1), 500);
-        org.springframework.data.domain.Pageable pageRequest;
+        Pageable pageRequest;
         int pageNumber;
         if (offset != null) {
             long exactOffset = Math.max(0, offset.longValue());
-            pageRequest = new com.netra.gateway.model.dto.OffsetBasedPageRequest(exactOffset, maxLimit);
+            pageRequest = new OffsetBasedPageRequest(exactOffset, maxLimit);
             pageNumber = (int) (exactOffset / maxLimit);
         } else {
             pageNumber = Math.max(0, page);
@@ -258,7 +273,7 @@ public class AdminController {
 
         int totalPages = totalCount > 0 ? (int) Math.ceil((double) totalCount / maxLimit) : 1;
 
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        HttpHeaders headers = new HttpHeaders();
         headers.set("X-Total-Count", String.valueOf(totalCount));
         headers.set("X-Page-Number", String.valueOf(pageNumber));
         headers.set("X-Page-Size", String.valueOf(maxLimit));
@@ -285,7 +300,7 @@ public class AdminController {
         String ticket = "stk-" + UUID.randomUUID().toString();
         if (redisTemplate != null) {
             try {
-                redisTemplate.opsForValue().set("netra:stream:ticket:" + ticket, "valid", java.time.Duration.ofSeconds(60));
+                redisTemplate.opsForValue().set("netra:stream:ticket:" + ticket, "valid", Duration.ofSeconds(60));
             } catch (Exception e) {
                 log.warn("Redis stream ticket storage failed; falling back to local cache: {}", e.getMessage());
                 streamTicketCache.put(ticket, Instant.now());
@@ -584,14 +599,14 @@ public class AdminController {
 
         List<ModelPricing> models = modelPricingRepository.findAll();
         Map<String, ModelPricing> modelMap = models.stream()
-                .collect(java.util.stream.Collectors.toMap(ModelPricing::getModel, m -> m, (a, b) -> a));
+                .collect(Collectors.toMap(ModelPricing::getModel, m -> m, (a, b) -> a));
 
-        Map<String, Object> aliases = new java.util.LinkedHashMap<>();
+        Map<String, Object> aliases = new LinkedHashMap<>();
         if (configProperties.getModelAliases() != null) {
             for (Map.Entry<String, GatewayConfigProperties.ModelAliasConfig> entry : configProperties.getModelAliases().entrySet()) {
                 String alias = entry.getKey();
                 GatewayConfigProperties.ModelAliasConfig cfg = entry.getValue();
-                Map<String, Object> aliasData = new java.util.LinkedHashMap<>();
+                Map<String, Object> aliasData = new LinkedHashMap<>();
                 aliasData.put("primary", cfg.getPrimary());
                 List<String> cleanFallbacks = new ArrayList<>();
                 if (cfg.getFallbacks() != null) {
@@ -630,7 +645,7 @@ public class AdminController {
             }
         }
 
-        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        Map<String, Object> response = new LinkedHashMap<>();
         response.put("aliases", aliases);
         response.put("models", models);
 
@@ -656,7 +671,7 @@ public class AdminController {
         try {
             List<MonthlySpend> batchSpend = monthlySpendRepository.findByYearMonth(currentYm);
             if (batchSpend != null && !batchSpend.isEmpty()) {
-                return batchSpend.stream().collect(java.util.stream.Collectors.toMap(
+                return batchSpend.stream().collect(Collectors.toMap(
                         MonthlySpend::getVirtualKey,
                         ms -> ms.getTotalSpendUsd() != null ? ms.getTotalSpendUsd().setScale(6, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP),
                         (existing, replacement) -> existing
@@ -677,16 +692,16 @@ public class AdminController {
         boolean hasCustomConfig = configuredToken != null && !configuredToken.isBlank() && !"netra-admin-demo".equals(configuredToken);
 
         String token = authHeader.substring(7).trim();
-        byte[] tokenBytes = token.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] tokenBytes = token.getBytes(StandardCharsets.UTF_8);
 
         if (hasCustomConfig) {
-            byte[] configuredBytes = configuredToken.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            if (java.security.MessageDigest.isEqual(tokenBytes, configuredBytes)) {
+            byte[] configuredBytes = configuredToken.getBytes(StandardCharsets.UTF_8);
+            if (MessageDigest.isEqual(tokenBytes, configuredBytes)) {
                 return;
             }
         } else {
-            byte[] demoBytes = "netra-admin-demo".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            if (java.security.MessageDigest.isEqual(tokenBytes, demoBytes)) {
+            byte[] demoBytes = "netra-admin-demo".getBytes(StandardCharsets.UTF_8);
+            if (MessageDigest.isEqual(tokenBytes, demoBytes)) {
                 return;
             }
         }

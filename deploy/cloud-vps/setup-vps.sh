@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# NETRA LLM Gateway — Unified Zero-Cost Cloud VM Setup Script (2026 Edition)
+# NETRA LLM Gateway — Unified Zero-Cost Cloud VM Setup Script
 #
 # Officially Verified & Compatible with:
 #   1. Oracle Cloud Infrastructure (OCI) Always Free
@@ -23,7 +23,7 @@ set -euo pipefail
 TUNNEL_TOKEN="${1:-${CLOUDFLARE_TUNNEL_TOKEN:-}}"
 
 echo "=========================================================="
-echo "⚡ Starting NETRA Production Cloud Host Provisioning (2026)..."
+echo "⚡ Starting NETRA Production Cloud Host Provisioning..."
 if [ -n "$TUNNEL_TOKEN" ]; then
     echo "🔒 Ingress Mode: Zero-Open-Port Cloudflare Tunnel (Docker)"
 else

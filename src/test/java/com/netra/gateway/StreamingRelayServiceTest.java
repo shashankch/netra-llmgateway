@@ -6,11 +6,13 @@ import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
 import com.netra.gateway.model.dto.ChatMessage;
+import com.netra.gateway.model.dto.UsageInfo;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.service.AdmissionService;
 import com.netra.gateway.service.AuditLogService;
 import com.netra.gateway.service.CostCalculationService;
 import com.netra.gateway.service.ProviderCircuitBreakerService;
+import com.netra.gateway.service.SemanticCacheService.CacheHitResult;
 import com.netra.gateway.service.StreamingRelayService;
 import com.netra.gateway.service.UpstreamClientService;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,13 +31,16 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -59,7 +64,7 @@ class StreamingRelayServiceTest {
     private HttpResponse<InputStream> httpResponse;
 
     @Mock
-    private com.netra.gateway.service.ProviderCircuitBreakerService circuitBreakerService;
+    private ProviderCircuitBreakerService circuitBreakerService;
 
     private ObjectMapper objectMapper;
     private GatewayConfigProperties configProperties;
@@ -327,7 +332,7 @@ class StreamingRelayServiceTest {
                 .build();
 
         MockHttpServletResponse servletResponse = new MockHttpServletResponse();
-        org.junit.jupiter.api.Assertions.assertThrows(
+        assertThrows(
                 UpstreamException.class,
                 () -> streamingRelayService.streamChatCompletion(
                         "req-test-500",
@@ -370,7 +375,7 @@ class StreamingRelayServiceTest {
                 .build();
 
         MockHttpServletResponse servletResponse = new MockHttpServletResponse();
-        UpstreamException thrown = org.junit.jupiter.api.Assertions.assertThrows(
+        UpstreamException thrown = assertThrows(
                 UpstreamException.class,
                 () -> serviceWithCb.streamChatCompletion(
                         "req-test-400",
@@ -457,16 +462,16 @@ class StreamingRelayServiceTest {
                         .message(ChatMessage.builder().role("assistant").content("Netra is a gateway").build())
                         .finishReason("stop")
                         .build()))
-                .usage(com.netra.gateway.model.dto.UsageInfo.builder()
+                .usage(UsageInfo.builder()
                         .promptTokens(10)
                         .completionTokens(8)
                         .totalTokens(18)
                         .build())
                 .build();
 
-        com.netra.gateway.service.SemanticCacheService.CacheHitResult cacheHit =
-                new com.netra.gateway.service.SemanticCacheService.CacheHitResult(
-                        java.util.UUID.randomUUID(),
+        CacheHitResult cacheHit =
+                new CacheHitResult(
+                        UUID.randomUUID(),
                         testTenant.getVirtualKey(),
                         "fast",
                         "alpha/alpha-small",
@@ -501,7 +506,7 @@ class StreamingRelayServiceTest {
                 eq(200),
                 eq(10),
                 eq(8),
-                eq(BigDecimal.ZERO.setScale(6, java.math.RoundingMode.HALF_UP)),
+                eq(BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP)),
                 eq("hit"),
                 eq(false),
                 eq("semantic_cache_hit"),

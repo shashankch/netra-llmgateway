@@ -7,7 +7,6 @@ import com.netra.gateway.model.entity.ModelPricing;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.repository.ModelPricingRepository;
 import com.netra.gateway.repository.TenantRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -16,7 +15,6 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -51,14 +49,14 @@ public class CanonicalDataSeeder implements CommandLineRunner {
             GatewayConfigProperties configProperties,
             ObjectMapper objectMapper,
             ResourceLoader resourceLoader,
-            @org.springframework.lang.Nullable TenantAuthService tenantAuthService
+            Optional<TenantAuthService> tenantAuthService
     ) {
         this.pricingRepository = pricingRepository;
         this.tenantRepository = tenantRepository;
         this.configProperties = configProperties;
         this.objectMapper = objectMapper;
         this.resourceLoader = resourceLoader;
-        this.tenantAuthService = tenantAuthService;
+        this.tenantAuthService = tenantAuthService.orElse(null);
     }
 
     public CanonicalDataSeeder(
@@ -68,7 +66,7 @@ public class CanonicalDataSeeder implements CommandLineRunner {
             ObjectMapper objectMapper,
             ResourceLoader resourceLoader
     ) {
-        this(pricingRepository, tenantRepository, configProperties, objectMapper, resourceLoader, null);
+        this(pricingRepository, tenantRepository, configProperties, objectMapper, resourceLoader, Optional.empty());
     }
 
     @Override

@@ -6,10 +6,28 @@ document.addEventListener("DOMContentLoaded", function () {
       // Don't re-bind if already handled
       if (img.dataset.zoomAttached) return;
 
+      // Check if image source is an external badge (e.g., shields.io) or an icon
+      const isBadgeOrIcon = () => {
+        if (!img.src) return false;
+        try {
+          const parsed = new URL(img.src, window.location.origin);
+          const hostname = parsed.hostname.toLowerCase();
+          if (hostname === "shields.io" || hostname.endsWith(".shields.io")) {
+            return true;
+          }
+          if (parsed.pathname.includes("/icons/")) {
+            return true;
+          }
+        } catch (_) {
+          return false;
+        }
+        return false;
+      };
+
       // Never attach zoom to badges, links, icons, or explicitly excluded images
       if (
         img.closest("a") ||
-        (img.src && (img.src.includes("shields.io") || img.src.includes("/icons/"))) ||
+        isBadgeOrIcon() ||
         img.classList.contains("no-zoom") ||
         img.hasAttribute("data-no-zoom")
       ) {

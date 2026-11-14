@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -65,7 +66,7 @@ public class CacheStatsResponse {
         private long tier2SemanticHits = 0;
 
         @JsonProperty("similarity_threshold")
-        private java.math.BigDecimal similarityThreshold;
+        private BigDecimal similarityThreshold;
 
         @JsonProperty("cache_enabled")
         @Builder.Default

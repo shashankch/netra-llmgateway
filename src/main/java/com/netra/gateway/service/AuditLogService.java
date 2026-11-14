@@ -6,13 +6,19 @@ import com.netra.gateway.repository.MonthlySpendRepository;
 import com.netra.gateway.repository.RequestLogRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import jakarta.validation.ValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.YearMonth;
 import java.util.*;
 import java.util.concurrent.*;
@@ -107,15 +113,15 @@ public class AuditLogService {
                 monthlySpendRepository,
                 admissionService,
                 logStreamBroadcaster,
-                new org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+                new AbstractPlatformTransactionManager() {
                     @Override
                     protected Object doGetTransaction() { return new Object(); }
                     @Override
-                    protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {}
+                    protected void doBegin(Object transaction, TransactionDefinition definition) {}
                     @Override
-                    protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+                    protected void doCommit(DefaultTransactionStatus status) {}
                     @Override
-                    protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+                    protected void doRollback(DefaultTransactionStatus status) {}
                 }
         );
     }
@@ -289,7 +295,7 @@ public class AuditLogService {
         } else if (!isShuttingDown && !flusherScheduler.isShutdown() && batchQueue.size() >= BATCH_SIZE && flushScheduled.compareAndSet(false, true)) {
             try {
                 flusherScheduler.execute(this::flushBatchSafely);
-            } catch (java.util.concurrent.RejectedExecutionException e) {
+            } catch (RejectedExecutionException e) {
                 flushScheduled.set(false);
             }
         }
@@ -354,7 +360,7 @@ public class AuditLogService {
                     && flushScheduled.compareAndSet(false, true)) {
                 try {
                     flusherScheduler.execute(this::flushBatchSafely);
-                } catch (java.util.concurrent.RejectedExecutionException e) {
+                } catch (RejectedExecutionException e) {
                     flushScheduled.set(false);
                 }
             }
@@ -465,9 +471,9 @@ public class AuditLogService {
     private boolean isConstraintViolation(Throwable ex) {
         Throwable curr = ex;
         while (curr != null) {
-            if (curr instanceof org.springframework.dao.DataIntegrityViolationException
-                    || curr instanceof jakarta.validation.ValidationException
-                    || curr instanceof java.sql.SQLIntegrityConstraintViolationException) {
+            if (curr instanceof DataIntegrityViolationException
+                    || curr instanceof ValidationException
+                    || curr instanceof SQLIntegrityConstraintViolationException) {
                 return true;
             }
             curr = curr.getCause();
