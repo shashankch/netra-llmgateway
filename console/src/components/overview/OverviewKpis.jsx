@@ -1,5 +1,6 @@
 import React from 'react';
 import { Zap, Layers, Database, Clock } from 'lucide-react';
+import { formatLatencyMs } from '../../config/api';
 
 export default function OverviewKpis({
   totalCost,
@@ -81,11 +82,11 @@ export default function OverviewKpis({
           <span className="kpi-title">Avg Latency (TTFT)</span>
           <Clock size={16} style={{ color: 'var(--accent-amber)' }} />
         </div>
-        <div className="kpi-value" style={{ color: 'var(--accent-amber)' }}>
-          {avgLatency} <span style={{ fontSize: '1rem', fontWeight: 500 }}>ms</span>
+        <div className="kpi-value" style={{ color: 'var(--accent-amber)' }} title={`${(avgLatency || 0).toLocaleString()} ms`}>
+          {avgLatency >= 10000 ? formatLatencyMs(avgLatency) : <>{avgLatency} <span style={{ fontSize: '1rem', fontWeight: 500 }}>ms</span></>}
         </div>
-        <div className="kpi-subtext">
-          p50: {p50}ms · p90: {p90}ms · p99: {p99}ms
+        <div className="kpi-subtext" title={`p50: ${(p50 || 0).toLocaleString()}ms · p90: ${(p90 || 0).toLocaleString()}ms · p99: ${(p99 || 0).toLocaleString()}ms`}>
+          p50: {formatLatencyMs(p50)} · p90: {formatLatencyMs(p90)} · p99: {formatLatencyMs(p99)}
         </div>
       </div>
     </div>

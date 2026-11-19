@@ -684,7 +684,7 @@ public class AdminController {
     }
 
     private void validateAdminAuth(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null || !authHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
             throw new AuthenticationException("Missing or invalid Authorization header for admin access");
         }
 

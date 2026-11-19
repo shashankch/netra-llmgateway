@@ -198,6 +198,13 @@ public class SemanticCacheService {
                 );
                 tier1ExactHits.incrementAndGet();
                 tenantTier1Hits.computeIfAbsent(vkey, k -> new AtomicLong(0)).incrementAndGet();
+                if (exactHit.id() != null) {
+                    try {
+                        cacheEntryRepository.recordHit(exactHit.id());
+                    } catch (Exception ex) {
+                        log.debug("Failed to record database hit for exact cache entry [{}]: {}", exactHit.id(), ex.getMessage());
+                    }
+                }
                 log.info("Tier 1 Exact Hash Cache HIT for tenant [{}] model [{}] (SHA-256: {})",
                         vkey, requestedModel, sha256.substring(0, Math.min(8, sha256.length())));
                 return Optional.of(new CacheHitResult(
@@ -307,6 +314,7 @@ public class SemanticCacheService {
         try {
             String json = objectMapper.writeValueAsString(response);
             cacheEntryRepository.saveWithEmbedding(
+                    generatedId,
                     vkey,
                     requestedModel,
                     prompt,
@@ -314,7 +322,7 @@ public class SemanticCacheService {
                     vectorLiteral,
                     json
             );
-            log.info("Stored Tier 2 semantic cache entry for tenant [{}] model [{}]", vkey, requestedModel);
+            log.info("Stored Tier 2 semantic cache entry for tenant [{}] model [{}] with id [{}]", vkey, requestedModel, generatedId);
 
             // Back-populate Tier 1 exact cache (freshly stored entry has 1.0 exact similarity)
             backpopulateTier1(tier1Key, generatedId, vkey, requestedModel, resolvedProvider, json, 1.0);
@@ -401,6 +409,18 @@ public class SemanticCacheService {
         long totalMisses = 0;
         Map<String, CacheStatsResponse.KeyCacheStats> keyStatsMap = new HashMap<>();
 
+        // Reconcile global tier hits with database request logs to survive container/JVM restarts
+        long dbGlobalT1 = 0;
+        long dbGlobalT2 = 0;
+        try {
+            dbGlobalT1 = requestLogRepository.countTier1ExactHitsAllTime();
+            dbGlobalT2 = requestLogRepository.countTier2SemanticHitsAllTime();
+        } catch (Exception ex) {
+            log.debug("Database tier hits lookup failed: {}", ex.getMessage());
+        }
+        long finalGlobalT1 = Math.max(dbGlobalT1, tier1ExactHits.get());
+        long finalGlobalT2 = Math.max(dbGlobalT2, tier2SemanticHits.get());
+
         List<Tenant> tenants = tenantRepository.findAll();
         for (Tenant tenant : tenants) {
             String vkey = tenant.getVirtualKey();
@@ -419,8 +439,20 @@ public class SemanticCacheService {
             } catch (Exception ex) {
                 log.warn("Database request count lookup failed for [{}], using fallback: {}", vkey, ex.getMessage());
             }
-            long t1Hits = tenantTier1Hits.getOrDefault(vkey, new AtomicLong(0)).get();
-            long t2Hits = tenantTier2Hits.getOrDefault(vkey, new AtomicLong(0)).get();
+
+            long dbTenantT1 = 0;
+            long dbTenantT2 = 0;
+            try {
+                dbTenantT1 = requestLogRepository.countTier1ExactHitsByVirtualKey(vkey);
+                dbTenantT2 = requestLogRepository.countTier2SemanticHitsByVirtualKey(vkey);
+            } catch (Exception ex) {
+                log.debug("Database tenant tier hits lookup failed for [{}]: {}", vkey, ex.getMessage());
+            }
+            long inProcT1 = tenantTier1Hits.getOrDefault(vkey, new AtomicLong(0)).get();
+            long inProcT2 = tenantTier2Hits.getOrDefault(vkey, new AtomicLong(0)).get();
+            long t1Hits = Math.max(dbTenantT1, inProcT1);
+            long t2Hits = Math.max(dbTenantT2, inProcT2);
+
             long inProcTenantHits = t1Hits + t2Hits;
             if (hits < inProcTenantHits) {
                 hits = inProcTenantHits;
@@ -447,10 +479,10 @@ public class SemanticCacheService {
             totalMisses += misses;
         }
 
-        // Reconcile total hits with in-process tier counters to guarantee non-zero report on recent hits
-        long inProcHits = tier1ExactHits.get() + tier2SemanticHits.get();
-        if (totalHits < inProcHits) {
-            totalHits = inProcHits;
+        // Reconcile total hits with tier counters to guarantee non-zero report on recent or historical hits
+        long aggregatedHits = finalGlobalT1 + finalGlobalT2;
+        if (totalHits < aggregatedHits) {
+            totalHits = aggregatedHits;
         }
 
         double globalHitRate = (totalHits + totalMisses) > 0
@@ -462,8 +494,8 @@ public class SemanticCacheService {
                 .totalHits(totalHits)
                 .totalMisses(totalMisses)
                 .hitRate(Math.round(globalHitRate * 10000.0) / 10000.0)
-                .tier1ExactHits(tier1ExactHits.get())
-                .tier2SemanticHits(tier2SemanticHits.get())
+                .tier1ExactHits(finalGlobalT1)
+                .tier2SemanticHits(finalGlobalT2)
                 .keys(keyStatsMap)
                 .build();
     }

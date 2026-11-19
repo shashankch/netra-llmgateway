@@ -43,9 +43,10 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
     @Transactional
     @Query(value = """
             INSERT INTO cache_entries (id, virtual_key, model_alias, prompt_text, resolved_provider, embedding, response_json, hit_count, created_at)
-            VALUES (gen_random_uuid(), :virtualKey, :modelAlias, :promptText, :resolvedProvider, cast(cast(:embedding as text) as vector), cast(cast(:responseJson as text) as jsonb), 0, CURRENT_TIMESTAMP)
+            VALUES (:id, :virtualKey, :modelAlias, :promptText, :resolvedProvider, cast(cast(:embedding as text) as vector), cast(cast(:responseJson as text) as jsonb), 0, CURRENT_TIMESTAMP)
             """, nativeQuery = true)
     void saveWithEmbedding(
+            @Param("id") UUID id,
             @Param("virtualKey") String virtualKey,
             @Param("modelAlias") String modelAlias,
             @Param("promptText") String promptText,
@@ -53,6 +54,17 @@ public interface CacheEntryRepository extends JpaRepository<CacheEntry, UUID> {
             @Param("embedding") String embedding,
             @Param("responseJson") String responseJson
     );
+
+    default void saveWithEmbedding(
+            String virtualKey,
+            String modelAlias,
+            String promptText,
+            String resolvedProvider,
+            String embedding,
+            String responseJson
+    ) {
+        saveWithEmbedding(UUID.randomUUID(), virtualKey, modelAlias, promptText, resolvedProvider, embedding, responseJson);
+    }
 
     @Modifying
     @Transactional

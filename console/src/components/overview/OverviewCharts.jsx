@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart2, PieChart, Database, Clock } from 'lucide-react';
+import { formatLatencyMs } from '../../config/api';
 
 export default function OverviewCharts({
   logs = [],
@@ -735,19 +736,19 @@ export default function OverviewCharts({
         <div style={{ minHeight: 180, height: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-around', background: 'var(--bg-canvas)', borderRadius: 8, padding: '1.25rem 0.5rem' }}>
           <div style={{ textAlign: 'center', flex: 1 }}>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p50 (Median)</div>
-            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>{p50}ms</div>
+            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }} title={`${(p50 || 0).toLocaleString()} ms`}>{formatLatencyMs(p50)}</div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>Typical</div>
           </div>
           <div style={{ width: 1, height: 60, background: 'var(--border-strong)', flexShrink: 0 }} />
           <div style={{ textAlign: 'center', flex: 1 }}>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p90</div>
-            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{p90}ms</div>
+            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }} title={`${(p90 || 0).toLocaleString()} ms`}>{formatLatencyMs(p90)}</div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>Under Load</div>
           </div>
           <div style={{ width: 1, height: 60, background: 'var(--border-strong)', flexShrink: 0 }} />
           <div style={{ textAlign: 'center', flex: 1 }}>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>p99</div>
-            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }}>{p99}ms</div>
+            <div style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }} title={`${(p99 || 0).toLocaleString()} ms`}>{formatLatencyMs(p99)}</div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>Tail Latency</div>
           </div>
         </div>

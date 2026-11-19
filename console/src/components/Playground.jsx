@@ -81,7 +81,14 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
     }
   });
 
-  const [errorInfo, setErrorInfo] = useState(null);
+  const [errorInfo, setErrorInfo] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('netra_playground_error');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [hoveredProfileKey, setHoveredProfileKey] = useState(null);
   const [chunkCount, setChunkCount] = useState(() => {
     try {
@@ -269,6 +276,16 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
     } catch (e) {}
   }, [chunkCount]);
 
+  useEffect(() => {
+    try {
+      if (errorInfo) {
+        sessionStorage.setItem('netra_playground_error', JSON.stringify(errorInfo));
+      } else {
+        sessionStorage.removeItem('netra_playground_error');
+      }
+    } catch (e) {}
+  }, [errorInfo]);
+
   const copyResponseToClipboard = () => {
     if (!responseContent) return;
     navigator.clipboard.writeText(responseContent);
@@ -285,6 +302,7 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
       sessionStorage.removeItem('netra_playground_response');
       sessionStorage.removeItem('netra_playground_telemetry');
       sessionStorage.removeItem('netra_playground_chunk_count');
+      sessionStorage.removeItem('netra_playground_error');
     } catch (e) {}
   };
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { formatLatencyMs } from '../../config/api';
 
 export default function OverviewDetailModals({
   selectedChartModal,
@@ -316,17 +317,17 @@ export default function OverviewDetailModals({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
               <div style={{ padding: '0.85rem', background: 'var(--bg-canvas)', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>p50 (Median)</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>{p50}ms</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }} title={`${(p50 || 0).toLocaleString()} ms`}>{formatLatencyMs(p50)}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Typical TTFT</div>
               </div>
               <div style={{ padding: '0.85rem', background: 'var(--bg-canvas)', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>p90</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{p90}ms</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }} title={`${(p90 || 0).toLocaleString()} ms`}>{formatLatencyMs(p90)}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Under Burst</div>
               </div>
               <div style={{ padding: '0.85rem', background: 'var(--bg-canvas)', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>p99</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }}>{p99}ms</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }} title={`${(p99 || 0).toLocaleString()} ms`}>{formatLatencyMs(p99)}</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Tail Latency</div>
               </div>
             </div>

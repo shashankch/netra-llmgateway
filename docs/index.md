@@ -88,7 +88,7 @@ Verify service readiness:
 
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.5"}
+# {"status":"ok","service":"netra-gateway","version":"0.7.x"}
 ```
 
 Inspect live provider health & circuit breaker telemetry:

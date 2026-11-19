@@ -9,6 +9,7 @@ export default function DifferentiatorWidgets({
   avgTokensPerReq = 0,
   configuredThreshold = 0.92,
   totalCacheEvaluations = 0,
+  totalEntries = 0,
   cacheHits = 0,
   cacheMisses = 0,
   tier1Hits = 0,
@@ -169,7 +170,9 @@ export default function DifferentiatorWidgets({
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', textAlign: 'right' }}>
               <strong>{totalCacheEvaluations > 0 ? `${(100 - missPct)}%` : '0%'} Hit Rate</strong>
-              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{cacheHits.toLocaleString()} Cached Responses</div>
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+                {totalEntries > 0 ? `${totalEntries.toLocaleString()} Cached Entries (${cacheHits.toLocaleString()} Hits)` : `${cacheHits.toLocaleString()} Cache Hits`}
+              </div>
             </div>
           </div>
 
