@@ -115,8 +115,15 @@ public class ChatCompletionController {
                     }
 
                     // 6. Semantic Vector Cache Lookup (Two-Tier: Tier 1 Exact Hash + Tier 2 pgvector HNSW)
+                    // Adaptive 'auto' tier dynamically queries its classified target tier (e.g. fast or smart)
+                    String effectiveCacheModel = "auto".equalsIgnoreCase(request.getModel()) && chain != null && chain.chosenTier() != null
+                            ? chain.chosenTier()
+                            : request.getModel();
                     Optional<CacheHitResult> cacheHitOpt =
-                            semanticCacheService.lookup(tenant, request.getModel(), request.getMessages());
+                            semanticCacheService.lookup(tenant, effectiveCacheModel, request.getMessages());
+                    if (cacheHitOpt.isEmpty() && "auto".equalsIgnoreCase(request.getModel())) {
+                        cacheHitOpt = semanticCacheService.lookup(tenant, "auto", request.getMessages());
+                    }
 
                     if (cacheHitOpt.isPresent()) {
                         CacheHitResult cacheHit = cacheHitOpt.get();
@@ -277,8 +284,11 @@ public class ChatCompletionController {
                 null
         );
 
-        // Store non-refusal response into semantic cache
-        semanticCacheService.store(tenant, request.getModel(), request.getMessages(), response, providerHeader);
+        // Store non-refusal response into semantic cache under the concrete/effective model tier
+        String cacheStoreModel = "auto".equalsIgnoreCase(request.getModel()) && chain != null && chain.chosenTier() != null
+                ? chain.chosenTier()
+                : request.getModel();
+        semanticCacheService.store(tenant, cacheStoreModel, request.getMessages(), response, providerHeader);
 
         return ResponseEntity.ok()
                 .headers(headers)

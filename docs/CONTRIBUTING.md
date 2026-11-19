@@ -54,7 +54,8 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
 7. **Automated CI Gates & Pull Request Workflow:**
    Push your branch and open a PR against `main`. Ensure your PR description includes a concise summary of changes and verification evidence. All pull requests automatically trigger the GitHub Actions validation pipelines:
    - **Gateway CI (`gateway-ci.yml`):** Compiles backend code on Java 25, runs the Gradle test suite, and executes GitHub CodeQL static analysis.
-   - **Console CI (`console-ci.yml`):** Runs ESLint validation and production bundle compilation on Node.js 20.
+   - **Console CI (`console-ci.yml`):** Runs ESLint validation and production bundle compilation on Node.js 22/24 LTS.
    - **Verification Matrix (`gateway-verification.yml`):** Verifies contract smoke tests, difficulty routing evaluation, and cache fuzzing against live services.
 
-8. **Questions & Maintenance:** For questions, architectural discussions, or project maintenance inquiries, contact the project maintainer at **shashakchandel@gmail.com** or open a GitHub Discussion.
+8. **Automated Release Please & Continuous Deployment:**
+   Releases, semantic version tagging, and changelog generation are fully automated via `googleapis/release-please-action@v5` running on modern Node.js 24 runners. Merging release pull requests to `main` cuts canonical semver tags and triggers production distribution. For architectural discussions or maintenance questions, contact the maintainer at **shashakchandel@gmail.com** or open a GitHub Discussion.

@@ -4,7 +4,7 @@ import { getApiUrl, useGatewayHealth, reportAdminAuthFailure, reportAdminAuthSuc
 import { DEFAULT_PLAYGROUND_PRESETS } from '../constants/demoFallbackData';
 import PlaygroundControls from './playground/PlaygroundControls';
 import PlaygroundResponsePane from './playground/PlaygroundResponsePane';
-import { Zap } from 'lucide-react';
+import { Zap, ChevronDown, Search, Check, Plus, X } from 'lucide-react';
 
 /**
  * Interactive prompt execution and model evaluation sandbox.
@@ -100,6 +100,31 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
   });
 
   const [copiedResponse, setCopiedResponse] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [profileSearchQuery, setProfileSearchQuery] = useState('');
+  const profileDropdownRef = useRef(null);
+
+  // Close profile dropdown on outside click or Escape key
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+    if (isProfileDropdownOpen) {
+      document.addEventListener('mousedown', handleGlobalClick);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleGlobalClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isProfileDropdownOpen]);
 
   // Dynamic Gateway Catalog & Virtual Key Configuration with localStorage caching
   const [catalog, setCatalog] = useState(() => {
@@ -311,9 +336,9 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
   const hasAuthError = !isDemoToken && (authError || globalAuthStatus.isUnauthorized);
   const isProductionUnseeded = isOnline && !isDemoToken && keysLoaded && !hasAuthError && tenantKeys.length === 0;
 
-  // Dynamic profiles from live database or pre-seeded fallbacks
-  const presets = tenantKeys.length > 0
-    ? tenantKeys.slice(0, 4).map(k => {
+  // Dynamic profiles from live database or pre-seeded fallbacks (scalable to 100+ keys)
+  const allPresets = tenantKeys.length > 0
+    ? tenantKeys.map(k => {
         const isActive = k.status === 'ACTIVE';
         return {
           label: k.team || 'Tenant',
@@ -334,6 +359,32 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
         disabled: isProductionUnseeded,
         status: isProductionUnseeded ? 'UNSEEDED' : 'DEMO'
       }));
+
+  // Determine top quick-access pills vs full fleet
+  const visiblePills = React.useMemo(() => {
+    if (allPresets.length <= 4) return allPresets;
+    const topThree = allPresets.slice(0, 3);
+    const activeInTopThree = topThree.some(p => p.key === virtualKey);
+    if (activeInTopThree) {
+      return topThree;
+    }
+    const currentActivePreset = allPresets.find(p => p.key === virtualKey);
+    return currentActivePreset ? [...allPresets.slice(0, 2), currentActivePreset] : topThree;
+  }, [allPresets, virtualKey]);
+
+  // Filtered presets inside the dropdown
+  const filteredDropdownPresets = React.useMemo(() => {
+    if (!profileSearchQuery.trim()) return allPresets;
+    const q = profileSearchQuery.toLowerCase().trim();
+    return allPresets.filter(p =>
+      (p.label && p.label.toLowerCase().includes(q)) ||
+      (p.key && p.key.toLowerCase().includes(q)) ||
+      (p.model && p.model.toLowerCase().includes(q))
+    );
+  }, [allPresets, profileSearchQuery]);
+
+  // Backward compatibility alias
+  const presets = visiblePills;
 
   const currentKeyObj = tenantKeys.find(k => k.virtual_key === virtualKey);
   const isSelectedKeyDisabled = (currentKeyObj && currentKeyObj.status !== 'ACTIVE') ||
@@ -707,6 +758,164 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
               )}
             </div>
           ))}
+
+          {/* Scalable Fleet Dropdown for 4+ Profiles / Large Fleets */}
+          {allPresets.length > visiblePills.length && (
+            <div style={{ position: 'relative' }} ref={profileDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsProfileDropdownOpen(prev => !prev)}
+                className={`btn btn-sm ${isProfileDropdownOpen ? 'btn-primary' : 'btn-outline'}`}
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '0.15rem 0.5rem',
+                  height: 24,
+                  gap: '0.25rem',
+                  cursor: 'pointer'
+                }}
+                title={`View all ${allPresets.length} available profiles and keys`}
+              >
+                <span>+{allPresets.length - visiblePills.length} more</span>
+                <ChevronDown size={11} style={{ transform: isProfileDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+              </button>
+
+              {isProfileDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    right: 0,
+                    zIndex: 1000,
+                    width: '300px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-strong)',
+                    borderRadius: '10px',
+                    boxShadow: '0 16px 36px -4px rgba(0, 0, 0, 0.4), 0 4px 16px -2px rgba(0, 0, 0, 0.2)',
+                    padding: '0.65rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.35rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      All Profiles &amp; Keys ({allPresets.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+
+                  {/* Filter Input */}
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Search size={12} style={{ position: 'absolute', left: '0.55rem', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                    <input
+                      type="text"
+                      placeholder="Search profiles or keys..."
+                      value={profileSearchQuery}
+                      onChange={(e) => setProfileSearchQuery(e.target.value)}
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        padding: '0.35rem 0.55rem 0.35rem 1.75rem',
+                        fontSize: '0.75rem',
+                        background: 'var(--bg-canvas)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  {/* Scrollable Profiles List */}
+                  <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {filteredDropdownPresets.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '1rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        No matching profiles found
+                      </div>
+                    ) : (
+                      filteredDropdownPresets.map(p => {
+                        const isSelected = virtualKey === p.key;
+                        return (
+                          <div
+                            key={p.key}
+                            onClick={() => {
+                              if (p.disabled) return;
+                              setVirtualKey(p.key);
+                              setModel(p.model);
+                              setIsProfileDropdownOpen(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '0.4rem 0.55rem',
+                              borderRadius: '6px',
+                              cursor: p.disabled ? 'not-allowed' : 'pointer',
+                              background: isSelected ? 'var(--bg-card-hover)' : 'transparent',
+                              border: isSelected ? '1px solid var(--border-strong)' : '1px solid transparent',
+                              opacity: p.disabled ? 0.45 : 1
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <Zap size={11} style={{ color: isSelected ? 'var(--accent-lime)' : 'var(--text-muted)' }} />
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  {p.label}
+                                </span>
+                                {p.disabled && (
+                                  <span style={{ fontSize: '0.58rem', padding: '0 0.25rem', borderRadius: 3, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--accent-rose)' }}>
+                                    {p.status}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                                {p.key} · {p.rpm}
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <Check size={14} style={{ color: 'var(--accent-emerald)', flexShrink: 0, marginLeft: '0.5rem' }} />
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {onNavigate && (
+                    <div style={{ paddingTop: '0.35rem', borderTop: '1px solid var(--border-subtle)' }}>
+                      <button
+                        type="button"
+                        disabled={isMintDisabled}
+                        onClick={() => {
+                          setIsProfileDropdownOpen(false);
+                          onNavigate('keys');
+                        }}
+                        className="btn btn-sm btn-outline font-mono"
+                        style={{
+                          width: '100%',
+                          fontSize: '0.72rem',
+                          padding: '0.3rem',
+                          justifyContent: 'center',
+                          gap: '0.35rem',
+                          color: isMintDisabled ? 'var(--text-muted)' : 'var(--accent-primary)',
+                          cursor: isMintDisabled ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        <Plus size={12} />
+                        <span>Mint New Virtual Key</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {onNavigate && (
             <button
               type="button"

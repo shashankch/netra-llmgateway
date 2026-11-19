@@ -1404,5 +1404,31 @@ body.modal-open {
   }
 }
 
+/* KaTeX Mathematical Typography */
+.katex {
+  font-size: 1.05em;
+  color: inherit;
+}
+
+.katex-display {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.katex-inline {
+  display: inline-block;
+  vertical-align: -0.1em;
+  padding: 0 0.1em;
+}
+
+.katex-block {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+
 
 

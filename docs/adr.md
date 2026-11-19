@@ -32,7 +32,7 @@ Architecture Decision Records document foundational architectural, protocol, and
 - **Status:** Accepted
 - **Area:** Core Runtime & Concurrency
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 An enterprise LLM gateway operates as a high-concurrency network intermediary on the critical request path. Upstream inference calls introduce long tail latencies (from hundreds of milliseconds to tens of seconds) and long-lived Server-Sent Events (SSE) connections. Standard thread-per-request architectures on OS platform threads consume 1–2 MB of stack memory per connection, exhausting memory and crashing under thousands of concurrent streams.
 
 ### Considered Options
@@ -55,7 +55,7 @@ Standardize on **Java 25 LTS** with Virtual Threads across all HTTP ingress disp
 - **Status:** Accepted
 - **Area:** Protocol & Observability
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Operating a unified gateway across disparate inference providers requires transparent attribution on every request. Downstream client applications require immediate visibility into model fulfillment, caching outcomes, failover paths, and monetary cost without querying external out-of-band logging systems.
 
 ### Decision Outcome
@@ -81,7 +81,7 @@ Emit a deterministic set of canonical HTTP response headers on completion respon
 - **Status:** Accepted
 - **Area:** Financial Ledger & Token Economics
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Foundation model token pricing is micro-fractional (e.g. \$0.15 per million prompt tokens = \$0.00000015 per token). Standard binary floating-point types (`float`, `double`) accumulate IEEE-754 representation drift over millions of transactions, creating discrepancies between client invoices, provider bills, and internal ledgers.
 
 ### Decision Outcome
@@ -98,7 +98,7 @@ Mandate arbitrary-precision arithmetic (`BigDecimal`) across all token cost calc
 - **Status:** Accepted
 - **Area:** Billing & Multi-Currency
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Enterprise teams operate in various domestic currencies (EUR, GBP, INR, JPY), while cloud foundation model providers bill exclusively in USD. Storing volatile local currencies in the primary audit ledger causes historical rate distortion, reporting drift, and reporting complexities during rate fluctuations.
 
 ### Decision Outcome
@@ -117,7 +117,7 @@ Enterprise teams operate in various domestic currencies (EUR, GBP, INR, JPY), wh
 - **Status:** Accepted
 - **Area:** Streaming Ingress & Spend Control
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 When streaming LLM responses over Server-Sent Events, buffering chunks in memory degrades Time-to-First-Token (TTFT) and increases memory consumption. Furthermore, when users cancel queries or close browser tabs mid-stream, standard reverse proxies continue pulling from the upstream provider, generating and billing unseen tokens ("phantom spend").
 
 ### Decision Outcome
@@ -140,7 +140,7 @@ Implement an unbuffered streaming relay with dedicated virtual threads and direc
 - **Status:** Accepted
 - **Area:** Routing & Intelligence
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Directing all prompts to frontier reasoning models creates massive cost inefficiency on simple queries. Conversely, routing complex multi-step reasoning to lightweight models results in degraded output quality. Employing an LLM as a router introduces 150–300ms of additional latency and secondary API fees.
 
 ### Decision Outcome
@@ -161,7 +161,7 @@ Implement a deterministic two-stage hybrid syntactic complexity classifier for t
 - **Status:** Accepted
 - **Area:** Semantic Vector Cache
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Semantic caching eliminates redundant inference spend by serving semantically similar queries from cache. However, external embedding APIs add 150–300ms of latency, shared vector stores risk cross-tenant data leakage, and caching upstream safety refusals risks permanently suppressing legitimate queries.
 
 ### Decision Outcome
@@ -182,7 +182,7 @@ Semantic caching eliminates redundant inference spend by serving semantically si
 - **Status:** Accepted
 - **Area:** Configuration Management
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Hardcoding local mock provider configurations risks accidental leakage into production environments. Conversely, requiring live cloud provider API credentials breaks offline developer onboarding and hermetic automated CI pipelines.
 
 ### Decision Outcome
@@ -204,7 +204,7 @@ Structure runtime configuration into four isolated environment tiers:
 - **Status:** Accepted
 - **Area:** Hybrid Cloud Routing
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Enterprise hybrid topologies frequently operate private in-VPC inference nodes alongside public cloud aggregators that expose identical model names. Standard gateways cannot inherently determine whether a request should be served locally or routed externally.
 
 ### Decision Outcome
@@ -227,7 +227,7 @@ Implement a 5-tier deterministic target resolution hierarchy for model dispatch:
 - **Status:** Accepted
 - **Area:** API Standards Compliance
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Proprietary rate-limiting headers create integration friction for modern reverse proxies, API management gateways, and standard client SDKs that follow formal IETF specifications (`draft-ietf-httpapi-ratelimit-headers`).
 
 ### Decision Outcome
@@ -253,7 +253,7 @@ Adopt a phased deprecation and standards convergence strategy:
 - **Status:** Accepted
 - **Area:** Cache Performance & Latency
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Even in-process ONNX embeddings require 3–5ms of matrix computation per prompt. Under high-frequency burst traffic containing identical repeat queries (e.g. autonomous agent loops, system prompt polling, health checks), generating vector embeddings for every request consumes unnecessary CPU cycles.
 
 ### Decision Outcome
@@ -273,7 +273,7 @@ Deploy a Two-Tier Cache Hierarchy for query matching:
 - **Status:** Accepted
 - **Area:** Fault Tolerance & Upstream Resilience
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Cloud AI providers experience periodic throttling, elevated latency, and transient outages. Blocking on full network timeouts across retry chains causes request durations to exceed edge proxy limits (>15s). Furthermore, lightweight foundation models frequently return safety refusals or empty completions on complex prompts.
 
 ### Decision Outcome
@@ -293,7 +293,7 @@ Cloud AI providers experience periodic throttling, elevated latency, and transie
 - **Status:** Accepted
 - **Area:** Memory Safety & Concurrency
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 With Java 25 Virtual Threads, a single server handles tens of thousands of concurrent requests. Traditional `ThreadLocal` storage incurs heap allocation overhead, cannot be safely bounded, and risks memory leaks when context is not manually cleared.
 
 ### Decision Outcome
@@ -313,7 +313,7 @@ Adopt Java 25 Scoped Values (`java.lang.ScopedValue`, JEP 506) for request lifec
 - **Status:** Accepted
 - **Area:** Database Performance & Connection Shielding
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Under high-concurrency burst traffic (10,000+ concurrent virtual threads), executing synchronous database writes for audit logs and monthly spend ledger updates exhausts connection pools, creating connection acquisition timeouts and latency spikes.
 
 ### Decision Outcome
@@ -333,7 +333,7 @@ Under high-concurrency burst traffic (10,000+ concurrent virtual threads), execu
 - **Status:** Accepted
 - **Area:** Ingress Pipeline Safety & Recovery
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Counting client-side validation errors (HTTP 400/422) as upstream failures during half-open canary recovery falsely locks out healthy providers. Similarly, client errors must not consume rate-limit slots when no tokens were generated. Additionally, during database maintenance or network blips, unhandled persister retries create tight loops that saturate CPU and flood logs.
 
 ### Decision Outcome
@@ -354,7 +354,7 @@ Counting client-side validation errors (HTTP 400/422) as upstream failures durin
 - **Status:** Accepted
 - **Area:** Access Governance & Security
 
-### Context & Problem Statement
+### Context & Architectural Challenge
 Deploying an open-source gateway requires zero-friction local setup, while shared and enterprise environments require administrative protection and federated access governance. Building custom username/password authentication (credential hashing, password reset workflows, account recovery) creates unnecessary maintenance burden and security vulnerability surface.
 
 ### Decision Outcome

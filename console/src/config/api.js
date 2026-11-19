@@ -13,17 +13,17 @@ export const CONSOLE_VERSION = pkg.version || '0.7.x';
  * - >= 1000000ms: '1.2Mms'
  */
 export function formatLatencyMs(ms) {
-  if (ms == null || isNaN(ms)) return '0ms';
+  if (ms == null || isNaN(ms)) return '0 ms';
   const val = Number(ms);
   if (val >= 1000000) {
     const m = (val / 1000000).toFixed(1).replace(/\.0$/, '');
-    return `${m}Mms`;
+    return `${m}M ms`;
   }
   if (val >= 10000) {
     const k = (val / 1000).toFixed(val >= 100000 ? 0 : 1).replace(/\.0$/, '');
-    return `${k}kms`;
+    return `${k}k ms`;
   }
-  return `${Math.round(val)}ms`;
+  return `${Math.round(val)} ms`;
 }
 
 /**

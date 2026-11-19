@@ -18,6 +18,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom'],
           'vendor-icons': ['lucide-react'],
           'vendor-analytics': ['@vercel/analytics/react'],
+          'vendor-math': ['katex'],
         },
       },
     },

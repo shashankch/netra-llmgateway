@@ -1,5 +1,31 @@
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
+import katex from 'katex';
+
+/**
+ * Safely renders TeX string via KaTeX with HTML and MathML output.
+ * Falls back to plain text if syntax is unparseable or incomplete.
+ */
+function renderKaTeX(tex, displayMode = false) {
+  try {
+    const cleanTex = String(tex).trim().replace(/\\?\$$/, '');
+    if (!cleanTex) return null;
+    const html = katex.renderToString(cleanTex, {
+      displayMode,
+      throwOnError: false,
+      output: 'htmlAndMathml'
+    });
+    return (
+      <span
+        className={displayMode ? 'katex-block' : 'katex-inline'}
+        style={displayMode ? { display: 'block', margin: '0.65rem 0', textAlign: 'center', overflowX: 'auto' } : { display: 'inline' }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  } catch (e) {
+    return <span>{tex}</span>;
+  }
+}
 
 /**
  * Fenced code block with copy-to-clipboard button and syntax styling.
@@ -69,11 +95,18 @@ function CodeBlock({ language, code }) {
 }
 
 /**
- * Parses inline tokens: code, bold, italic, and links.
+ * Parses inline tokens: code, display/inline math, bold, italic, and links.
  */
 function parseInline(text) {
   if (!text) return null;
-  const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
+  // Match:
+  // 1. code `...`
+  // 2. display math $$...$$ or \[...\]
+  // 3. inline math $...$ or \(...\) or ${...}
+  // 4. bold **...**
+  // 5. italic *...*
+  // 6. links [...]
+  const regex = /(`[^`]+`|\$\$[^\$]+\$\$|\\\[[\s\S]+?\\\]|\$(?!\s)[^\$\n]+?(?<!\s)\$|\\\([^\)]+\\\)|\$\{[^}\n]+\}|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
   const parts = text.split(regex);
 
   return parts.map((part, i) => {
@@ -96,17 +129,61 @@ function parseInline(text) {
         </code>
       );
     }
+    // Display Math inline: $$...$$ or \[...\]
+    if (part.startsWith('$$') && part.endsWith('$$') && part.length > 4) {
+      return (
+        <React.Fragment key={i}>
+          {renderKaTeX(part.slice(2, -2), true)}
+        </React.Fragment>
+      );
+    }
+    if (part.startsWith('\\[') && part.endsWith('\\]') && part.length > 4) {
+      return (
+        <React.Fragment key={i}>
+          {renderKaTeX(part.slice(2, -2), true)}
+        </React.Fragment>
+      );
+    }
+    // Inline Math: \(...\)
+    if (part.startsWith('\\(') && part.endsWith('\\)') && part.length > 4) {
+      return (
+        <React.Fragment key={i}>
+          {renderKaTeX(part.slice(2, -2), false)}
+        </React.Fragment>
+      );
+    }
+    // Inline Math: $...$
+    if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
+      const inner = part.slice(1, -1).trim();
+      const isPlainCurrency = /^\d+(?:\.\d{1,2})?$/.test(inner);
+      if (!isPlainCurrency) {
+        return (
+          <React.Fragment key={i}>
+            {renderKaTeX(inner, false)}
+          </React.Fragment>
+        );
+      }
+    }
+    // Wrapped Math: ${...}
+    if (part.startsWith('${') && part.endsWith('}') && part.length > 3) {
+      const inner = part.slice(2, -1).trim();
+      return (
+        <React.Fragment key={i}>
+          {renderKaTeX(inner, false)}
+        </React.Fragment>
+      );
+    }
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
         <strong key={i} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-          {part.slice(2, -2)}
+          {parseInline(part.slice(2, -2))}
         </strong>
       );
     }
     if (part.startsWith('*') && part.endsWith('*')) {
       return (
         <em key={i} style={{ fontStyle: 'italic' }}>
-          {part.slice(1, -1)}
+          {parseInline(part.slice(1, -1))}
         </em>
       );
     }
@@ -120,7 +197,7 @@ function parseInline(text) {
           rel="noreferrer" 
           style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}
         >
-          {linkMatch[1]}
+          {parseInline(linkMatch[1])}
         </a>
       );
     }
@@ -162,6 +239,64 @@ export default function MarkdownRenderer({ content, executing }) {
           language={language} 
           code={codeLines.join('\n')} 
         />
+      );
+      continue;
+    }
+
+    // Display Math Block: $$ ... $$
+    if (line.trim().startsWith('$$')) {
+      const trimmed = line.trim();
+      if (trimmed.length > 4 && trimmed.endsWith('$$')) {
+        const mathContent = trimmed.slice(2, -2).trim();
+        elements.push(
+          <div 
+            key={`mathblock-${elements.length}`} 
+            style={{ 
+              margin: '0.85rem 0', 
+              padding: '0.6rem 0.85rem',
+              overflowX: 'auto',
+              textAlign: 'center',
+              background: 'var(--bg-card-hover)',
+              borderRadius: 6,
+              border: '1px solid var(--border-subtle)'
+            }}
+          >
+            {renderKaTeX(mathContent, true)}
+          </div>
+        );
+        i++;
+        continue;
+      }
+
+      // Multiline display math: $$ \n ... \n $$
+      const mathLines = [];
+      const firstLineContent = trimmed.slice(2).trim();
+      if (firstLineContent) mathLines.push(firstLineContent);
+      i++;
+      while (i < lines.length && !lines[i].trim().endsWith('$$')) {
+        mathLines.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length && lines[i].trim().endsWith('$$')) {
+        const lastLineContent = lines[i].trim().slice(0, -2).trim();
+        if (lastLineContent) mathLines.push(lastLineContent);
+        i++;
+      }
+      elements.push(
+        <div 
+          key={`mathblock-${elements.length}`} 
+          style={{ 
+            margin: '0.85rem 0', 
+            padding: '0.6rem 0.85rem',
+            overflowX: 'auto',
+            textAlign: 'center',
+            background: 'var(--bg-card-hover)',
+            borderRadius: 6,
+            border: '1px solid var(--border-subtle)'
+          }}
+        >
+          {renderKaTeX(mathLines.join('\n').trim(), true)}
+        </div>
       );
       continue;
     }
