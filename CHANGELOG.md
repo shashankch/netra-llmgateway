@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.7](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.6...netra-llmgateway-v0.7.7) (2026-11-19)
+
+
+### Bug Fixes
+
+* **gateway,console,docs:** persistent tier cache tracking, dynamic latency scaling, and full doc sync ([#24](https://github.com/shashankch/netra-llmgateway/issues/24)) ([413b478](https://github.com/shashankch/netra-llmgateway/commit/413b47885cb95a5ef737063db037d00a39abb659))
+
 ## [0.7.6](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.5...netra-llmgateway-v0.7.6) (2026-11-14)
 
 
