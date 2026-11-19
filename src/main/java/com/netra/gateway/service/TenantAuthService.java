@@ -45,7 +45,7 @@ public class TenantAuthService {
      * and distributed multi-node revocation state.
      */
     public Tenant authenticate(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null || !authHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
             throw new AuthenticationException("Missing or invalid Authorization header");
         }
 

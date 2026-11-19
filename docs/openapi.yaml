@@ -651,7 +651,7 @@ paths:
                     example: "netra-gateway"
                   version:
                     type: string
-                    example: "0.7.3"
+                    example: "0.7.x"
 
   /health/live:
     get:
@@ -675,7 +675,7 @@ paths:
                     example: "netra-gateway"
                   version:
                     type: string
-                    example: "0.7.3"
+                    example: "0.7.x"
 
   /health/ready:
     get:
@@ -712,7 +712,7 @@ paths:
                     example: "READY"
                   version:
                     type: string
-                    example: "0.7.3"
+                    example: "0.7.x"
         '503':
           description: Backing database or Redis is unavailable.
           content:
@@ -731,7 +731,7 @@ paths:
                     example: "UP"
                   version:
                     type: string
-                    example: "0.7.3"
+                    example: "0.7.x"
 
 components:
   securitySchemes:

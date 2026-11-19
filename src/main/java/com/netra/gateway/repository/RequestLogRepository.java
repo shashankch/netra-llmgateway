@@ -63,6 +63,18 @@ public interface RequestLogRepository extends JpaRepository<RequestLog, UUID> {
     @Query("SELECT COUNT(r) FROM RequestLog r WHERE r.virtualKey = :virtualKey AND r.cache = 'hit' AND r.statusCode = 200")
     long countCacheHitsByVirtualKey(@Param("virtualKey") String virtualKey);
 
+    @Query("SELECT COUNT(r) FROM RequestLog r WHERE r.statusCode = 200 AND r.cacheTier = 'tier1_exact'")
+    long countTier1ExactHitsAllTime();
+
+    @Query("SELECT COUNT(r) FROM RequestLog r WHERE r.statusCode = 200 AND r.cacheTier = 'tier2_semantic'")
+    long countTier2SemanticHitsAllTime();
+
+    @Query("SELECT COUNT(r) FROM RequestLog r WHERE r.virtualKey = :virtualKey AND r.statusCode = 200 AND r.cacheTier = 'tier1_exact'")
+    long countTier1ExactHitsByVirtualKey(@Param("virtualKey") String virtualKey);
+
+    @Query("SELECT COUNT(r) FROM RequestLog r WHERE r.virtualKey = :virtualKey AND r.statusCode = 200 AND r.cacheTier = 'tier2_semantic'")
+    long countTier2SemanticHitsByVirtualKey(@Param("virtualKey") String virtualKey);
+
     @Query("SELECT COUNT(r) AS requestCount, " +
             "COALESCE(SUM(r.promptTokens), 0L) AS totalPromptTokens, " +
             "COALESCE(SUM(r.completionTokens), 0L) AS totalCompletionTokens, " +

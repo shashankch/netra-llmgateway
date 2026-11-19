@@ -51,7 +51,7 @@ Thank you for your interest in contributing to NETRA! We welcome contributions f
    - `feat!:` or `BREAKING CHANGE:` Introduces a breaking API change (triggers a major version increment).
    - `docs:`, `chore:`, `refactor:`, `test:`, `ci:` Maintenance, build, or documentation updates.
 
-7. **Automated CI Gates & PR Submission:**
+7. **Automated CI Gates & Pull Request Workflow:**
    Push your branch and open a PR against `main`. Ensure your PR description includes a concise summary of changes and verification evidence. All pull requests automatically trigger the GitHub Actions validation pipelines:
    - **Gateway CI (`gateway-ci.yml`):** Compiles backend code on Java 25, runs the Gradle test suite, and executes GitHub CodeQL static analysis.
    - **Console CI (`console-ci.yml`):** Runs ESLint validation and production bundle compilation on Node.js 20.

@@ -47,6 +47,7 @@ class TwoTierCacheTest {
         // In unit tests without live postgres, CacheEntryRepository queries fail gracefully to in-memory fallback
         lenient().when(cacheEntryRepository.findNearestMatch(any(), any(), any(), anyDouble())).thenThrow(new RuntimeException("No pgvector"));
         lenient().doThrow(new RuntimeException("No pgvector")).when(cacheEntryRepository).saveWithEmbedding(any(), any(), any(), any(), any(), any());
+        lenient().doThrow(new RuntimeException("No pgvector")).when(cacheEntryRepository).saveWithEmbedding(any(), any(), any(), any(), any(), any(), any());
 
         semanticCacheService = new SemanticCacheService(
                 embeddingService,

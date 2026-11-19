@@ -249,11 +249,33 @@ export default function PlaygroundResponsePane({
             </div>
           )}
 
-          {responseContent && (
-            <>
+          {(responseContent || telemetry || errorInfo) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {responseContent && (
+                <button
+                  type="button"
+                  onClick={copyResponseToClipboard}
+                  className="btn btn-outline btn-sm font-mono"
+                  style={{
+                    padding: '0.25rem 0.55rem',
+                    height: 26,
+                    fontSize: '0.72rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    color: copiedResponse ? 'var(--accent-emerald)' : 'var(--text-secondary)',
+                    borderColor: copiedResponse ? 'var(--accent-emerald)' : 'var(--border-subtle)',
+                    background: copiedResponse ? 'rgba(16, 185, 129, 0.08)' : 'transparent'
+                  }}
+                  title="Copy response markdown to clipboard"
+                >
+                  {copiedResponse ? <Check size={12} /> : <Copy size={12} />}
+                  <span>{copiedResponse ? 'Copied' : 'Copy'}</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={copyResponseToClipboard}
+                onClick={handleClearOutput}
                 className="btn btn-outline btn-sm font-mono"
                 style={{
                   padding: '0.25rem 0.55rem',
@@ -262,25 +284,14 @@ export default function PlaygroundResponsePane({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.3rem',
-                  color: copiedResponse ? 'var(--accent-emerald)' : 'var(--text-secondary)',
-                  borderColor: copiedResponse ? 'var(--accent-emerald)' : 'var(--border-subtle)',
-                  background: copiedResponse ? 'rgba(16, 185, 129, 0.08)' : 'transparent'
+                  color: 'var(--text-muted)'
                 }}
-                title="Copy response markdown to clipboard"
-              >
-                {copiedResponse ? <Check size={12} /> : <Copy size={12} />}
-                <span>{copiedResponse ? 'Copied' : 'Copy'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleClearOutput}
-                className="btn btn-outline btn-sm"
-                style={{ padding: '0.25rem 0.45rem', height: 26, color: 'var(--text-muted)' }}
-                title="Clear response output"
+                title="Clear response output and badges"
               >
                 <Trash2 size={12} />
+                <span>Clear</span>
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -339,14 +350,27 @@ export default function PlaygroundResponsePane({
           position: 'relative'
         }}
       >
-        {errorInfo ? (
-          <div style={{ color: 'var(--accent-rose)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {errorInfo || (telemetry?.status >= 400 && !responseContent) ? (
+          <div style={{ color: 'var(--accent-rose)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
               <XCircle size={18} />
-              <span>{errorInfo.type || 'Inference Error'}</span>
+              <span>{errorInfo?.type || `HTTP ${telemetry?.status || 400} Error`}</span>
             </div>
-            <div style={{ fontSize: '0.8125rem' }}>{errorInfo.message}</div>
-            {errorInfo.code && <div className="font-mono" style={{ fontSize: '0.75rem' }}>Code: {errorInfo.code}</div>}
+            <div style={{ fontSize: '0.8125rem', lineHeight: 1.5 }}>
+              {errorInfo?.message || (telemetry?.status === 403 ? 'Access Forbidden: Virtual key rejected, tenant deactivated, or unauthorized for the requested model tier.' : `Inference request returned HTTP status ${telemetry?.status}.`)}
+            </div>
+            {errorInfo?.code && <div className="font-mono" style={{ fontSize: '0.75rem' }}>Code: {errorInfo.code}</div>}
+            <div style={{ marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={handleClearOutput}
+                className="btn btn-outline btn-sm font-mono"
+                style={{ padding: '0.25rem 0.65rem', height: 26, fontSize: '0.72rem', color: 'var(--text-secondary)' }}
+              >
+                <Trash2 size={12} />
+                <span>Dismiss Error</span>
+              </button>
+            </div>
           </div>
         ) : responseContent ? (
           viewMode === 'markdown' ? (

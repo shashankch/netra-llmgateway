@@ -239,7 +239,7 @@ Deploy gateway pods to Amazon EKS, Azure Kubernetes Service (AKS), Google GKE, o
 ```yaml
 containers:
 - name: gateway
-  image: ghcr.io/shashankch/netra-gateway:latest # Or pin to release tag, e.g. ghcr.io/shashankch/netra-gateway:0.7.3
+  image: ghcr.io/shashankch/netra-gateway:latest # Or pin to release line, e.g. ghcr.io/shashankch/netra-gateway:0.7.x
   ports:
   - containerPort: 8080
   env:

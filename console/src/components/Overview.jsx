@@ -505,6 +505,7 @@ export default function Overview({ adminToken = 'netra-admin-demo', onNavigate, 
         avgTokensPerReq={avgTokensPerReq}
         configuredThreshold={configuredThreshold}
         totalCacheEvaluations={totalCacheEvaluations}
+        totalEntries={cacheStats?.total_entries ?? 0}
         cacheHits={cacheHits}
         cacheMisses={cacheMisses}
         tier1Hits={tier1Hits}

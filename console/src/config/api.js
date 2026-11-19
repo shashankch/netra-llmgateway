@@ -1,7 +1,30 @@
 import { useState, useEffect } from 'react';
 import pkg from '../../package.json';
 
-export const CONSOLE_VERSION = pkg.version || '0.7.1';
+export const CONSOLE_VERSION = pkg.version || '0.7.x';
+
+/**
+ * Dynamic latency formatter for fleet telemetry.
+ * Automatically formats high-latency and tail values into compact, readable units:
+ * - < 1000ms: '45ms'
+ * - 1000ms - 9999ms: '2145ms'
+ * - 10000ms - 99999ms: '46.8kms' / '63kms'
+ * - 100000ms - 999999ms: '125kms'
+ * - >= 1000000ms: '1.2Mms'
+ */
+export function formatLatencyMs(ms) {
+  if (ms == null || isNaN(ms)) return '0ms';
+  const val = Number(ms);
+  if (val >= 1000000) {
+    const m = (val / 1000000).toFixed(1).replace(/\.0$/, '');
+    return `${m}Mms`;
+  }
+  if (val >= 10000) {
+    const k = (val / 1000).toFixed(val >= 100000 ? 0 : 1).replace(/\.0$/, '');
+    return `${k}kms`;
+  }
+  return `${Math.round(val)}ms`;
+}
 
 /**
  * NETRA Operations Console - Gateway API Configuration
