@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.8](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.7...netra-llmgateway-v0.7.8) (2026-11-20)
+
+
+### Bug Fixes
+
+* **console,gateway,ci:** scalable profile selector, auto cache tier alignment, katex math rendering, and node 24 actions ([#26](https://github.com/shashankch/netra-llmgateway/issues/26)) ([06d70a3](https://github.com/shashankch/netra-llmgateway/commit/06d70a3aef2c2413253a8c9145c48262ef480e71))
+
 ## [0.7.7](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.6...netra-llmgateway-v0.7.7) (2026-11-19)
 
 
