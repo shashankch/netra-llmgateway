@@ -459,6 +459,7 @@ export const DEMO_CACHE_STATS = {
       misses: 326,
       hit_rate: 0.249,
       similarity_threshold: 0.850,
+      cache_enabled: true,
       top_matches: [
         {
           id: 'vec_f09b101',
@@ -477,6 +478,26 @@ export const DEMO_CACHE_STATS = {
           ttl_seconds: 86400
         }
       ]
+    },
+    'netra-sk-research-4d5e6f': {
+      team: 'Research Team',
+      entries: 0,
+      hits: 0,
+      misses: 400,
+      hit_rate: 0.0,
+      similarity_threshold: 0.850,
+      cache_enabled: false,
+      top_matches: []
+    },
+    'netra-sk-budget-demo-0j1k2l': {
+      team: 'Budget Demo',
+      entries: 0,
+      hits: 0,
+      misses: 0,
+      hit_rate: 0.0,
+      similarity_threshold: 0.850,
+      cache_enabled: false,
+      top_matches: []
     }
   }
 };
@@ -518,37 +539,54 @@ export const DEMO_CACHE_ENTRIES = {
   'netra-sk-search-1a2b3c': [
     {
       id: 'c8f1e2a0-4b5c-4d8e-9f0a-1b2c3d4e5f60',
-      prompt_text: 'Explain what load balancers do in distributed web systems.',
-      completion_text: 'Load balancers sit between client devices and backend server clusters, acting as reverse proxies to distribute incoming application traffic efficiently across multiple servers. Key functions include:\n\n1. Traffic Distribution: Prevents any single server from becoming an overload bottleneck using round-robin, least connections, or IP-hash routing.\n2. Health Probing: Continuously checks server responsiveness and reroutes requests away from degraded or failing instances.\n3. SSL/TLS Offloading: Terminates encryption at the edge to reduce cryptographic CPU load on application workers.\n4. Scalability & Zero-Downtime: Enables rolling server deployments without dropping client connections.',
-      hit_count: 24
+      prompt_text: 'Explain the difference between optimistic concurrency and pessimistic locking in PostgreSQL.',
+      completion_text: 'Optimistic Concurrency Control (OCC) and Pessimistic Locking differ fundamentally in their concurrency conflict resolution:\n\n1. Locking vs Verification: Pessimistic locking acquires row-level locks upfront (e.g. SELECT FOR UPDATE), blocking conflicting writers until transaction completion. OCC allows concurrent reads and writes without locks, verifying conflict freedom during commit time.\n2. Throughput Characteristics: OCC achieves near-linear scalability in read-heavy workloads with low collision probability. Pessimistic locking prevents abort cascades in write-heavy transactional hotspots.\n3. PostgreSQL Implementation: PostgreSQL uses Multi-Version Concurrency Control (MVCC) by default, functioning as a non-blocking optimistic engine for SELECT queries while providing SELECT FOR UPDATE for pessimistic synchronization.',
+      model_alias: 'fast',
+      resolved_provider: 'openrouter/deepseek/deepseek-chat',
+      hit_count: 84,
+      created_at: '2026-11-10T08:00:00Z'
     },
     {
       id: 'c8f1e2a0-4b5c-4d8e-9f0a-1b2c3d4e5f61',
-      prompt_text: 'How do load balancers distribute HTTP traffic across web clusters?',
-      completion_text: 'Load balancers distribute HTTP traffic by inspecting layer 4 (TCP/UDP) or layer 7 (HTTP headers, URL paths, cookies) request parameters and routing each stream to healthy upstream servers using balanced distribution algorithms.',
-      hit_count: 17
+      prompt_text: 'JSON schema validation regex for ISO-8601 UTC timestamp format.',
+      completion_text: 'The standard regex pattern for strict ISO-8601 UTC timestamps (YYYY-MM-DDTHH:mm:ss.sssZ) is:\n\n^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,9})?Z$\n\nKey validations:\n- Enforces 4-digit Gregorian calendar years and zero-padded 2-digit months (01-12).\n- Restricts hours (00-23) and minutes/seconds (00-59).\n- Supports optional millisecond/nanosecond decimal precision.\n- Requires trailing uppercase "Z" representing zero UTC offset.',
+      model_alias: 'fast',
+      resolved_provider: 'openrouter/deepseek/deepseek-chat',
+      hit_count: 142,
+      created_at: '2026-11-10T09:30:00Z'
     },
     {
       id: 'c8f1e2a0-4b5c-4d8e-9f0a-1b2c3d4e5f62',
-      prompt_text: 'What is an annual subscription discount policy for SaaS platforms?',
-      completion_text: 'A SaaS annual subscription discount policy typically provides a 15% to 25% price reduction (e.g. 2 months free) in exchange for an upfront 12-month billing commitment. This improves platform net retention, reduces involuntary churn, and accelerates annual cash flow.',
-      hit_count: 38
+      prompt_text: 'How to calculate p99 tail latency from Prometheus histogram quantiles?',
+      completion_text: 'In Prometheus PromQL, compute p99 tail latency across service instances using histogram_quantile:\n\nhistogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))\n\nOperational guidelines:\n1. Rate Window: Use at least a 2m to 5m rate interval (e.g. [5m]) to ensure sufficient sample counts per bucket.\n2. Bucket Dimension: Always aggregate over "le" (less-than-or-equal) bucket label when using sum().\n3. Linear Interpolation: Remember Prometheus assumes uniform distribution within the bucket containing the 99th percentile.',
+      model_alias: 'fast',
+      resolved_provider: 'openrouter/deepseek/deepseek-chat',
+      hit_count: 56,
+      created_at: '2026-11-11T11:15:00Z'
     }
   ],
-  'netra-sk-research-4d5e6f': [
+  'netra-sk-free-7g8h9i': [
     {
       id: 'd9e2f3b1-5c6d-5e9f-0a1b-2c3d4e5f6a71',
-      prompt_text: 'Evaluate the consistency and partition tolerance trade-offs between Raft and Multi-Paxos consensus protocols in high-throughput distributed state machine replication.',
-      completion_text: 'Raft and Multi-Paxos achieve equivalent safety invariants under the CAP theorem (CP systems guaranteeing linearizable state machine replication across network partitions). Key trade-offs:\n\n1. Leader Dependency: Raft requires strong, single-leader message sequencing. Multi-Paxos allows master leases and pipelined proposal rounds with higher concurrency.\n2. Log Hole Recovery: Raft enforces contiguous prefix log matching. Multi-Paxos permits out-of-order log gaps that must be resolved during leader transitions.\n3. Understandability & Operability: Raft was explicitly architected with state decomposition (Leader Election, Log Replication, Safety), significantly reducing bugs in production implementations.',
-      hit_count: 31
+      prompt_text: 'Difference between TCP and UDP with header overhead comparison.',
+      completion_text: 'TCP and UDP differ primarily in delivery guarantees and header serialization overhead:\n\n1. Connection State: TCP is connection-oriented with 3-way handshake (SYN, SYN-ACK, ACK) and stateful byte stream tracking. UDP is connectionless with zero session handshake latency.\n2. Header Size: Standard TCP header overhead is 20 to 60 bytes (including optional timestamps and SACK options). UDP maintains a constant 8-byte header.\n3. Reliability & Congestion Control: TCP guarantees in-order arrival via sequence numbering, acknowledgments, and window scaling (CUBIC/BBR). UDP offers fire-and-forget datagram delivery with zero packet retransmission.',
+      model_alias: 'fast',
+      resolved_provider: 'openrouter/deepseek/deepseek-chat',
+      hit_count: 62,
+      created_at: '2026-11-11T14:00:00Z'
     },
     {
       id: 'd9e2f3b1-5c6d-5e9f-0a1b-2c3d4e5f6a72',
-      prompt_text: 'Analyze memory leak detection strategies in long-running Node.js worker pools.',
-      completion_text: 'Effective memory leak isolation in long-running Node.js processes requires:\n\n1. Periodic Heap Snapshots: Comparing baseline vs load-tested snapshots in Chrome DevTools to locate uncollected closures and global event listeners.\n2. Allocation Timelines: Identifying monotonic object growth slopes using V8 sampling heap profiler.\n3. Native Memory Tracking: Monitoring jemalloc/glibc RSS growth to differentiate V8 JavaScript heap from unmanaged C++ bindings.',
-      hit_count: 14
+      prompt_text: 'Explain CAP theorem in simple terms with partitioned networks.',
+      completion_text: 'The CAP theorem states that a distributed data store can guarantee at most two out of three properties under network partitions:\n\n1. Consistency (C): Every read receives the most recent write or an error.\n2. Availability (A): Every non-failing node returns a non-error response, without guarantee of latest data.\n3. Partition Tolerance (P): The cluster continues operating despite dropped or delayed inter-node network packets.\n\nIn real-world networks where partitions (P) are inevitable, distributed architectures must choose between Consistency (CP, e.g. Raft/Paxos aborting or blocking reads) or Availability (AP, e.g. Cassandra/DynamoDB serving stale replicas).',
+      model_alias: 'fast',
+      resolved_provider: 'openrouter/deepseek/deepseek-chat',
+      hit_count: 46,
+      created_at: '2026-11-12T10:20:00Z'
     }
-  ]
+  ],
+  'netra-sk-research-4d5e6f': [],
+  'netra-sk-budget-demo-0j1k2l': []
 };
 
 // Default profile presets for the Interactive Evaluation Playground

@@ -796,7 +796,10 @@ public class StreamingRelayService {
                                         .build())
                                 .build();
                         String cachedProviderHeader = (providerName != null ? providerName : "mock") + "/" + modelName;
-                        semanticCacheService.store(tenant, request.getModel(), request.getMessages(), cachedResp, cachedProviderHeader);
+                        String cacheStoreModel = "auto".equalsIgnoreCase(request.getModel()) && chain != null && chain.chosenTier() != null
+                                ? chain.chosenTier()
+                                : request.getModel();
+                        semanticCacheService.store(tenant, cacheStoreModel, request.getMessages(), cachedResp, cachedProviderHeader);
                     } catch (Exception ex) {
                         log.warn("Failed to store stream completion in semantic cache: {}", ex.getMessage());
                     }
