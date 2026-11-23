@@ -30,9 +30,13 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -81,6 +85,20 @@ public class AdminController {
                     .expireAfterWrite(Duration.ofSeconds(60))
                     .build();
 
+    // 24-hour sessions for lightweight UI dashboard password protection (Phase 8.5)
+    private final Cache<String, Instant> uiSessionCache =
+            Caffeine.newBuilder()
+                    .maximumSize(1000)
+                    .expireAfterWrite(Duration.ofHours(24))
+                    .build();
+
+    // Brute-force rate limiting: tracks failed password attempts per client IP (5 attempts per 5 mins)
+    private final Cache<String, Integer> failedLoginAttempts =
+            Caffeine.newBuilder()
+                    .maximumSize(5000)
+                    .expireAfterWrite(Duration.ofMinutes(5))
+                    .build();
+
     @PostConstruct
     public void validateProductionSecurity() {
         if (env != null && Arrays.asList(env.getActiveProfiles()).contains("prod")) {
@@ -89,6 +107,144 @@ public class AdminController {
                 throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Production profile (prod) requires a secure, non-demo NETRA_ADMIN_TOKEN to be configured!");
             }
         }
+    }
+
+    /**
+     * Inspects whether dashboard password protection is enabled and verifies session validity.
+     */
+    @GetMapping("/auth/ui-config")
+    public ResponseEntity<Map<String, Object>> getUiAuthConfig(
+            HttpServletRequest request,
+            @RequestHeader(value = "X-Netra-UI-Session", required = false) String sessionHeader
+    ) {
+        String configuredPassword = configProperties.getUiPassword();
+        boolean passwordRequired = configuredPassword != null && !configuredPassword.isBlank();
+        if (!passwordRequired) {
+            return ResponseEntity.ok(Map.of("password_required", false, "authenticated", true));
+        }
+        boolean authenticated = isUiSessionValid(request, sessionHeader);
+        return ResponseEntity.ok(Map.of("password_required", true, "authenticated", authenticated));
+    }
+
+    /**
+     * Authenticates the user against NETRA_UI_PASSWORD and issues an HTTP-only session cookie.
+     */
+    @PostMapping("/auth/ui-login")
+    public ResponseEntity<Map<String, Object>> loginUi(
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        String clientIp = extractClientIp(request);
+        Integer attempts = failedLoginAttempts.getIfPresent(clientIp);
+        if (attempts != null && attempts >= 5) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("error", "rate_limited", "message", "Too many failed login attempts. Please wait 5 minutes before trying again."));
+        }
+
+        String configuredPassword = configProperties.getUiPassword();
+        if (configuredPassword == null || configuredPassword.isBlank()) {
+            return ResponseEntity.ok(Map.of("status", "authenticated", "password_required", false));
+        }
+        String password = body != null ? body.get("password") : null;
+        if (password == null || !MessageDigest.isEqual(configuredPassword.getBytes(StandardCharsets.UTF_8), password.getBytes(StandardCharsets.UTF_8))) {
+            int current = attempts == null ? 1 : attempts + 1;
+            failedLoginAttempts.put(clientIp, current);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "invalid_password", "message", "Invalid UI dashboard password"));
+        }
+
+        // Successful login: clear failed attempts
+        failedLoginAttempts.invalidate(clientIp);
+
+        String sessionToken = "netra_ui_" + UUID.randomUUID().toString().replace("-", "");
+        uiSessionCache.put(sessionToken, Instant.now());
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.opsForValue().set("netra:ui:session:" + sessionToken, "valid", Duration.ofHours(24));
+            } catch (Exception ignored) {}
+        }
+        ResponseCookie cookie = ResponseCookie.from("netra_ui_session", sessionToken)
+                .path("/")
+                .httpOnly(true)
+                .sameSite("Lax")
+                .maxAge(Duration.ofHours(24))
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        return ResponseEntity.ok(Map.of("status", "authenticated", "session_token", sessionToken));
+    }
+
+    /**
+     * Logs out the user and invalidates the session token.
+     */
+    @PostMapping("/auth/ui-logout")
+    public ResponseEntity<Map<String, Object>> logoutUi(
+            HttpServletRequest request,
+            @RequestHeader(value = "X-Netra-UI-Session", required = false) String sessionHeader,
+            HttpServletResponse response
+    ) {
+        String token = extractUiSessionToken(request, sessionHeader);
+        if (token != null) {
+            uiSessionCache.invalidate(token);
+            if (redisTemplate != null) {
+                try {
+                    redisTemplate.delete("netra:ui:session:" + token);
+                } catch (Exception ignored) {}
+            }
+        }
+        ResponseCookie cookie = ResponseCookie.from("netra_ui_session", "")
+                .path("/")
+                .httpOnly(true)
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        return ResponseEntity.ok(Map.of("status", "logged_out"));
+    }
+
+    private boolean isUiSessionValid(HttpServletRequest request, String sessionHeader) {
+        String token = extractUiSessionToken(request, sessionHeader);
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        // In multi-node deployments with Redis, Redis is the shared source of truth
+        if (redisTemplate != null) {
+            try {
+                Boolean exists = redisTemplate.hasKey("netra:ui:session:" + token);
+                if (Boolean.FALSE.equals(exists)) {
+                    uiSessionCache.invalidate(token);
+                    return false;
+                }
+                if (Boolean.TRUE.equals(exists)) {
+                    uiSessionCache.put(token, Instant.now());
+                    return true;
+                }
+            } catch (Exception ex) {
+                log.debug("Redis UI session lookup fallback: {}", ex.getMessage());
+            }
+        }
+        return uiSessionCache.getIfPresent(token) != null;
+    }
+
+    private String extractUiSessionToken(HttpServletRequest request, String sessionHeader) {
+        if (sessionHeader != null && !sessionHeader.isBlank()) {
+            return sessionHeader.trim();
+        }
+        if (request != null && request.getCookies() != null) {
+            for (Cookie c : request.getCookies()) {
+                if ("netra_ui_session".equals(c.getName())) {
+                    return c.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    private String extractClientIp(HttpServletRequest request) {
+        if (request == null) return "unknown";
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr() != null ? request.getRemoteAddr() : "unknown";
     }
 
     /**

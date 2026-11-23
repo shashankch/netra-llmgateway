@@ -59,6 +59,7 @@ Every completion response emitted by NETRA strictly carries canonical `x-netra-*
 | `x-netra-route-reason` | Decision rationale applied by the model router | `auto -> smart (score +3.5)` |
 | `x-netra-retries` | Number of upstream network retries absorbed before success | `0` |
 | `x-netra-escalated` | Indicates if small-model refusal was auto-escalated | `true` |
+| `x-netra-cached-tokens` | Number of provider prompt cached tokens (50% input discount) | `1024` |
 
 ### Standardized IETF RateLimit Headers
 

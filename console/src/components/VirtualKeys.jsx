@@ -509,7 +509,17 @@ export default function VirtualKeys({ adminToken = 'netra-admin-demo', onOpenAdm
                             <span>Sim &ge; {k.similarity_threshold}</span>
                           </span>
                         ) : (
-                          <span className="badge badge-neutral" style={{ fontSize: '0.6875rem' }}>Bypassed</span>
+                          <span 
+                            className="badge font-mono" 
+                            style={{ 
+                              fontSize: '0.6875rem', 
+                              background: 'rgba(245, 158, 11, 0.12)', 
+                              color: 'var(--accent-amber, #f59e0b)', 
+                              border: '1px solid rgba(245, 158, 11, 0.3)' 
+                            }}
+                          >
+                            Bypassed
+                          </span>
                         )}
                       </td>
 

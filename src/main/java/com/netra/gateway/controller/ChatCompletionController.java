@@ -6,6 +6,7 @@ import com.netra.gateway.exception.InvalidRequestException;
 import com.netra.gateway.exception.UpstreamException;
 import com.netra.gateway.model.dto.ChatCompletionRequest;
 import com.netra.gateway.model.dto.ChatCompletionResponse;
+import com.netra.gateway.model.dto.ChatMessage;
 import com.netra.gateway.model.entity.Tenant;
 import com.netra.gateway.service.AdmissionResult;
 import com.netra.gateway.service.AdmissionService;
@@ -45,6 +46,7 @@ public class ChatCompletionController {
     private final AuditLogService auditLogService;
     private final StreamingRelayService streamingRelayService;
     private final SemanticCacheService semanticCacheService;
+    private final com.netra.gateway.telemetry.OpenTelemetryGenAiService oTelService;
     @Autowired(required = false)
     private RefusalEscalationService refusalEscalationService;
 
@@ -64,6 +66,10 @@ public class ChatCompletionController {
         String requestedModel = request != null ? request.getModel() : null;
         boolean isStream = request != null && Boolean.TRUE.equals(request.getStream());
 
+        com.netra.gateway.telemetry.W3cTraceContext traceContext = oTelService != null
+                ? oTelService.extractOrCreateTraceContext(servletRequest)
+                : com.netra.gateway.telemetry.W3cTraceContext.generateNew(null);
+
         // Java 25 Scoped Values RequestContext (JEP 506): zero-allocation, immutable context propagation
         RequestContext initialContext = new RequestContext(
                 requestId,
@@ -73,7 +79,8 @@ public class ChatCompletionController {
                 requestedModel,
                 null,
                 startTime,
-                isStream
+                isStream,
+                traceContext
         );
 
         try {
@@ -99,8 +106,11 @@ public class ChatCompletionController {
                     throw new InvalidRequestException("temperature must be between 0.0 and 2.0 (got " + request.getTemperature() + ")");
                 }
 
+                // Estimate prompt tokens for sliding-window TPM reservation
+                int estimatedTokens = estimatePromptTokens(request);
+
                 // Bind authenticated tenant into the ScopedValue hierarchy
-                RequestContext tenantContext = initialContext.withTenant(tenant);
+                RequestContext tenantContext = initialContext.withTenant(tenant).withEstimatedTokens(estimatedTokens);
                 return ScopedValue.where(RequestContext.CURRENT, tenantContext).call(() -> {
                     // 3. Resolve Candidate Chain (Primary + Fallbacks; runs Prompt Difficulty Classifier for 'auto')
                     UpstreamClientService.CandidateChain chain = upstreamClientService.resolveCandidateChain(request.getModel(), request.getMessages());
@@ -108,7 +118,7 @@ public class ChatCompletionController {
                     // 4. Enforce Model Allowlist (Returns 403 if not permitted for this key)
                     authService.validateModelAllowed(tenant, request.getModel());
 
-                    // 5. Atomic Redis Lua Admission Check (Zero Over-Admission Guarantee)
+                    // 5. Atomic Redis Lua Admission Check with In-Flight Token Reservation (Zero Over-Admission Guarantee)
                     AdmissionResult admission = admissionService.checkAdmission(tenant, requestId);
                     if (admission == null) {
                         admission = AdmissionResult.defaultAdmitted(tenant.getRpmLimit());
@@ -121,9 +131,6 @@ public class ChatCompletionController {
                             : request.getModel();
                     Optional<CacheHitResult> cacheHitOpt =
                             semanticCacheService.lookup(tenant, effectiveCacheModel, request.getMessages());
-                    if (cacheHitOpt.isEmpty() && "auto".equalsIgnoreCase(request.getModel())) {
-                        cacheHitOpt = semanticCacheService.lookup(tenant, "auto", request.getMessages());
-                    }
 
                     if (cacheHitOpt.isPresent()) {
                         CacheHitResult cacheHit = cacheHitOpt.get();
@@ -187,6 +194,7 @@ public class ChatCompletionController {
         boolean isEscalated = false;
         int initialPromptTokens = 0;
         int initialCompletionTokens = 0;
+        int initialCachedTokens = 0;
         BigDecimal initialCost = BigDecimal.ZERO;
 
         if (refusalEscalationService != null
@@ -198,8 +206,11 @@ public class ChatCompletionController {
                     log.info("Refusal marker detected from cheap model [{}]. Auto-escalating to smart tier...", result.getResolvedModel());
                     int prevPromptTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
                     int prevCompletionTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+                    int prevCachedTokens = response.getUsage() != null ? response.getUsage().getCachedTokens() : 0;
                     String prevAccountingModel = result.getCatalogModel() != null ? result.getCatalogModel() : result.getResolvedModel();
-                    BigDecimal prevCost = costService.calculateCost(prevAccountingModel, prevPromptTokens, prevCompletionTokens);
+                    BigDecimal prevCost = prevCachedTokens > 0
+                            ? costService.calculateCost(prevAccountingModel, prevPromptTokens, prevCompletionTokens, prevCachedTokens)
+                            : costService.calculateCost(prevAccountingModel, prevPromptTokens, prevCompletionTokens);
 
                     UpstreamClientService.UpstreamResult escalatedResult = refusalEscalationService.escalate(request);
                     if (escalatedResult != null && escalatedResult.getStatusCode() < 400 && escalatedResult.getResponse() != null) {
@@ -207,6 +218,7 @@ public class ChatCompletionController {
                         response = result.getResponse();
                         initialPromptTokens = prevPromptTokens;
                         initialCompletionTokens = prevCompletionTokens;
+                        initialCachedTokens = prevCachedTokens;
                         initialCost = prevCost;
                         isEscalated = true;
                     } else {
@@ -217,6 +229,7 @@ public class ChatCompletionController {
                     log.warn("Auto-escalation attempt failed, proceeding with original response: {}", escEx.getMessage());
                     initialPromptTokens = 0;
                     initialCompletionTokens = 0;
+                    initialCachedTokens = 0;
                     initialCost = BigDecimal.ZERO;
                     isEscalated = false;
                 }
@@ -228,12 +241,19 @@ public class ChatCompletionController {
         long latencyMs = System.currentTimeMillis() - startTime;
         int finalPromptTokens = response.getUsage() != null ? response.getUsage().getPromptTokens() : 0;
         int finalCompletionTokens = response.getUsage() != null ? response.getUsage().getCompletionTokens() : 0;
+        int finalCachedTokens = response.getUsage() != null ? response.getUsage().getCachedTokens() : 0;
         int promptTokens = finalPromptTokens + initialPromptTokens;
         int completionTokens = finalCompletionTokens + initialCompletionTokens;
+        int cachedTokens = finalCachedTokens + initialCachedTokens;
 
-        // Compute Cost (escalated smart model cost + initial small model cost)
+        // Compute Cost (escalated smart model cost + initial small model cost with prompt caching discount)
         String accountingModel = result.getCatalogModel() != null ? result.getCatalogModel() : result.getResolvedModel();
-        BigDecimal finalCost = costService.calculateCost(accountingModel, finalPromptTokens, finalCompletionTokens);
+        BigDecimal finalCost = finalCachedTokens > 0
+                ? costService.calculateCost(accountingModel, finalPromptTokens, finalCompletionTokens, finalCachedTokens)
+                : costService.calculateCost(accountingModel, finalPromptTokens, finalCompletionTokens);
+        if (finalCost == null) {
+            finalCost = BigDecimal.ZERO;
+        }
         BigDecimal cost = initialCost.add(finalCost);
         String costFormatted = costService.formatCostHeader(cost);
         String providerHeader = result.getResolvedProvider() + "/" + result.getResolvedModel();
@@ -246,6 +266,7 @@ public class ChatCompletionController {
         headers.set("x-netra-cache", cacheHeader);
         headers.set("x-netra-fallback", fallbackHeader);
         headers.set("x-netra-cost-usd", costFormatted);
+        headers.set("x-netra-cached-tokens", String.valueOf(cachedTokens));
         if (result.getRouteReason() != null) {
             headers.set("x-netra-route-reason", result.getRouteReason());
         }
@@ -259,6 +280,12 @@ public class ChatCompletionController {
             headers.set("RateLimit-Remaining", String.valueOf(admission.remaining()));
             headers.set("RateLimit-Reset", String.valueOf(admission.resetSeconds()));
             headers.set("RateLimit-Policy", admission.policy());
+        }
+
+        com.netra.gateway.telemetry.W3cTraceContext traceCtx = RequestContext.currentTraceContext();
+        if (oTelService != null && traceCtx != null) {
+            oTelService.injectResponseHeaders(headers, traceCtx);
+            oTelService.recordChatCompletion(traceCtx, result.getResolvedProvider(), request.getModel(), result.getResolvedModel(), promptTokens, completionTokens, cachedTokens, latencyMs, 0, false, cacheHeader, 200);
         }
 
         // Async audit log & monthly spend update
@@ -281,7 +308,8 @@ public class ChatCompletionController {
                 false,
                 null,
                 isEscalated,
-                null
+                null,
+                cachedTokens
         );
 
         // Store non-refusal response into semantic cache under the concrete/effective model tier
@@ -319,6 +347,7 @@ public class ChatCompletionController {
         headers.set("x-netra-cache-tier", cacheHit.cacheTier() != null ? cacheHit.cacheTier() : "tier2_semantic");
         headers.set("x-netra-fallback", "false");
         headers.set("x-netra-cost-usd", "0.000000");
+        headers.set("x-netra-cached-tokens", "0");
         headers.set("x-netra-route-reason", "semantic_cache_hit");
         headers.set("x-netra-retries", "0");
 
@@ -331,6 +360,12 @@ public class ChatCompletionController {
 
         String resolvedProvider = providerHeader.contains("/") ? providerHeader.split("/")[0] : providerHeader;
         String resolvedModel = response != null && response.getModel() != null ? response.getModel() : request.getModel();
+
+        com.netra.gateway.telemetry.W3cTraceContext traceCtx = RequestContext.currentTraceContext();
+        if (oTelService != null && traceCtx != null) {
+            oTelService.injectResponseHeaders(headers, traceCtx);
+            oTelService.recordChatCompletion(traceCtx, resolvedProvider, request.getModel(), resolvedModel, promptTokens, completionTokens, 0, latencyMs, 0, false, "hit", 200);
+        }
 
         recordAuditAndSpend(
                 requestId,
@@ -351,7 +386,8 @@ public class ChatCompletionController {
                 false,
                 null,
                 false,
-                cacheHit.cacheTier()
+                cacheHit.cacheTier(),
+                0
         );
 
         return ResponseEntity.ok()
@@ -380,6 +416,33 @@ public class ChatCompletionController {
             boolean escalated,
             String cacheTier
     ) {
+        recordAuditAndSpend(requestId, virtualKey, requestedModel, resolvedProvider, resolvedModel,
+                status, statusCode, promptTokens, completionTokens, cost, cache, fallback, routeReason,
+                retries, latencyMs, isStream, errorType, escalated, cacheTier, 0);
+    }
+
+    private void recordAuditAndSpend(
+            String requestId,
+            String virtualKey,
+            String requestedModel,
+            String resolvedProvider,
+            String resolvedModel,
+            String status,
+            int statusCode,
+            int promptTokens,
+            int completionTokens,
+            BigDecimal cost,
+            String cache,
+            boolean fallback,
+            String routeReason,
+            int retries,
+            long latencyMs,
+            boolean isStream,
+            String errorType,
+            boolean escalated,
+            String cacheTier,
+            int cachedTokens
+    ) {
         RequestContext ctx = RequestContext.get();
         Runnable task = () -> {
             try {
@@ -402,7 +465,8 @@ public class ChatCompletionController {
                         isStream,
                         errorType,
                         escalated,
-                        cacheTier
+                        cacheTier,
+                        cachedTokens
                 );
             } catch (Exception e) {
                 log.error("Failed to persist request log for [{}]: {}", requestId, e.getMessage());
@@ -435,8 +499,43 @@ public class ChatCompletionController {
             } catch (Exception e) {
                 log.warn("Failed to record rejection log for [{}]: {}", requestId, e.getMessage());
             }
+            if (oTelService != null) {
+                try {
+                    com.netra.gateway.telemetry.W3cTraceContext traceCtx = ctx != null ? ctx.traceContext() : RequestContext.currentTraceContext();
+                    oTelService.recordChatCompletion(
+                            traceCtx,
+                            "none",
+                            requestedModel,
+                            "error",
+                            0,
+                            0,
+                            0,
+                            latencyMs,
+                            0,
+                            isStream,
+                            "none",
+                            statusCode
+                    );
+                } catch (Exception ignored) {}
+            }
         };
         Thread.ofVirtual().name("rejection-log-", 0).start(ctx != null ? ctx.wrap(task) : task);
+    }
+
+    public static int estimatePromptTokens(ChatCompletionRequest request) {
+        if (request == null || request.getMessages() == null) {
+            return 0;
+        }
+        int tokens = 0;
+        for (ChatMessage msg : request.getMessages()) {
+            if (msg.getContent() != null) {
+                String str = msg.getContent().toString();
+                if (!str.isBlank()) {
+                    tokens += Math.max(1, (int) Math.ceil(str.length() / 4.0));
+                }
+            }
+        }
+        return Math.max(1, tokens);
     }
 
     private String extractVirtualKey(String authHeader) {

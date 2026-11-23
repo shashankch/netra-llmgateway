@@ -41,19 +41,21 @@ export default function PlaygroundControls({
   const catalogModels = (catalog?.models || [])
     .map(m => m.model)
     .flatMap(s => (typeof s === 'string' ? s.split(',') : [s]))
-    .map(s => String(s).trim().replace(/^[a-zA-Z0-9_-]+:/, ''))
+    .map(s => String(s).trim())
     .filter(Boolean);
 
-  const fastTargetModel = catalog?.aliases?.fast?.primary ? catalog.aliases.fast.primary.replace(/^[a-zA-Z0-9_-]+:/, '').trim() : null;
-  const smartTargetModel = catalog?.aliases?.smart?.primary ? catalog.aliases.smart.primary.replace(/^[a-zA-Z0-9_-]+:/, '').trim() : null;
+  const fastTargetModel = catalog?.aliases?.fast?.primary ? catalog.aliases.fast.primary.trim() : null;
+  const smartTargetModel = catalog?.aliases?.smart?.primary ? catalog.aliases.smart.primary.trim() : null;
 
   const aliasFallbackModels = [
     ...(catalog?.aliases?.fast?.fallbacks || []),
     ...(catalog?.aliases?.smart?.fallbacks || [])
   ]
     .flatMap(s => (typeof s === 'string' ? s.split(',') : [s]))
-    .map(s => String(s).trim().replace(/^[a-zA-Z0-9_-]+:/, ''))
+    .map(s => String(s).trim())
     .filter(Boolean);
+
+  const formatModelLabel = (m) => (m && m.includes(':') && !['fast', 'smart', 'auto'].includes(m) ? m.replace(/^[a-zA-Z0-9_-]+:/, '') : m);
 
   const availableConcreteModels = Array.from(new Set([
     ...(fastTargetModel ? [fastTargetModel] : []),
@@ -63,6 +65,10 @@ export default function PlaygroundControls({
   ])).filter(m => !['fast', 'smart', 'auto'].includes(m));
 
   const keyAllowlist = currentKeyObj?.model_allowlist || [];
+  const isAllowed = (m) => {
+    if (!keyAllowlist || keyAllowlist.length === 0) return true;
+    return keyAllowlist.some(allowed => allowed === m || m.endsWith(':' + allowed) || allowed.endsWith(':' + m));
+  };
   const activeTemplate = BENCHMARK_PROMPT_TEMPLATES.find(t => t.text === prompt);
   const isCustomPrompt = !activeTemplate && prompt.trim().length > 0;
 
@@ -298,23 +304,23 @@ export default function PlaygroundControls({
             <option value="">— Use Router Alias Above ({model}) —</option>
             {availableConcreteModels.length > 0 ? (
               <>
-                {keyAllowlist.length > 0 && availableConcreteModels.some(m => keyAllowlist.includes(m)) && (
+                {keyAllowlist.length > 0 && availableConcreteModels.some(isAllowed) && (
                   <optgroup label="Allowed for Current Key">
-                    {availableConcreteModels.filter(m => keyAllowlist.includes(m)).map(m => (
-                      <option key={m} value={m}>{m}</option>
+                    {availableConcreteModels.filter(isAllowed).map(m => (
+                      <option key={m} value={m}>{formatModelLabel(m)}</option>
                     ))}
                   </optgroup>
                 )}
                 <optgroup label={keyAllowlist.length > 0 ? "All Configured Upstream Models" : "Available Models"}>
-                  {availableConcreteModels.filter(m => !keyAllowlist.includes(m)).map(m => (
-                    <option key={m} value={m}>{m}</option>
+                  {availableConcreteModels.filter(m => keyAllowlist.length === 0 || !isAllowed(m)).map(m => (
+                    <option key={m} value={m}>{formatModelLabel(m)}</option>
                   ))}
                 </optgroup>
               </>
             ) : (
               <optgroup label="Upstream Production Models">
                 {DEFAULT_UPSTREAM_MODELS.map(m => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>{formatModelLabel(m)}</option>
                 ))}
               </optgroup>
             )}

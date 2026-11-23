@@ -360,17 +360,6 @@ export default function PlaygroundResponsePane({
               {errorInfo?.message || (telemetry?.status === 403 ? 'Access Forbidden: Virtual key rejected, tenant deactivated, or unauthorized for the requested model tier.' : `Inference request returned HTTP status ${telemetry?.status}.`)}
             </div>
             {errorInfo?.code && <div className="font-mono" style={{ fontSize: '0.75rem' }}>Code: {errorInfo.code}</div>}
-            <div style={{ marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={handleClearOutput}
-                className="btn btn-outline btn-sm font-mono"
-                style={{ padding: '0.25rem 0.65rem', height: 26, fontSize: '0.72rem', color: 'var(--text-secondary)' }}
-              >
-                <Trash2 size={12} />
-                <span>Dismiss Error</span>
-              </button>
-            </div>
           </div>
         ) : responseContent ? (
           viewMode === 'markdown' ? (

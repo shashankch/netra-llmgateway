@@ -89,6 +89,9 @@ class ChatCompletionContractTest {
     @MockitoBean
     private RefusalEscalationService refusalEscalationService;
 
+    @MockitoBean
+    private com.netra.gateway.telemetry.OpenTelemetryGenAiService oTelService;
+
     private Tenant searchTenant;
 
     @BeforeEach

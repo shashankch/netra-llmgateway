@@ -34,6 +34,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -53,6 +54,7 @@ public class StreamingRelayService {
     private final AuditLogService auditLogService;
     private final SemanticCacheService semanticCacheService;
     private final ProviderCircuitBreakerService circuitBreakerService;
+    private final com.netra.gateway.telemetry.OpenTelemetryGenAiService oTelService;
 
     // 120s timeout for deep reasoning and long-context streaming
     private static final long STREAM_TIMEOUT_MS = 120_000L;
@@ -65,7 +67,7 @@ public class StreamingRelayService {
             AdmissionService admissionService,
             AuditLogService auditLogService
     ) {
-        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, null, null);
+        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, null, null, null);
     }
 
     public StreamingRelayService(
@@ -77,7 +79,20 @@ public class StreamingRelayService {
             AuditLogService auditLogService,
             SemanticCacheService semanticCacheService
     ) {
-        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, semanticCacheService, null);
+        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, semanticCacheService, null, null);
+    }
+
+    public StreamingRelayService(
+            HttpClient httpClient,
+            ObjectMapper objectMapper,
+            GatewayConfigProperties configProperties,
+            CostCalculationService costService,
+            AdmissionService admissionService,
+            AuditLogService auditLogService,
+            SemanticCacheService semanticCacheService,
+            ProviderCircuitBreakerService circuitBreakerService
+    ) {
+        this(httpClient, objectMapper, configProperties, costService, admissionService, auditLogService, semanticCacheService, circuitBreakerService, null);
     }
 
     @Autowired
@@ -89,7 +104,8 @@ public class StreamingRelayService {
             AdmissionService admissionService,
             AuditLogService auditLogService,
             @Lazy SemanticCacheService semanticCacheService,
-            @Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService
+            @Autowired(required = false) ProviderCircuitBreakerService circuitBreakerService,
+            @Autowired(required = false) com.netra.gateway.telemetry.OpenTelemetryGenAiService oTelService
     ) {
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
@@ -99,6 +115,7 @@ public class StreamingRelayService {
         this.auditLogService = auditLogService;
         this.semanticCacheService = semanticCacheService;
         this.circuitBreakerService = circuitBreakerService;
+        this.oTelService = oTelService;
     }
 
     /**
@@ -155,8 +172,17 @@ public class StreamingRelayService {
         servletResponse.setHeader("x-netra-cache-tier", cacheHit.cacheTier() != null ? cacheHit.cacheTier() : "tier2_semantic");
         servletResponse.setHeader("x-netra-fallback", "false");
         servletResponse.setHeader("x-netra-cost-usd", "0.000000");
+        servletResponse.setHeader("x-netra-cached-tokens", "0");
         servletResponse.setHeader("x-netra-route-reason", "semantic_cache_hit");
         servletResponse.setHeader("x-netra-retries", "0");
+
+        com.netra.gateway.telemetry.W3cTraceContext traceCtx = com.netra.gateway.context.RequestContext.currentTraceContext();
+        if (traceCtx != null) {
+            servletResponse.setHeader("traceparent", traceCtx.asTraceparent());
+            if (traceCtx.getTraceState() != null && !traceCtx.getTraceState().isBlank()) {
+                servletResponse.setHeader("tracestate", traceCtx.getTraceState());
+            }
+        }
         if (admission != null) {
             servletResponse.setHeader("RateLimit-Limit", String.valueOf(admission.limit()));
             servletResponse.setHeader("RateLimit-Remaining", String.valueOf(admission.remaining()));
@@ -269,6 +295,11 @@ public class StreamingRelayService {
                         false,
                         cacheHit.cacheTier() != null ? cacheHit.cacheTier() : "tier2_semantic"
                 );
+
+                if (oTelService != null && traceCtx != null) {
+                    String prov = providerHeader != null && providerHeader.contains("/") ? providerHeader.split("/")[0] : "cache";
+                    oTelService.recordChatCompletion(traceCtx, prov, request.getModel(), model, promptTokens, completionTokens, 0, latencyMs, 0, true, "hit", 200);
+                }
             } catch (Exception e) {
                 log.warn("Error during SSE cache replay: {}", e.getMessage());
                 emitter.completeWithError(e);
@@ -310,6 +341,8 @@ public class StreamingRelayService {
         int totalRetries = 0;
         long chainStartTime = System.currentTimeMillis();
         long maxChainTimeoutMs = configProperties.getRetry().getMaxChainTimeoutMs();
+        long requestStartNanos = System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(Math.max(0, System.currentTimeMillis() - startTime));
+        long connectedTargetStartNanos = requestStartNanos;
 
         // Multi-provider connection attempt with retries and failover
         for (int i = 0; i < chain.targets().size(); i++) {
@@ -360,6 +393,15 @@ public class StreamingRelayService {
                 reqBuilder.header("Authorization", "Bearer " + providerConfig.getApiKey());
             }
 
+            com.netra.gateway.telemetry.W3cTraceContext traceCtx = com.netra.gateway.context.RequestContext.currentTraceContext();
+            if (traceCtx != null) {
+                com.netra.gateway.telemetry.W3cTraceContext child = traceCtx.createChildSpan();
+                reqBuilder.header("traceparent", child.asTraceparent());
+                if (child.getTraceState() != null && !child.getTraceState().isBlank()) {
+                    reqBuilder.header("tracestate", child.getTraceState());
+                }
+            }
+
             int maxAttempts = configProperties.getRetry().getMaxAttempts();
             long initialBackoff = configProperties.getRetry().getInitialBackoffMs();
             double multiplier = configProperties.getRetry().getBackoffMultiplier();
@@ -390,6 +432,7 @@ public class StreamingRelayService {
                     if (resp.statusCode() == 200) {
                         upstreamStream = resp.body();
                         connectedTarget = candidate;
+                        connectedTargetStartNanos = startNanos;
                         break;
                     } else {
                         // Close unconsumed upstream response stream to prevent connection leak
@@ -515,6 +558,13 @@ public class StreamingRelayService {
             servletResponse.setHeader("x-netra-route-reason", connectedTarget.routeReason());
         }
         servletResponse.setHeader("x-netra-retries", String.valueOf(totalRetries));
+        com.netra.gateway.telemetry.W3cTraceContext traceCtx = com.netra.gateway.context.RequestContext.currentTraceContext();
+        if (traceCtx != null) {
+            servletResponse.setHeader("traceparent", traceCtx.asTraceparent());
+            if (traceCtx.getTraceState() != null && !traceCtx.getTraceState().isBlank()) {
+                servletResponse.setHeader("tracestate", traceCtx.getTraceState());
+            }
+        }
         // Dynamic IETF RateLimit protocol headers from Redis token-bucket admission
         if (admission != null) {
             servletResponse.setHeader("RateLimit-Limit", String.valueOf(admission.limit()));
@@ -568,11 +618,14 @@ public class StreamingRelayService {
 
         // Launch unbuffered stream pump on dedicated Java 25 Virtual Thread
         RequestContext relayContext = RequestContext.get();
+        final long candidateConnectStartNanos = connectedTargetStartNanos;
         Runnable relayTask = () -> {
             long streamStartTimeNanos = System.nanoTime();
             long firstChunkLatencyNanos = 0;
+            long providerFirstChunkNanos = 0;
             int promptTokens = 0;
             int completionTokens = 0;
+            int cachedTokens = 0;
             int inferredCompletionTokens = 0;
             StringBuilder fullContent = new StringBuilder();
             boolean sawDone = false;
@@ -618,6 +671,12 @@ public class StreamingRelayService {
                                         if (usageNode.has("completion_tokens")) {
                                             completionTokens = usageNode.get("completion_tokens").asInt();
                                         }
+                                        if (usageNode.has("prompt_tokens_details")) {
+                                            JsonNode details = usageNode.get("prompt_tokens_details");
+                                            if (details.has("cached_tokens")) {
+                                                cachedTokens = details.get("cached_tokens").asInt();
+                                            }
+                                        }
                                     }
 
                                     // Count words in delta content and stop TTFT timer on the first non-empty output delta
@@ -650,9 +709,11 @@ public class StreamingRelayService {
                                                     }
                                                 }
 
-                                                // Record TTFT at the first non-empty output delta (empty role headers do not count as output)
+                                                // Record TTFT at the first non-empty output delta measured from initial request entry
                                                 if (hasNonEmptyOutput && firstChunkLatencyNanos == 0) {
-                                                    firstChunkLatencyNanos = System.nanoTime() - streamStartTimeNanos;
+                                                    long now = System.nanoTime();
+                                                    firstChunkLatencyNanos = now - requestStartNanos;
+                                                    providerFirstChunkNanos = now - candidateConnectStartNanos;
                                                 }
                                             }
                                         }
@@ -675,7 +736,7 @@ public class StreamingRelayService {
                     errorType = "stream_severed";
                     if (permitHandled.compareAndSet(false, true)) {
                         if (circuitBreakerService != null && targetSettlement != null) {
-                            circuitBreakerService.recordError(targetSettlement.providerName(), System.nanoTime() - streamStartTimeNanos,
+                            circuitBreakerService.recordError(targetSettlement.providerName(), System.nanoTime() - candidateConnectStartNanos,
                                     new UpstreamException(502, "Upstream stream severed prematurely"));
                         }
                     }
@@ -687,10 +748,12 @@ public class StreamingRelayService {
                 } else {
                     if (permitHandled.compareAndSet(false, true)) {
                         if (circuitBreakerService != null && targetSettlement != null) {
-                            // Measure provider responsiveness (TTFT / wait for output) so long healthy streams do not breach 5s slow-call threshold
-                            long waitDurationNanos = firstChunkLatencyNanos > 0
-                                    ? firstChunkLatencyNanos
-                                    : (System.nanoTime() - streamStartTimeNanos);
+                            // Measure provider responsiveness (wait for first output from connect start) so long healthy streams do not breach 5s slow-call threshold
+                            long waitDurationNanos = providerFirstChunkNanos > 0
+                                    ? providerFirstChunkNanos
+                                    : (firstChunkLatencyNanos > 0
+                                            ? firstChunkLatencyNanos
+                                            : (System.nanoTime() - streamStartTimeNanos));
                             circuitBreakerService.recordSuccess(targetSettlement.providerName(), waitDurationNanos);
                         }
                     }
@@ -709,7 +772,7 @@ public class StreamingRelayService {
                     errorType = "stream_error";
                     if (permitHandled.compareAndSet(false, true)) {
                         if (circuitBreakerService != null && targetSettlement != null) {
-                            circuitBreakerService.recordError(targetSettlement.providerName(), System.nanoTime() - streamStartTimeNanos, e);
+                            circuitBreakerService.recordError(targetSettlement.providerName(), System.nanoTime() - candidateConnectStartNanos, e);
                         }
                     }
                     emitter.completeWithError(e);
@@ -748,30 +811,66 @@ public class StreamingRelayService {
                 boolean fallbackFlag = targetSettlement != null && targetSettlement.fallback();
                 String routeReason = targetSettlement != null ? targetSettlement.routeReason() : chain.routeReason();
 
-                BigDecimal cost = (completionTokens > 0 || "ok".equals(status)) && targetSettlement != null
-                        ? costService.calculateCost(targetSettlement.accountingModel(), promptTokens, completionTokens)
-                        : BigDecimal.ZERO;
+                BigDecimal cost = BigDecimal.ZERO;
+                if ((completionTokens > 0 || "ok".equals(status)) && targetSettlement != null) {
+                    cost = cachedTokens > 0
+                            ? costService.calculateCost(targetSettlement.accountingModel(), promptTokens, completionTokens, cachedTokens)
+                            : costService.calculateCost(targetSettlement.accountingModel(), promptTokens, completionTokens);
+                    if (cost == null) {
+                        cost = BigDecimal.ZERO;
+                    }
+                }
 
                 // Post-stream financial settlement & audit logging
-                auditLogService.recordAuditAndSpend(
-                        requestId,
-                        tenant.getVirtualKey(),
-                        request.getModel(),
-                        providerName,
-                        modelName,
-                        status,
-                        statusCode,
-                        promptTokens,
-                        completionTokens,
-                        cost,
-                        "miss",
-                        fallbackFlag,
-                        routeReason,
-                        retriesSettlement,
-                        latencyMs,
-                        true,
-                        errorType
-                );
+                if (cachedTokens > 0) {
+                    auditLogService.recordAuditAndSpend(
+                            requestId,
+                            tenant.getVirtualKey(),
+                            request.getModel(),
+                            providerName,
+                            modelName,
+                            status,
+                            statusCode,
+                            promptTokens,
+                            completionTokens,
+                            cost,
+                            "miss",
+                            fallbackFlag,
+                            routeReason,
+                            retriesSettlement,
+                            latencyMs,
+                            true,
+                            errorType,
+                            false,
+                            null,
+                            cachedTokens
+                    );
+                } else {
+                    auditLogService.recordAuditAndSpend(
+                            requestId,
+                            tenant.getVirtualKey(),
+                            request.getModel(),
+                            providerName,
+                            modelName,
+                            status,
+                            statusCode,
+                            promptTokens,
+                            completionTokens,
+                            cost,
+                            "miss",
+                            fallbackFlag,
+                            routeReason,
+                            retriesSettlement,
+                            latencyMs,
+                            true,
+                            errorType
+                    );
+                }
+
+                if (oTelService != null && traceCtx != null) {
+                    long ttftMs = firstChunkLatencyNanos > 0 ? TimeUnit.NANOSECONDS.toMillis(firstChunkLatencyNanos) : 0;
+                    oTelService.recordChatCompletion(traceCtx, providerName, request.getModel(), modelName, promptTokens, completionTokens, cachedTokens, latencyMs, ttftMs, true, "miss", statusCode);
+                }
 
                 // Store successful stream response in semantic cache
                 if (sawDone && "ok".equals(status) && fullContent.length() > 0 && semanticCacheService != null) {

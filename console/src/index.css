@@ -367,9 +367,12 @@ button[disabled] * {
 }
 
 /* Form Controls */
-.input-text, .select-input, .textarea-input {
+.input-text, .select-input, .textarea-input, .input-full {
   width: 100%;
-  background: var(--bg-canvas);
+}
+
+.input, .input-text, .select-input, .textarea-input, select, input[type="text"], textarea {
+  background: var(--bg-canvas) !important;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
@@ -378,11 +381,21 @@ button[disabled] * {
   font-size: 0.875rem;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
 }
 
-.input-text:focus, .select-input:focus, .textarea-input:focus {
+select {
+  width: auto;
+}
+
+.input:focus, .input-text:focus, .select-input:focus, .textarea-input:focus, select:focus, input[type="text"]:focus, textarea:focus {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 2px var(--accent-primary-subtle);
+}
+
+select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 /* Badges */
@@ -577,6 +590,7 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 td {
@@ -584,6 +598,11 @@ td {
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+td[colspan] {
+  white-space: normal;
 }
 
 tr:last-child td {
@@ -1264,6 +1283,16 @@ body.modal-open {
   height: clamp(520px, calc(100vh - 290px), 700px);
 }
 
+/* Dual Model A/B Compare Grid */
+.dual-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: stretch;
+  min-height: 480px;
+  height: clamp(480px, calc(100vh - 430px), 720px);
+}
+
 /* Custom internal scrollbar for Playground output box */
 .response-output-scroll {
   scrollbar-width: thin;
@@ -1303,6 +1332,15 @@ body.modal-open {
   .playground-grid > .card {
     height: auto !important;
     min-height: 480px !important;
+  }
+  .dual-compare-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: unset;
+  }
+  .dual-compare-grid > .card {
+    height: auto !important;
+    min-height: 440px !important;
   }
 }
 

@@ -265,6 +265,100 @@ export async function probeAdminAuth(token = getDefaultAdminToken(), gatewayUrl 
 }
 
 // ============================================================================
+// UI Dashboard Authentication (NETRA_UI_PASSWORD & Session Cookie)
+// ============================================================================
+
+export function getUiSessionToken() {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('netra_ui_session') || '';
+  }
+  return '';
+}
+
+export function setUiSessionToken(token) {
+  if (typeof window !== 'undefined') {
+    if (token) {
+      localStorage.setItem('netra_ui_session', token);
+    } else {
+      localStorage.removeItem('netra_ui_session');
+    }
+    window.dispatchEvent(new Event('netra-ui-auth-changed'));
+  }
+}
+
+export async function checkUiAuthConfig(gatewayUrl = getGatewayBaseUrl()) {
+  const cleanUrl = normalizeGatewayUrl(gatewayUrl);
+  const target = cleanUrl ? `${cleanUrl}/admin/auth/ui-config` : '/admin/auth/ui-config';
+  const sessionToken = getUiSessionToken();
+  const headers = { 'Accept': 'application/json' };
+  if (sessionToken) {
+    headers['X-Netra-UI-Session'] = sessionToken;
+  }
+  try {
+    const res = await fetch(target, {
+      method: 'GET',
+      headers
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    if (res.status === 404) {
+      // Legacy gateway without UI password endpoint support: allow access
+      return { password_required: false, authenticated: true };
+    }
+    // Fail-closed on 5xx or other gateway errors
+    return { password_required: true, authenticated: false, error: true };
+  } catch (e) {
+    // Fail-closed on network errors / unreachable gateway to prevent leaking protected consoles
+    return { password_required: true, authenticated: false, error: true, unreachable: true };
+  }
+}
+
+export async function loginUi(password, gatewayUrl = getGatewayBaseUrl()) {
+  const cleanUrl = normalizeGatewayUrl(gatewayUrl);
+  const target = cleanUrl ? `${cleanUrl}/admin/auth/ui-login` : '/admin/auth/ui-login';
+  try {
+    const res = await fetch(target, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ password })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.session_token) {
+        setUiSessionToken(data.session_token);
+      }
+      return { ok: true, data };
+    }
+    const err = await res.json().catch(() => ({ message: 'Invalid password' }));
+    return { ok: false, error: err.message || 'Invalid UI password' };
+  } catch (e) {
+    return { ok: false, error: 'Network error connecting to NETRA gateway' };
+  }
+}
+
+export async function logoutUi(gatewayUrl = getGatewayBaseUrl()) {
+  const cleanUrl = normalizeGatewayUrl(gatewayUrl);
+  const target = cleanUrl ? `${cleanUrl}/admin/auth/ui-logout` : '/admin/auth/ui-logout';
+  const sessionToken = getUiSessionToken();
+  const headers = { 'Accept': 'application/json' };
+  if (sessionToken) {
+    headers['X-Netra-UI-Session'] = sessionToken;
+  }
+  try {
+    await fetch(target, {
+      method: 'POST',
+      headers
+    });
+  } catch (e) {}
+  setUiSessionToken('');
+}
+
+
+// ============================================================================
 // Production Health Monitor & Free-Tier Friendly Adaptive Probe
 // ============================================================================
 

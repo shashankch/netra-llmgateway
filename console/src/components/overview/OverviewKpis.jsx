@@ -83,9 +83,9 @@ export default function OverviewKpis({
           <Clock size={16} style={{ color: 'var(--accent-amber)' }} />
         </div>
         <div className="kpi-value" style={{ color: 'var(--accent-amber)' }} title={`${(avgLatency || 0).toLocaleString()} ms`}>
-          {avgLatency >= 10000 ? formatLatencyMs(avgLatency) : <>{avgLatency} <span style={{ fontSize: '1rem', fontWeight: 500 }}>ms</span></>}
+          {formatLatencyMs(avgLatency)}
         </div>
-        <div className="kpi-subtext" title={`p50: ${(p50 || 0).toLocaleString()}ms · p90: ${(p90 || 0).toLocaleString()}ms · p99: ${(p99 || 0).toLocaleString()}ms`}>
+        <div className="kpi-subtext" title={`p50: ${(p50 || 0).toLocaleString()} ms · p90: ${(p90 || 0).toLocaleString()} ms · p99: ${(p99 || 0).toLocaleString()} ms`}>
           p50: {formatLatencyMs(p50)} · p90: {formatLatencyMs(p90)} · p99: {formatLatencyMs(p99)}
         </div>
       </div>

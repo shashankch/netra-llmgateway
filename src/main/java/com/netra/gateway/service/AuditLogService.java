@@ -230,6 +230,33 @@ public class AuditLogService {
             boolean escalated,
             String cacheTier
     ) {
+        recordAuditAndSpend(requestId, virtualKey, requestedModel, resolvedProvider, resolvedModel,
+                status, statusCode, promptTokens, completionTokens, cost, cache, fallback, routeReason,
+                retries, latencyMs, isStream, errorType, escalated, cacheTier, 0);
+    }
+
+    public void recordAuditAndSpend(
+            String requestId,
+            String virtualKey,
+            String requestedModel,
+            String resolvedProvider,
+            String resolvedModel,
+            String status,
+            int statusCode,
+            int promptTokens,
+            int completionTokens,
+            BigDecimal cost,
+            String cache,
+            boolean fallback,
+            String routeReason,
+            int retries,
+            long latencyMs,
+            boolean isStream,
+            String errorType,
+            boolean escalated,
+            String cacheTier,
+            int cachedTokens
+    ) {
         // Fallback to ScopedValue RequestContext if parameters are null
         if (requestId == null) {
             requestId = RequestContext.currentRequestId();
@@ -248,6 +275,7 @@ public class AuditLogService {
                 .statusCode(statusCode)
                 .promptTokens(promptTokens)
                 .completionTokens(completionTokens)
+                .cachedTokens(cachedTokens)
                 .costUsd(cost != null ? cost : BigDecimal.ZERO)
                 .cache(cache != null ? cache : "miss")
                 .fallback(fallback)
@@ -273,11 +301,20 @@ public class AuditLogService {
             String ym = YearMonth.now().toString();
             int cacheHitInt = "hit".equalsIgnoreCase(cache) ? 1 : 0;
             BigDecimal billableCost = cost != null ? cost : BigDecimal.ZERO;
-            if (billableCost.compareTo(BigDecimal.ZERO) > 0) {
+            if (billableCost.compareTo(BigDecimal.ZERO) > 0 && !com.netra.gateway.context.RequestContext.isAdmissionRolledBack()) {
                 try {
                     admissionService.recordSpend(virtualKey, ym, billableCost);
                 } catch (Exception e) {
                     log.warn("Redis spend tracking failed for [{}]: {}", virtualKey, e.getMessage());
+                }
+            }
+            int totalTokens = promptTokens + completionTokens;
+            if (totalTokens > 0 && !com.netra.gateway.context.RequestContext.isAdmissionRolledBack()) {
+                try {
+                    int estimated = com.netra.gateway.context.RequestContext.currentEstimatedTokens();
+                    admissionService.settleTokens(virtualKey, totalTokens, estimated);
+                } catch (Exception e) {
+                    log.warn("Redis TPM token tracking failed for [{}]: {}", virtualKey, e.getMessage());
                 }
             }
             spendItem = new SpendItem(virtualKey, ym, billableCost, promptTokens, completionTokens, cacheHitInt);

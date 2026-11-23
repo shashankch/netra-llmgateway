@@ -5,7 +5,7 @@ import NetraLogo from './NetraLogo';
 import AdminConfigModal from './AdminConfigModal';
 import { 
   Sun, Moon, Monitor, DollarSign, Activity, Terminal, Key, 
-  Database, FileText, Sparkles, BookOpen, ShieldCheck
+  Database, FileText, Sparkles, BookOpen, ShieldCheck, Lock
 } from 'lucide-react';
 
 /**
@@ -18,7 +18,9 @@ export default function Navbar({
   adminToken, 
   onUpdateAdminToken,
   showAdminModal: externalShowAdminModal,
-  setShowAdminModal: externalSetShowAdminModal
+  setShowAdminModal: externalSetShowAdminModal,
+  passwordRequired = false,
+  onLockUi
 }) {
   const { theme, themeMode, setThemeMode, systemTheme, currency, toggleCurrency, exchangeRate } = useTheme();
   const [localShowAdminModal, setLocalShowAdminModal] = useState(false);
@@ -364,6 +366,27 @@ export default function Navbar({
               <Monitor size={13} />
             </button>
           </div>
+
+          {passwordRequired && onLockUi && (
+            <button
+              type="button"
+              onClick={onLockUi}
+              className="btn btn-outline font-mono"
+              style={{
+                fontSize: '0.72rem',
+                padding: '0.2rem 0.5rem',
+                height: 26,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                color: 'var(--text-secondary)'
+              }}
+              title="Lock Operations Console session"
+            >
+              <Lock size={12} />
+              <span>Lock</span>
+            </button>
+          )}
 
         </div>
       </div>

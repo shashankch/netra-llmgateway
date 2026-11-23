@@ -106,6 +106,16 @@ paths:
                 type: string
                 enum: ["true", "false"]
                 example: "true"
+            x-netra-cached-tokens:
+              description: Number of prompt tokens fulfilled via provider-side KV prompt caching (billed at 50% discount).
+              schema:
+                type: integer
+                example: 1024
+            traceparent:
+              description: W3C Trace Context traceparent header (00-{trace_id}-{span_id}-{flags}) propagated across telemetry spans.
+              schema:
+                type: string
+                example: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
             RateLimit-Limit:
               description: Maximum request quota configured for the active sliding window.
               schema:
@@ -624,6 +634,85 @@ paths:
                   $ref: '#/components/schemas/ProviderHealthSnapshot'
         '401':
           $ref: '#/components/responses/401Unauthorized'
+
+  /admin/auth/ui-config:
+    get:
+      summary: UI Auth Configuration Probe
+      description: Inspects whether dashboard password protection is active and verifies session validity.
+      operationId: getUiAuthConfig
+      security: []
+      responses:
+        '200':
+          description: UI authentication configuration and session status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  password_required:
+                    type: boolean
+                    example: true
+                  authenticated:
+                    type: boolean
+                    example: false
+
+  /admin/auth/ui-login:
+    post:
+      summary: UI Dashboard Login
+      description: Verifies NETRA_UI_PASSWORD and issues an HTTP-only 24h session cookie (netra_ui_session).
+      operationId: loginUi
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  example: "operator-secret-123"
+      responses:
+        '200':
+          description: Successfully authenticated. Sets HTTP-only netra_ui_session cookie.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "authenticated"
+                  session_token:
+                    type: string
+                    example: "netra_ui_abc123"
+        '401':
+          description: Invalid password.
+
+  /admin/auth/ui-logout:
+    post:
+      summary: UI Dashboard Logout
+      description: Invalidates active UI session token in Redis/memory and clears session cookie.
+      operationId: logoutUi
+      security: []
+      responses:
+        '200':
+          description: Successfully logged out.
+
+  /actuator/prometheus:
+    get:
+      summary: Prometheus Metrics Scrape Endpoint
+      description: Exposes Prometheus-format OpenTelemetry GenAI metrics, JVM performance, and gateway latency distributions.
+      operationId: getPrometheusMetrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus text-format metrics.
+          content:
+            text/plain:
+              schema:
+                type: string
 
   /health:
     get:

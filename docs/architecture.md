@@ -30,11 +30,11 @@ Every incoming HTTP request to `POST /v1/chat/completions` traverses five decoup
 ### Stage 2: Atomic Rate Limiting & Budget Admission Control
 
 - Dispatches an atomic Redis 8.0 Lua script.
-- Evaluates sliding-window Sorted Set (ZSET) RPM counters and monthly budget spend atomically.
+- Evaluates sliding-window Sorted Set (ZSET) RPM counters, sliding-window Tokens-Per-Minute (TPM) limits with heuristic in-flight token reservation, and monthly budget spend atomically.
 - Guarantees **0.00% over-admission** under high-concurrency burst traffic.
 - Emits standardized IETF RateLimit headers (`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, `RateLimit-Policy`, `Retry-After`) compliant with `draft-ietf-httpapi-ratelimit-headers` across all admitted and throttled requests.
-- If limits are exceeded, returns HTTP 429 (`rate_limit_exceeded`) or HTTP 402 (`budget_exceeded`).
-- If an upstream network failure occurs later in the request lifecycle, the admitted slot is automatically rolled back via `ZREM`.
+- If limits are exceeded, returns HTTP 429 (`rate_limit_exceeded`, `tpm_limit_exceeded`) or HTTP 402 (`budget_exceeded`).
+- If an upstream network failure occurs later in the request lifecycle, admitted slots and token reservations are automatically rolled back.
 
 ### Stage 3: Two-Tier Tenant-Isolated Semantic Vector Cache
 
@@ -72,10 +72,16 @@ Every incoming HTTP request to `POST /v1/chat/completions` traverses five decoup
 
 ### Stage 5: Unbuffered Streaming Relay & Financial Ledger
 
-- Streams token deltas to clients over Java 25 Virtual Threads using unbuffered Server-Sent Events (~20ms Time-to-First-Token).
+- Streams token deltas to clients over Java 25 Virtual Threads using unbuffered Server-Sent Events (~20ms Time-to-First-Token). Provider circuit breaker health tracks first-output latency, ensuring healthy long-running streams do not breach slow-call thresholds.
 - **Disconnect Protection & Token Reclamation:** Detects client disconnections (`Broken pipe`) immediately and halts upstream compute within <2ms to eliminate phantom spend. If the client disconnects before tokens are generated (0 tokens), the admitted sliding-window rate limit slot is automatically rolled back via atomic Redis `ZREM`, preventing quota starvation caused by client drops.
-- On stream completion, captures token counts and computes exact micro-USD costs using 6-decimal `BigDecimal` precision.
+- On stream completion, captures token counts and computes exact micro-USD costs using 6-decimal `BigDecimal` precision. Accounts for provider-side prompt caching (`prompt_tokens_details.cached_tokens`), applying a 50% discount to billable prompt tokens and emitting `x-netra-cached-tokens`.
 - Writes structured audit records to PostgreSQL asynchronously via a decoupled 10,000-capacity bounded batch buffer, flushing multi-row inserts and aggregated multi-tenant spend every 250ms or 100 entries to completely shield the underlying database connection pool.
+
+### Stage 6: Vendor-Neutral Observability & Metrics
+
+- Instruments all requests with OpenTelemetry GenAI Semantic Conventions (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`).
+- Propagates W3C `traceparent` headers across Java 25 Scoped Values for end-to-end distributed trace continuity.
+- Exposes Prometheus-compatible scrape metrics via `/actuator/prometheus` for real-time monitoring of fleet throughput, cache hit ratios, and TTFT distributions.
 
 ---
 

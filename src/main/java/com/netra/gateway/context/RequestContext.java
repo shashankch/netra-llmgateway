@@ -1,6 +1,7 @@
 package com.netra.gateway.context;
 
 import com.netra.gateway.model.entity.Tenant;
+import com.netra.gateway.telemetry.W3cTraceContext;
 
 import java.lang.ScopedValue;
 import java.lang.ScopedValue.CallableOp;
@@ -22,8 +23,53 @@ public record RequestContext(
         String selectedModel,
         String resolvedProvider,
         long startTimeMs,
-        boolean isStream
+        boolean isStream,
+        W3cTraceContext traceContext,
+        int estimatedTokens,
+        long admissionMinute,
+        java.util.concurrent.atomic.AtomicBoolean admissionRolledBack
 ) {
+    public RequestContext(
+            String requestId,
+            String virtualKey,
+            Tenant tenant,
+            String requestedModel,
+            String selectedModel,
+            String resolvedProvider,
+            long startTimeMs,
+            boolean isStream,
+            W3cTraceContext traceContext,
+            int estimatedTokens
+    ) {
+        this(requestId, virtualKey, tenant, requestedModel, selectedModel, resolvedProvider, startTimeMs, isStream, traceContext, estimatedTokens, 0L, new java.util.concurrent.atomic.AtomicBoolean(false));
+    }
+
+    public RequestContext(
+            String requestId,
+            String virtualKey,
+            Tenant tenant,
+            String requestedModel,
+            String selectedModel,
+            String resolvedProvider,
+            long startTimeMs,
+            boolean isStream,
+            W3cTraceContext traceContext
+    ) {
+        this(requestId, virtualKey, tenant, requestedModel, selectedModel, resolvedProvider, startTimeMs, isStream, traceContext, 0, 0L, new java.util.concurrent.atomic.AtomicBoolean(false));
+    }
+
+    public RequestContext(
+            String requestId,
+            String virtualKey,
+            Tenant tenant,
+            String requestedModel,
+            String selectedModel,
+            String resolvedProvider,
+            long startTimeMs,
+            boolean isStream
+    ) {
+        this(requestId, virtualKey, tenant, requestedModel, selectedModel, resolvedProvider, startTimeMs, isStream, null, 0, 0L, new java.util.concurrent.atomic.AtomicBoolean(false));
+    }
     /**
      * Canonical ScopedValue instance bound per ingress request lifecycle.
      */
@@ -71,6 +117,45 @@ public record RequestContext(
     }
 
     /**
+     * Returns the current W3C Trace Context if bound in scope.
+     */
+    public static W3cTraceContext currentTraceContext() {
+        return current().map(RequestContext::traceContext).orElse(null);
+    }
+
+    /**
+     * Returns the estimated prompt tokens reserved during admission, or 0 if unbound.
+     */
+    public static int currentEstimatedTokens() {
+        return current().map(RequestContext::estimatedTokens).orElse(0);
+    }
+
+    /**
+     * Returns the admission minute bucket timestamp (epoch ms / 60000), or 0 if unbound.
+     */
+    public static long currentAdmissionMinute() {
+        return current().map(RequestContext::admissionMinute).orElse(0L);
+    }
+
+    /**
+     * Returns true if admission has already been rolled back for this request lifecycle.
+     */
+    public static boolean isAdmissionRolledBack() {
+        return current().map(c -> c.admissionRolledBack() != null && c.admissionRolledBack().get()).orElse(false);
+    }
+
+    /**
+     * Atomically marks the admission reservation as rolled back.
+     */
+    public static void markAdmissionRolledBack() {
+        current().ifPresent(c -> {
+            if (c.admissionRolledBack() != null) {
+                c.admissionRolledBack().set(true);
+            }
+        });
+    }
+
+    /**
      * Creates a new RequestContext inheriting all properties with the authenticated tenant.
      */
     public RequestContext withTenant(Tenant tenant) {
@@ -82,7 +167,38 @@ public record RequestContext(
                 selectedModel,
                 resolvedProvider,
                 startTimeMs,
-                isStream
+                isStream,
+                traceContext,
+                estimatedTokens,
+                admissionMinute,
+                admissionRolledBack != null ? admissionRolledBack : new java.util.concurrent.atomic.AtomicBoolean(false)
+        );
+    }
+
+    /**
+     * Creates a new RequestContext with reserved estimated prompt tokens and current admission minute bucket.
+     */
+    public RequestContext withEstimatedTokens(int estimatedTokens) {
+        return withAdmission(estimatedTokens, System.currentTimeMillis() / 60000L);
+    }
+
+    /**
+     * Creates a new RequestContext with reserved estimated prompt tokens and designated admission minute bucket.
+     */
+    public RequestContext withAdmission(int estimatedTokens, long admissionMinute) {
+        return new RequestContext(
+                requestId,
+                virtualKey,
+                tenant,
+                requestedModel,
+                selectedModel,
+                resolvedProvider,
+                startTimeMs,
+                isStream,
+                traceContext,
+                estimatedTokens,
+                admissionMinute,
+                admissionRolledBack != null ? admissionRolledBack : new java.util.concurrent.atomic.AtomicBoolean(false)
         );
     }
 
@@ -98,7 +214,31 @@ public record RequestContext(
                 selectedModel,
                 resolvedProvider,
                 startTimeMs,
-                isStream
+                isStream,
+                traceContext,
+                estimatedTokens,
+                admissionMinute,
+                admissionRolledBack != null ? admissionRolledBack : new java.util.concurrent.atomic.AtomicBoolean(false)
+        );
+    }
+
+    /**
+     * Creates a new RequestContext bound to a W3C Trace Context.
+     */
+    public RequestContext withTraceContext(W3cTraceContext traceContext) {
+        return new RequestContext(
+                requestId,
+                virtualKey,
+                tenant,
+                requestedModel,
+                selectedModel,
+                resolvedProvider,
+                startTimeMs,
+                isStream,
+                traceContext,
+                estimatedTokens,
+                admissionMinute,
+                admissionRolledBack != null ? admissionRolledBack : new java.util.concurrent.atomic.AtomicBoolean(false)
         );
     }
 

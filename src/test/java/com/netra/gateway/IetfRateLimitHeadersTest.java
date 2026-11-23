@@ -62,6 +62,8 @@ class IetfRateLimitHeadersTest {
     private SemanticCacheService semanticCacheService;
     @MockitoBean
     private RefusalEscalationService refusalEscalationService;
+    @MockitoBean
+    private com.netra.gateway.telemetry.OpenTelemetryGenAiService oTelService;
 
     private Tenant searchTenant;
 
