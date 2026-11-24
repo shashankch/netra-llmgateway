@@ -63,14 +63,14 @@ NETRA acts as a non-blocking reverse proxy sitting directly in the critical path
 | Capability | Technical Implementation | Production Impact |
 |---|---|---|
 | **⚡ Virtual Threads Data Plane** | Java 25 LTS Virtual Threads & Scoped Values (JEP 506) | Eliminates OS thread starvation; serves 10,000+ unbuffered streaming SSE sessions with sub-20ms TTFT. |
-| **🛡️ Race-Safe Atomic Admission** | Atomic Redis 8.0 Lua scripts with rolling-window ZSETs | Enforces strict RPM and monthly budget caps with **zero over-admission guarantee** under high-concurrency bursts, compliant with standardized IETF RateLimit protocol headers. |
+| **🛡️ Race-Safe Atomic Admission** | Atomic Redis 8.0 Lua scripts with rolling-window ZSETs | Enforces strict RPM, TPM (Tokens-Per-Minute), and monthly budget caps with **zero over-admission guarantee**, compliant with IETF RateLimit headers. |
 | **🔄 Resilience & Circuit Breakers** | Resilience4j circuit breakers + ordered multi-provider fallback chains | Fast-failover across providers in **<0.05ms** without dead network hops, bounded candidate chain deadline budgets (15s), and small-model refusal auto-escalation. |
 | **🧠 Intelligent Prompt Classifier** | Two-stage task instruction signals decoupled from raw token payload | Automatically routes queries to cost-effective (`fast`) or reasoning (`smart`) models with 100% benchmark accuracy (~72.4% cost savings). |
 | **💾 Two-Tier Vector Cache** | Tier-1 SHA-256 exact hash near-cache (<0.5ms) + Tier-2 pgvector HNSW (<5ms) | Serves exact repeats and semantic paraphrases at **$0.000000** upstream token cost with cryptographic per-tenant isolation boundaries. |
 | **🔌 Phantom Spend Reclaim** | Instant client TCP/HTTP2 stream disconnect detection (`Broken pipe`) | Halts upstream generation in **<2ms**, eliminating 100% of phantom token spend on cancelled or abandoned client sessions. |
 | **📊 Exact Micro-Cost Accounting** | Java `BigDecimal` arithmetic scaled to 6 decimal places (`$0.000000 USD`) | Eliminates IEEE-754 floating-point drift; guarantees exact reconciliation between client telemetry headers, ledgers, and live Forex (USD/INR). |
 | **⚙️ Canonical Telemetry Contract** | Strict `x-netra-*` and standardized IETF RateLimit headers | Transparent full-stack observability on provider selection, cache tier, failover status, routing rationale, retries, and quota limits. |
-| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`console/`) with dark/light themes | Enterprise-grade analytics, live provider health matrix, real-time SSE audit stream, virtual key manager, semantic cache viewer, and high-performance playground with zero-dependency Markdown rendering, copyable code blocks, and Raw inspection toggle. |
+| **🖥️ React 19 Ops Console & Sandbox** | React 19 / Vite 6 Ops Console (`console/`) with dark/light themes | Analytics suite, provider health matrix, live SSE audit stream, virtual keys, cache inspector, A/B dual-model playground with Markdown/KaTeX rendering, and operator lock screen. |
 | **🌐 Pluggable Multi-Tier Deploy** | Out-of-the-box descriptors for Docker Compose, PaaS, and Cloud VPS | Turnkey 1-click deployment across Railway, Render, Fly.io, OCI Always Free, and AWS Free Tier. |
 
 ---
@@ -97,7 +97,7 @@ make up
 Verify service readiness:
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.x"}
+# {"status":"ok","service":"netra-gateway","version":"0.8.0"}
 ```
 
 ### 2. Dispatch a Chat Completion
@@ -364,6 +364,7 @@ make console-serve      # or: cd console && npm run preview
 | `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
 | `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC local/private model endpoint (vLLM / Ollama) |
 | `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |
+| `NETRA_UI_PASSWORD` | `netra@admin` | Operator lock-screen password for Ops Console sessions (24h HTTP-only cookie) |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/netra` | PostgreSQL JDBC connection string (auto-resolved in Docker) |
 | `SPRING_DATA_REDIS_HOST` | `localhost` | Redis host for atomic rate limiting and admission control |
 | `CLOUDFLARE_TUNNEL_TOKEN` | `eyJhIjoi...` | *(Optional)* Zero-Open-Port Cloudflare Tunnel token for ingress |

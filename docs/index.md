@@ -18,7 +18,8 @@
 
 - **Universal OpenAI Compatibility:** Direct drop-in proxy for `/v1/chat/completions` requiring zero client SDK modifications.
 - **Two-Tier Semantic Vector Cache:** Sub-0.5ms exact hash near-cache (Tier 1) and sub-5ms cosine similarity retrieval (Tier 2) with cryptographic per-tenant boundaries at **$0.000000** upstream cost.
-- **Atomic Admission Control:** Single-transaction Redis 8.0 sliding-window rate limiting ensuring **0.00% over-admission** under high-concurrency bursts, compliant with standardized IETF RateLimit protocol headers.
+- **Atomic Admission Control:** Single-transaction Redis 8.0 sliding-window rate limiting enforcing RPM, TPM (Tokens-Per-Minute), and monthly budget caps with **0.00% over-admission**, compliant with IETF RateLimit headers.
+- **Standardized Observability:** OpenTelemetry GenAI semantic conventions (`gen_ai.*`), W3C `traceparent` propagation, and Prometheus scrape metrics (`/actuator/prometheus`).
 - **Dynamic Cost Arbitrage:** Syntactic difficulty classifier (`auto` tier) routing simple queries to fast models and complex tasks to frontier reasoning models, achieving up to **~72.4% cost savings**.
 - **Synchronous Upstream Failover & Resilience:** Resilience4j circuit breakers (<0.05ms fast-failover), multi-provider fallback chains (`fast` &rarr; `primary` &rarr; `fallback`), small-model refusal auto-escalation, and zero-glitch SSE streaming failover.
 - **Disconnect Protection & Instant Reclamation:** Instant detection of client socket drops (`Broken pipe`) on Java 25 Virtual Threads, severing upstream compute in <2ms to halt phantom spend, with automatic rate-limit quota rollback on zero-token aborts.
@@ -89,7 +90,7 @@ Verify service readiness:
 
 ```bash
 curl -f http://localhost:8080/health
-# {"status":"ok","service":"netra-gateway","version":"0.7.x"}
+# {"status":"ok","service":"netra-gateway","version":"0.8.0"}
 ```
 
 Inspect live provider health & circuit breaker telemetry:
@@ -206,6 +207,7 @@ make verify-all         # Executes all 7 verification drills sequentially
 | `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
 | `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC private endpoint (vLLM / Ollama) |
 | `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |
+| `NETRA_UI_PASSWORD` | `netra@admin` | Operator lock-screen password for Ops Console sessions (24h HTTP-only cookie) |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/netra` | PostgreSQL JDBC connection string (auto-resolved in Docker) |
 | `SPRING_DATA_REDIS_HOST` | `localhost` | Redis host for atomic rate limiting and sliding-window quotas |
 | `CLOUDFLARE_TUNNEL_TOKEN` | `eyJhIjoi...` | *(Optional)* Cloudflare Tunnel token for zero-open-port ingress |

@@ -73,7 +73,7 @@ management:
 netra:
   data-path: ${NETRA_DATA_PATH:data}
   admin-token: ${NETRA_ADMIN_TOKEN:netra-admin-demo}
-  ui-password: ${NETRA_UI_PASSWORD:}
+  ui-password: ${NETRA_UI_PASSWORD:netra@admin}
   seed-demo-tenants: ${NETRA_SEED_DEMO_TENANTS:true}
   currency:
     fallback-usd-to-inr: ${NETRA_CURRENCY_FALLBACK_USD_TO_INR:85.00}

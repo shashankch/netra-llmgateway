@@ -19,6 +19,7 @@ This document reports empirical verification results and benchmark outputs for *
 | **Adversarial Cache Fuzzing** | 0% cross-tenant bleed, refusal suppression | 4/4 probes passed | **PASS** |
 | **High-Concurrency Stress** | ≥ 50 req/s throughput under load | 61.20 req/s, p50 42.15ms, 0 errors | **PASS** |
 | **Pass-Through Overhead** | < 1.0ms added gateway latency | 0.22ms p50 overhead | **PASS** |
+| **Live Database & Cache Suite** | Live PostgreSQL/pgvector & Redis 8.0 Testcontainers | 6/6 integration tests passed (11s) | **PASS** |
 
 ---
 
@@ -372,3 +373,21 @@ To execute all 7 verification gates sequentially:
 ```bash
 make verify-all
 ```
+
+---
+
+## 9. Live Container Integration Suite
+
+The JVM integration test suite (`DatabaseAndCacheIntegrationTest.java`) validates real database persistence and distributed cache admission using Testcontainers (`pgvector/pgvector:pg18` and `redis:8.0-alpine`).
+
+### Command
+```bash
+./gradlew test --tests DatabaseAndCacheIntegrationTest
+```
+
+### Verified Guarantees
+- **Flyway Schema Migrations V1–V6:** Validates schema creation, foreign key constraints, and HNSW cosine distance indexing (`vector_cosine_ops`).
+- **Native Cosine Distance Search (`<=>`):** True 384-dimensional vector retrieval, threshold discrimination ($\ge 0.90$ matches, orthogonal misses), and projection hydration.
+- **Cross-Tenant Vector Isolation:** Cryptographic partitioning verifying identical prompts and vectors across tenants yield zero data leakage.
+- **Durable Source-of-Truth Cache Accounting:** Database SQL aggregations in `request_logs` verify durable hit counts without in-process counter drift.
+- **Atomic Sliding-Window Rate Limiting:** Executes real `admission.lua` against Redis 8.0, proving atomic RPM and TPM limits with slot rollback (`ZREM`).

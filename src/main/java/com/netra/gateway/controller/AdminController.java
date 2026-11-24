@@ -54,6 +54,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -93,7 +94,7 @@ public class AdminController {
                     .build();
 
     // Brute-force rate limiting: tracks failed password attempts per client IP (5 attempts per 5 mins)
-    private final Cache<String, Integer> failedLoginAttempts =
+    private final Cache<String, AtomicInteger> failedLoginAttempts =
             Caffeine.newBuilder()
                     .maximumSize(5000)
                     .expireAfterWrite(Duration.ofMinutes(5))
@@ -105,6 +106,10 @@ public class AdminController {
             String token = configProperties.getAdminToken();
             if (token == null || token.isBlank() || "netra-admin-demo".equals(token.trim())) {
                 throw new IllegalStateException("CRITICAL SECURITY VIOLATION: Production profile (prod) requires a secure, non-demo NETRA_ADMIN_TOKEN to be configured!");
+            }
+            String uiPwd = configProperties.getUiPassword();
+            if ("netra@admin".equals(uiPwd)) {
+                log.warn("SECURITY WARNING: Production profile (prod) is running with default NETRA_UI_PASSWORD ('netra@admin'). Set a dedicated secret in environment variables.");
             }
         }
     }
@@ -136,8 +141,8 @@ public class AdminController {
             HttpServletResponse response
     ) {
         String clientIp = extractClientIp(request);
-        Integer attempts = failedLoginAttempts.getIfPresent(clientIp);
-        if (attempts != null && attempts >= 5) {
+        AtomicInteger attempts = failedLoginAttempts.getIfPresent(clientIp);
+        if (attempts != null && attempts.get() >= 5) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("error", "rate_limited", "message", "Too many failed login attempts. Please wait 5 minutes before trying again."));
         }
@@ -148,8 +153,11 @@ public class AdminController {
         }
         String password = body != null ? body.get("password") : null;
         if (password == null || !MessageDigest.isEqual(configuredPassword.getBytes(StandardCharsets.UTF_8), password.getBytes(StandardCharsets.UTF_8))) {
-            int current = attempts == null ? 1 : attempts + 1;
-            failedLoginAttempts.put(clientIp, current);
+            failedLoginAttempts.asMap().compute(clientIp, (k, existing) -> {
+                if (existing == null) return new AtomicInteger(1);
+                existing.incrementAndGet();
+                return existing;
+            });
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "invalid_password", "message", "Invalid UI dashboard password"));
         }
 
@@ -166,6 +174,7 @@ public class AdminController {
         ResponseCookie cookie = ResponseCookie.from("netra_ui_session", sessionToken)
                 .path("/")
                 .httpOnly(true)
+                .secure(isSecureRequest(request))
                 .sameSite("Lax")
                 .maxAge(Duration.ofHours(24))
                 .build();
@@ -194,10 +203,19 @@ public class AdminController {
         ResponseCookie cookie = ResponseCookie.from("netra_ui_session", "")
                 .path("/")
                 .httpOnly(true)
+                .secure(isSecureRequest(request))
+                .sameSite("Lax")
                 .maxAge(0)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         return ResponseEntity.ok(Map.of("status", "logged_out"));
+    }
+
+    private boolean isSecureRequest(HttpServletRequest request) {
+        if (request == null) return false;
+        if (request.isSecure()) return true;
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        return forwardedProto != null && "https".equalsIgnoreCase(forwardedProto.split(",")[0].trim());
     }
 
     private boolean isUiSessionValid(HttpServletRequest request, String sessionHeader) {

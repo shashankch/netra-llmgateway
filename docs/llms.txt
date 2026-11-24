@@ -23,6 +23,8 @@
 - `GET /admin/cache/stats`: Aggregate cache hit rate, total vector entries, and per-tenant breakdown.
 - `GET /admin/cache/entries`: Inspect stored semantic cache entries with search and safe pagination.
 - `DELETE /admin/cache/entries/{id}`: Evicts a cached vector/exact completion entry by ID.
+- `GET /admin/auth/ui-config`, `POST /admin/auth/ui-login`, `POST /admin/auth/ui-logout`: Operator console session authentication (`NETRA_UI_PASSWORD`, HTTP-only cookie).
+- `GET /actuator/prometheus`: Prometheus metrics scrape endpoint (OpenTelemetry GenAI conventions + JVM metrics).
 
 ## Operations Console (`console/`)
 - Modern React 19 / Vite 6 console with enterprise-grade analytics suite.

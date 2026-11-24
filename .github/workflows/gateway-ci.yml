@@ -14,31 +14,6 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: pgvector/pgvector:pg18
-        env:
-          POSTGRES_DB: netra
-          POSTGRES_USER: netra
-          POSTGRES_PASSWORD: netra
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:8.0-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
@@ -61,7 +36,8 @@ jobs:
       - name: Build Application
         run: ./gradlew build -x test
 
-      - name: Run Tests
+      # Runs unit/contract tests plus live PostgreSQL 18 (pgvector) and Redis 8.0 Testcontainers suite
+      - name: Run Unit & Live Container Integration Tests
         run: ./gradlew test
 
       - name: Validate Pack Integrity

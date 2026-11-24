@@ -6,7 +6,7 @@
       "package-name": "netra-llmgateway",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
       "extra-files": [
         "build.gradle.kts",
         "console/package.json",

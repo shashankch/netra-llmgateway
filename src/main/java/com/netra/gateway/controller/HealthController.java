@@ -31,7 +31,7 @@ public class HealthController {
     private CanonicalDataSeeder canonicalDataSeeder;
 
     private String getVersion() {
-        return buildProperties != null ? buildProperties.getVersion() : "0.7.3";
+        return buildProperties != null ? buildProperties.getVersion() : "0.8.0";
     }
 
     @GetMapping("/health")

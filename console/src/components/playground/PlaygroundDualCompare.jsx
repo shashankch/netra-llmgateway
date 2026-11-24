@@ -380,7 +380,7 @@ export default function PlaygroundDualCompare({
           display: 'flex', 
           flexDirection: 'column', 
           gap: '0.85rem',
-          border: '1px solid var(--border-default)',
+          border: '1px solid var(--border-subtle)',
           background: 'var(--bg-surface)'
         }}
       >
@@ -451,9 +451,9 @@ export default function PlaygroundDualCompare({
                     maxHeight: 380,
                     overflowY: 'auto',
                     background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-default)',
+                    border: '1px solid var(--border-strong)',
                     borderRadius: 8,
-                    boxShadow: '0 16px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06)',
+                    boxShadow: 'var(--shadow-lg)',
                     zIndex: 100,
                     padding: '0.35rem 0',
                     display: 'flex',
@@ -661,7 +661,7 @@ export default function PlaygroundDualCompare({
                 fontSize: '0.75rem', 
                 padding: '0.45rem 0.65rem', 
                 background: 'var(--bg-surface)', 
-                border: '1px solid var(--border-default)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: 4,
                 resize: 'vertical',
                 lineHeight: 1.4
@@ -724,7 +724,7 @@ export default function PlaygroundDualCompare({
               minHeight: 70,
               lineHeight: 1.55,
               background: 'var(--bg-canvas)',
-              border: '1px solid var(--border-default)',
+              border: '1px solid var(--border-subtle)',
               padding: '0.65rem 0.85rem'
             }}
           />
