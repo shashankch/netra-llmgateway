@@ -1174,6 +1174,22 @@ body.modal-open {
   flex-shrink: 0;
 }
 
+.nav-lock-btn {
+  transition: all 0.15s ease;
+}
+
+.nav-lock-btn:hover {
+  color: var(--accent-rose) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+@media (max-width: 1100px) {
+  .nav-lock-btn {
+    display: none !important;
+  }
+}
+
 @media (max-width: 860px) {
   .navbar-inner {
     flex-wrap: wrap;
