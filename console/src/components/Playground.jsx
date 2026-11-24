@@ -4,7 +4,8 @@ import { getApiUrl, useGatewayHealth, reportAdminAuthFailure, reportAdminAuthSuc
 import { DEFAULT_PLAYGROUND_PRESETS } from '../constants/demoFallbackData';
 import PlaygroundControls from './playground/PlaygroundControls';
 import PlaygroundResponsePane from './playground/PlaygroundResponsePane';
-import { Zap, ChevronDown, Search, Check, Plus, X } from 'lucide-react';
+import PlaygroundDualCompare from './playground/PlaygroundDualCompare';
+import { Zap, ChevronDown, Search, Check, Plus, X, BarChart2 } from 'lucide-react';
 
 /**
  * Interactive prompt execution and model evaluation sandbox.
@@ -17,6 +18,7 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
   const isMintDisabled = isDemoToken || globalAuthStatus.isUnauthorized || !isOnline;
   const [authError, setAuthError] = useState(false);
+  const [playgroundMode, setPlaygroundMode] = useState('single'); // 'single' | 'compare'
 
   // Selected virtual key with sessionStorage persistence across tab navigation
   const [virtualKey, setVirtualKey] = useState(() => {
@@ -361,15 +363,19 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
       }));
 
   // Determine top quick-access pills vs full fleet
+  // At scale (4+ profiles), display at most 3 quick-access pills with dynamic active-key promotion,
+  // delegating the remaining fleet to the searchable '+N more ▾' dropdown.
   const visiblePills = React.useMemo(() => {
-    if (allPresets.length <= 4) return allPresets;
-    const topThree = allPresets.slice(0, 3);
-    const activeInTopThree = topThree.some(p => p.key === virtualKey);
-    if (activeInTopThree) {
-      return topThree;
+    const MAX_VISIBLE_PILLS = 3;
+    if (allPresets.length <= MAX_VISIBLE_PILLS) return allPresets;
+
+    const topTwo = allPresets.slice(0, 2);
+    const activeInTopTwo = topTwo.some(p => p.key === virtualKey);
+    if (activeInTopTwo) {
+      return allPresets.slice(0, MAX_VISIBLE_PILLS);
     }
     const currentActivePreset = allPresets.find(p => p.key === virtualKey);
-    return currentActivePreset ? [...allPresets.slice(0, 2), currentActivePreset] : topThree;
+    return currentActivePreset ? [...topTwo, currentActivePreset] : allPresets.slice(0, MAX_VISIBLE_PILLS);
   }, [allPresets, virtualKey]);
 
   // Filtered presets inside the dropdown
@@ -652,16 +658,74 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
         flexShrink: 0
       }}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
-            Prompt Playground &amp; Execution Sandbox
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
+              Prompt Playground &amp; Execution Sandbox
+            </h1>
+            {/* Mode Switcher: Single Model vs Dual A/B Compare */}
+            <div 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                background: 'var(--bg-canvas, #06070a)', 
+                border: '1px solid var(--border-subtle, #18202f)', 
+                borderRadius: 6, 
+                padding: '0.15rem' 
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setPlaygroundMode('single')}
+                className="font-mono"
+                style={{
+                  padding: '0.15rem 0.5rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  background: playgroundMode === 'single' ? 'var(--bg-card-hover, rgba(255,255,255,0.08))' : 'transparent',
+                  color: playgroundMode === 'single' ? 'var(--accent-primary, #10b981)' : 'var(--text-muted, #9ca3af)'
+                }}
+                title="Single model interactive workbench"
+              >
+                <Zap size={11} />
+                <span>Single</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlaygroundMode('compare')}
+                className="font-mono"
+                style={{
+                  padding: '0.15rem 0.5rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  background: playgroundMode === 'compare' ? 'var(--bg-card-hover, rgba(255,255,255,0.08))' : 'transparent',
+                  color: playgroundMode === 'compare' ? 'var(--accent-primary, #10b981)' : 'var(--text-muted, #9ca3af)'
+                }}
+                title="Dual model side-by-side comparison"
+              >
+                <BarChart2 size={11} />
+                <span>A/B Compare</span>
+              </button>
+            </div>
+          </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '0.25rem 0 0' }}>
             Interactive inference proxy with real-time SSE streaming, semantic caching, and automated router failover.
           </p>
         </div>
 
-        {/* Profile Preset Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+        {/* Profile Preset Selector (Right-Aligned) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', marginLeft: 'auto' }}>
           <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginRight: '0.15rem' }}>
             Profile:
           </span>
@@ -679,6 +743,14 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
                   if (p.disabled) return;
                   setVirtualKey(p.key);
                   setModel(p.model);
+                  if (telemetry?.status >= 400 || errorInfo) {
+                    setTelemetry(null);
+                    setErrorInfo(null);
+                    try {
+                      sessionStorage.removeItem('netra_playground_telemetry');
+                      sessionStorage.removeItem('netra_playground_error');
+                    } catch (e) {}
+                  }
                 }}
                 className={`btn btn-sm ${virtualKey === p.key ? 'btn-primary' : 'btn-outline'}`}
                 style={{ 
@@ -690,10 +762,10 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
                   cursor: p.disabled ? 'not-allowed' : 'pointer'
                 }}
               >
-                <Zap size={11} style={{ opacity: p.disabled ? 0.5 : 1 }} />
-                <span>{p.label}</span>
+                <Zap size={11} style={{ opacity: p.disabled ? 0.5 : 1, flexShrink: 0 }} />
+                <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.label}</span>
                 {p.disabled && (
-                  <span style={{ fontSize: '0.58rem', textTransform: 'uppercase', padding: '0 0.25rem', borderRadius: 3, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--accent-rose, #f43f5e)', marginLeft: '0.15rem' }}>
+                  <span style={{ fontSize: '0.58rem', textTransform: 'uppercase', padding: '0 0.25rem', borderRadius: 3, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--accent-rose, #f43f5e)', marginLeft: '0.15rem', flexShrink: 0 }}>
                     {p.status === 'UNSEEDED' ? 'unseeded' : 'disabled'}
                   </span>
                 )}
@@ -821,7 +893,7 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
                       autoFocus
                       style={{
                         width: '100%',
-                        padding: '0.35rem 0.55rem 0.35rem 1.75rem',
+                        padding: '0.35rem 1.6rem 0.35rem 1.75rem',
                         fontSize: '0.75rem',
                         background: 'var(--bg-canvas)',
                         border: '1px solid var(--border-subtle)',
@@ -830,6 +902,23 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
                         outline: 'none'
                       }}
                     />
+                    {profileSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setProfileSearchQuery('')}
+                        style={{
+                          position: 'absolute',
+                          right: '0.45rem',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 2
+                        }}
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Scrollable Profiles List */}
@@ -848,6 +937,14 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
                               if (p.disabled) return;
                               setVirtualKey(p.key);
                               setModel(p.model);
+                              if (telemetry?.status >= 400 || errorInfo) {
+                                setTelemetry(null);
+                                setErrorInfo(null);
+                                try {
+                                  sessionStorage.removeItem('netra_playground_telemetry');
+                                  sessionStorage.removeItem('netra_playground_error');
+                                } catch (e) {}
+                              }
                               setIsProfileDropdownOpen(false);
                             }}
                             style={{
@@ -940,46 +1037,56 @@ export default function Playground({ adminToken = 'netra-admin-demo', onNavigate
         </div>
       </div>
 
-      {/* Main Workbench Grid (Left: Controls, Right: Live Stream) */}
-      <div className="playground-grid">
-        <PlaygroundControls
+      {/* Main Workbench View: Dual Compare vs Single Model */}
+      {playgroundMode === 'compare' ? (
+        <PlaygroundDualCompare
           virtualKey={virtualKey}
-          setVirtualKey={setVirtualKey}
-          model={model}
-          setModel={setModel}
-          stream={stream}
-          setStream={setStream}
-          prompt={prompt}
-          setPrompt={setPrompt}
-          systemPrompt={systemPrompt}
-          setSystemPrompt={setSystemPrompt}
           catalog={catalog}
-          tenantKeys={tenantKeys}
-          isSelectedKeyDisabled={isSelectedKeyDisabled}
-          currentKeyObj={currentKeyObj}
-          executing={executing}
-          handleSend={handleSend}
-          handleStop={handleStop}
-          onNavigate={onNavigate}
-          onOpenAdminModal={onOpenAdminModal}
-          hasAuthError={hasAuthError}
-          isMintDisabled={isMintDisabled}
-        />
-
-        <PlaygroundResponsePane
-          executing={executing}
-          telemetry={telemetry}
-          responseContent={responseContent}
-          errorInfo={errorInfo}
-          stream={stream}
-          chunkCount={chunkCount}
-          copiedResponse={copiedResponse}
-          copyResponseToClipboard={copyResponseToClipboard}
-          handleClearOutput={handleClearOutput}
-          responseContainerRef={responseContainerRef}
           formatCurrency={formatCurrency}
+          isOnline={isOnline}
+          onNavigate={onNavigate}
         />
-      </div>
+      ) : (
+        <div className="playground-grid">
+          <PlaygroundControls
+            virtualKey={virtualKey}
+            setVirtualKey={setVirtualKey}
+            model={model}
+            setModel={setModel}
+            stream={stream}
+            setStream={setStream}
+            prompt={prompt}
+            setPrompt={setPrompt}
+            systemPrompt={systemPrompt}
+            setSystemPrompt={setSystemPrompt}
+            catalog={catalog}
+            tenantKeys={tenantKeys}
+            isSelectedKeyDisabled={isSelectedKeyDisabled}
+            currentKeyObj={currentKeyObj}
+            executing={executing}
+            handleSend={handleSend}
+            handleStop={handleStop}
+            onNavigate={onNavigate}
+            onOpenAdminModal={onOpenAdminModal}
+            hasAuthError={hasAuthError}
+            isMintDisabled={isMintDisabled}
+          />
+
+          <PlaygroundResponsePane
+            executing={executing}
+            telemetry={telemetry}
+            responseContent={responseContent}
+            errorInfo={errorInfo}
+            stream={stream}
+            chunkCount={chunkCount}
+            copiedResponse={copiedResponse}
+            copyResponseToClipboard={copyResponseToClipboard}
+            handleClearOutput={handleClearOutput}
+            responseContainerRef={responseContainerRef}
+            formatCurrency={formatCurrency}
+          />
+        </div>
+      )}
     </div>
   );
 }

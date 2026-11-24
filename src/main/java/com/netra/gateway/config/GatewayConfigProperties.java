@@ -14,6 +14,7 @@ public class GatewayConfigProperties {
 
     private String dataPath = "data";
     private String adminToken = "netra-admin-demo";
+    private String uiPassword;
     private boolean seedDemoTenants = true;
     private CurrencyConfig currency = new CurrencyConfig();
     private List<ProviderConfig> providers = new ArrayList<>();

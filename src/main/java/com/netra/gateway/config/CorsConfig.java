@@ -34,6 +34,9 @@ public class CorsConfig implements WebMvcConfigurer {
             "x-netra-route-reason",
             "x-netra-retries",
             "x-netra-escalated",
+            "x-netra-cached-tokens",
+            "traceparent",
+            "tracestate",
             "RateLimit-Limit",
             "RateLimit-Remaining",
             "RateLimit-Reset",
@@ -42,7 +45,8 @@ public class CorsConfig implements WebMvcConfigurer {
             "X-Total-Count",
             "X-Page-Number",
             "X-Page-Size",
-            "X-Total-Pages"
+            "X-Total-Pages",
+            "X-Netra-UI-Session"
     );
 
     @Bean

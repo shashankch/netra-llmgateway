@@ -121,4 +121,24 @@ class RequestContextTest {
         // Test that execution ran cleanly and captured context inside child virtual thread
         assertThat(result.get()).isEqualTo("req_vt_789");
     }
+
+    @Test
+    @DisplayName("RequestContext tracks admission tokens, minute bucket, and rollback flag")
+    void testAdmissionTrackingAndRollback() {
+        long currentMin = System.currentTimeMillis() / 60000L;
+        RequestContext initial = new RequestContext(
+                "req_adm_101", "netra-sk-search-1a2b3c", null, "smart", "smart", null,
+                System.currentTimeMillis(), false
+        );
+
+        RequestContext withAdm = initial.withAdmission(350, currentMin);
+        withAdm.run(() -> {
+            assertThat(RequestContext.currentEstimatedTokens()).isEqualTo(350);
+            assertThat(RequestContext.currentAdmissionMinute()).isEqualTo(currentMin);
+            assertThat(RequestContext.isAdmissionRolledBack()).isFalse();
+
+            RequestContext.markAdmissionRolledBack();
+            assertThat(RequestContext.isAdmissionRolledBack()).isTrue();
+        });
+    }
 }

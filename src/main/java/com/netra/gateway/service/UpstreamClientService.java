@@ -435,6 +435,15 @@ public class UpstreamClientService {
                 reqBuilder.header("Authorization", "Bearer " + providerConfig.getApiKey());
             }
 
+            com.netra.gateway.telemetry.W3cTraceContext traceCtx = com.netra.gateway.context.RequestContext.currentTraceContext();
+            if (traceCtx != null) {
+                com.netra.gateway.telemetry.W3cTraceContext child = traceCtx.createChildSpan();
+                reqBuilder.header("traceparent", child.asTraceparent());
+                if (child.getTraceState() != null && !child.getTraceState().isBlank()) {
+                    reqBuilder.header("tracestate", child.getTraceState());
+                }
+            }
+
             HttpResponse<String> httpResponse = httpClient.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
             long latencyMs = System.currentTimeMillis() - startTime;
 

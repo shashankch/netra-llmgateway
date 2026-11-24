@@ -22,6 +22,7 @@ nav = [
     { "Verification Report" = "verification-report.md" },
     { "Product Roadmap" = "ROADMAP.md" },
   ]},
+  { "Changelog" = "CHANGELOG.md" },
   { "Community" = [
     { "Security Policy" = "SECURITY.md" },
     { "Contributing" = "CONTRIBUTING.md" },

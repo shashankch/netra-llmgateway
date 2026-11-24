@@ -46,7 +46,7 @@ export default function Pagination({
       fontSize: '0.8125rem'
     }}>
       {/* Item Range Counter */}
-      <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+      <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
         <span>Showing</span>
         <strong style={{ color: 'var(--text-primary)' }}>{startItem.toLocaleString()}</strong>
         <span>to</span>
@@ -57,21 +57,25 @@ export default function Pagination({
       </div>
 
       {/* Pagination Controls & Page Size Selector */}
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.85rem' }}>
         {onPageSizeChange && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)' }}>
-            <span style={{ fontSize: '0.75rem' }}>Rows per page:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <span style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-block' }}>Rows per page:</span>
             <select
               value={pageSize}
               onChange={e => onPageSizeChange(Number(e.target.value))}
               style={{
+                width: 'auto',
+                minWidth: 54,
+                height: 28,
                 background: 'var(--bg-canvas)',
                 border: '1px solid var(--border-subtle)',
                 color: 'var(--text-primary)',
-                padding: '0.2rem 0.5rem',
+                padding: '0.15rem 0.45rem',
                 borderRadius: '6px',
                 fontSize: '0.75rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                flexShrink: 0
               }}
             >
               {pageSizeOptions.map(opt => (

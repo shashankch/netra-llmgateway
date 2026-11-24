@@ -58,6 +58,11 @@ public class RequestLog {
     @Builder.Default
     private int completionTokens = 0;
 
+    @JsonProperty("cached_tokens")
+    @Column(name = "cached_tokens", nullable = false)
+    @Builder.Default
+    private int cachedTokens = 0;
+
     @JsonProperty("cost_usd")
     @Column(name = "cost_usd", nullable = false, precision = 12, scale = 6)
     @Builder.Default

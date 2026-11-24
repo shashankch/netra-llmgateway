@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './context/ThemeContext';
-import { getDefaultAdminToken, getEnvAdminToken, useAdminAuthStatus, checkGatewayHealth, probeAdminAuth } from './config/api';
+import { getDefaultAdminToken, getEnvAdminToken, useAdminAuthStatus, checkGatewayHealth, probeAdminAuth, checkUiAuthConfig, logoutUi, getGatewayBaseUrl } from './config/api';
 import Navbar from './components/Navbar';
 import Overview from './components/Overview';
 import Playground from './components/Playground';
@@ -10,6 +10,7 @@ import RequestLogs from './components/RequestLogs';
 import CacheInspector from './components/CacheInspector';
 import LandingPage from './components/LandingPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import DashboardLockScreen from './components/DashboardLockScreen';
 import { VALID_TABS } from './constants/navigation';
 import { Github, Bug } from 'lucide-react';
 
@@ -56,6 +57,35 @@ export default function App() {
   const authStatus = useAdminAuthStatus();
   const isDemoToken = !adminToken || adminToken === 'netra-admin-demo';
 
+  // Lightweight UI Dashboard Password Protection (NETRA_UI_PASSWORD)
+  const [uiAuthConfig, setUiAuthConfig] = useState({ password_required: false, authenticated: true });
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchAuth = () => {
+      checkUiAuthConfig().then(cfg => {
+        if (mounted && cfg) setUiAuthConfig(cfg);
+      });
+    };
+    fetchAuth();
+    window.addEventListener('netra-ui-auth-changed', fetchAuth);
+    window.addEventListener('netra-gateway-url-changed', fetchAuth);
+    return () => {
+      mounted = false;
+      window.removeEventListener('netra-ui-auth-changed', fetchAuth);
+      window.removeEventListener('netra-gateway-url-changed', fetchAuth);
+    };
+  }, []);
+
+  const handleLockUi = async () => {
+    await logoutUi();
+    setUiAuthConfig(c => ({ ...c, authenticated: false }));
+  };
+
+  const handleUnlockUi = () => {
+    setUiAuthConfig(c => ({ ...c, authenticated: true }));
+  };
+
   const setAdminToken = async (token) => {
     const trimmed = (token || '').trim();
     let effectiveToken = trimmed;
@@ -79,87 +109,98 @@ export default function App() {
     <ThemeProvider>
       <ErrorBoundary onReset={() => window.location.reload()}>
         <div className="app-container">
-          <Navbar 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            adminToken={adminToken}
-            onUpdateAdminToken={setAdminToken}
-            showAdminModal={showAdminModal}
-            setShowAdminModal={setShowAdminModal}
-          />
-          
-          <main className="main-content">
-            <ErrorBoundary onReset={() => setActiveTab('landing')}>
-              {activeTab === 'landing' && <LandingPage adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-              {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-              {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-              {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-              {activeTab === 'logs' && <RequestLogs adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-              {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
-            </ErrorBoundary>
-          </main>
+          {uiAuthConfig.password_required && !uiAuthConfig.authenticated ? (
+            <DashboardLockScreen 
+              onUnlock={handleUnlockUi} 
+              gatewayUrl={getGatewayBaseUrl()} 
+            />
+          ) : (
+            <>
+              <Navbar 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
+                adminToken={adminToken}
+                onUpdateAdminToken={setAdminToken}
+                showAdminModal={showAdminModal}
+                setShowAdminModal={setShowAdminModal}
+                passwordRequired={uiAuthConfig.password_required}
+                onLockUi={handleLockUi}
+              />
+              
+              <main className="main-content">
+                <ErrorBoundary onReset={() => setActiveTab('landing')}>
+                  {activeTab === 'landing' && <LandingPage adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+                  {(activeTab === 'analytics' || activeTab === 'overview') && <Overview adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+                  {activeTab === 'playground' && <Playground adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+                  {activeTab === 'keys' && <VirtualKeys adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+                  {activeTab === 'logs' && <RequestLogs adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+                  {activeTab === 'cache' && <CacheInspector adminToken={adminToken} onNavigate={setActiveTab} onOpenAdminModal={() => setShowAdminModal(true)} />}
+                </ErrorBoundary>
+              </main>
 
-        <footer className="app-footer" style={{
-          borderTop: '1px solid var(--border-subtle)',
-          padding: '1.5rem 2rem',
-          background: 'var(--bg-surface)',
-          marginTop: 'auto',
-          fontSize: '0.8125rem',
-          color: 'var(--text-secondary)'
-        }}>
-          <div style={{
-            maxWidth: 1400,
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <span>NETRA LLM Gateway · Apache 2.0 Open-Core</span>
-              <a 
-                href="https://github.com/shashankch" 
-                target="_blank" 
-                rel="noreferrer"
-                className="author-nav-badge"
-                title="Crafted by Shashank Chandel"
-              >
-                <Github size={13} style={{ opacity: 0.8 }} />
-                <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.72rem' }}>by</span>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>@shashankch</span>
-              </a>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-              <a 
-                href="https://docs-netrallm.avadhanlabs.dev/" 
-                target="_blank" 
-                rel="noreferrer"
-                style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}
-              >
-                Documentation
-              </a>
-              <a 
-                href="https://github.com/shashankch/netra-llmgateway" 
-                target="_blank" 
-                rel="noreferrer"
-                style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
-              >
-                GitHub
-              </a>
-              <a 
-                href="https://github.com/shashankch/netra-llmgateway/issues/new" 
-                target="_blank" 
-                rel="noreferrer"
-                style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
-              >
-                Report Issue
-              </a>
-            </div>
-          </div>
-        </footer>
+              <footer className="app-footer" style={{
+                borderTop: '1px solid var(--border-subtle)',
+                padding: '1.5rem 2rem',
+                background: 'var(--bg-surface)',
+                marginTop: 'auto',
+                fontSize: '0.8125rem',
+                color: 'var(--text-secondary)'
+              }}>
+                <div style={{
+                  maxWidth: 1400,
+                  margin: '0 auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '1rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <span>NETRA LLM Gateway · Apache 2.0 Open-Core</span>
+                    <a 
+                      href="https://github.com/shashankch" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="author-nav-badge"
+                      title="Crafted by Shashank Chandel"
+                    >
+                      <Github size={13} style={{ opacity: 0.8 }} />
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.72rem' }}>by</span>
+                      <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>@shashankch</span>
+                    </a>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <a 
+                      href="https://docs-netrallm.avadhanlabs.dev/" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}
+                    >
+                      Documentation
+                    </a>
+                    <a 
+                      href="https://github.com/shashankch/netra-llmgateway" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+                    >
+                      GitHub
+                    </a>
+                    <a 
+                      href="https://github.com/shashankch/netra-llmgateway/issues/new" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+                    >
+                      Report Issue
+                    </a>
+                  </div>
+                </div>
+              </footer>
+            </>
+          )}
 
-        {/* Floating Bug / Feedback Action Button */}
+          {/* Floating Bug / Feedback Action Button */}
         <a
           href="https://github.com/shashankch/netra-llmgateway/issues/new"
           target="_blank"

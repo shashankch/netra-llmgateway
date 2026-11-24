@@ -33,6 +33,14 @@ public class CostCalculationService {
      * cost = (promptTokens * inputPer1m / 1,000,000) + (completionTokens * outputPer1m / 1,000,000)
      */
     public BigDecimal calculateCost(String model, int promptTokens, int completionTokens) {
+        return calculateCost(model, promptTokens, completionTokens, 0);
+    }
+
+    /**
+     * Calculates cost in USD with provider-side prompt caching discount:
+     * Cached input tokens receive a 50% discount on the standard input rate.
+     */
+    public BigDecimal calculateCost(String model, int promptTokens, int completionTokens, int cachedTokens) {
         if (model == null || model.isBlank()) {
             return BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP);
         }
@@ -59,7 +67,7 @@ public class CostCalculationService {
         }
 
         ModelPricing pricing = pricingOpt.get();
-        return calculateCost(pricing.getInputPer1m(), pricing.getOutputPer1m(), promptTokens, completionTokens);
+        return calculateCost(pricing.getInputPer1m(), pricing.getOutputPer1m(), promptTokens, completionTokens, cachedTokens);
     }
 
     public void invalidatePricingCache() {
@@ -67,15 +75,28 @@ public class CostCalculationService {
     }
 
     public BigDecimal calculateCost(BigDecimal inputPer1m, BigDecimal outputPer1m, int promptTokens, int completionTokens) {
-        BigDecimal promptCost = BigDecimal.valueOf(promptTokens)
+        return calculateCost(inputPer1m, outputPer1m, promptTokens, completionTokens, 0);
+    }
+
+    public BigDecimal calculateCost(BigDecimal inputPer1m, BigDecimal outputPer1m, int promptTokens, int completionTokens, int cachedTokens) {
+        int validCached = Math.min(promptTokens, Math.max(0, cachedTokens));
+        int nonCached = Math.max(0, promptTokens - validCached);
+
+        // Standard non-cached prompt tokens
+        BigDecimal standardPromptCost = BigDecimal.valueOf(nonCached)
                 .multiply(inputPer1m)
+                .divide(ONE_MILLION, 10, RoundingMode.HALF_UP);
+
+        // Cached tokens receive standard 50% discount on input rate
+        BigDecimal cachedPromptCost = BigDecimal.valueOf(validCached)
+                .multiply(inputPer1m.multiply(new BigDecimal("0.50")))
                 .divide(ONE_MILLION, 10, RoundingMode.HALF_UP);
 
         BigDecimal completionCost = BigDecimal.valueOf(completionTokens)
                 .multiply(outputPer1m)
                 .divide(ONE_MILLION, 10, RoundingMode.HALF_UP);
 
-        return promptCost.add(completionCost).setScale(6, RoundingMode.HALF_UP);
+        return standardPromptCost.add(cachedPromptCost).add(completionCost).setScale(6, RoundingMode.HALF_UP);
     }
 
     /**

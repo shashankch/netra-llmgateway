@@ -214,14 +214,13 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavi
                 <th>Hits</th>
                 <th>Misses</th>
                 <th>Tenant Hit Rate</th>
-                <th>Isolation</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredKeyEntries.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                     {filterKeyText ? `No virtual keys matching "${filterKeyText}".` : 'No cache activity recorded yet for active virtual keys.'}
                   </td>
                 </tr>
@@ -241,6 +240,12 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavi
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                           <span className="font-mono" style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>
                             {keyName}
+                          </span>
+                          <span 
+                            style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--accent-emerald)', opacity: 0.8 }}
+                            title="Strict Tenant Vector Isolation (pgvector HNSW hard-partitioned)"
+                          >
+                            <ShieldCheck size={12} />
                           </span>
                           <button
                             onClick={(e) => handleCopyKey(keyName, e)}
@@ -288,12 +293,6 @@ export default function CacheInspector({ adminToken = 'netra-admin-demo', onNavi
                             <div style={{ width: `${rate}%`, height: '100%', background: 'var(--accent-emerald)' }} />
                           </div>
                         </div>
-                      </td>
-                      <td>
-                        <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
-                          <ShieldCheck size={12} />
-                          <span>Isolated</span>
-                        </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <button

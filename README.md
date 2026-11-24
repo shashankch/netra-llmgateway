@@ -391,6 +391,7 @@ Every response from `POST /v1/chat/completions` guarantees the presence of stand
 | `x-netra-route-reason` | Rationale for model selection (alias, direct, or classifier score + signals) | `auto -> smart (score +3.5): +3.5 proof` |
 | `x-netra-retries` | Number of upstream retry attempts made before successful completion | `0` (or `1`, `2`, `3`) |
 | `x-netra-escalated` | Indicates if small-model refusal was auto-escalated to smart reasoning tier | `true` |
+| `x-netra-cached-tokens` | Number of provider prompt cached tokens (eligible for input discount) | `1024` |
 
 ### Standardized IETF RateLimit Protocol Headers
 | Header | Description | Example |

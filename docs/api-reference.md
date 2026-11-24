@@ -71,6 +71,8 @@ Every successful response from NETRA includes canonical telemetry headers:
 | `x-netra-route-reason` | `alias_direct` | Decision rationale applied by the dynamic model router. |
 | `x-netra-retries` | `0` | Number of upstream network retries executed. |
 | `x-netra-escalated` | `true` | Emitted when a small-model refusal was automatically escalated to the smart reasoning tier. |
+| `x-netra-cached-tokens` | `1024` | Prompt tokens fulfilled via provider-side prompt caching (billed at 50% discount). |
+| `traceparent` | `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01` | W3C Trace Context header linking the request to distributed OpenTelemetry spans. |
 
 #### Response Body (200 OK — Non-Streaming)
 ```json
@@ -690,6 +692,7 @@ Every error or rejection returned by NETRA strictly adheres to OpenAI JSON error
 | `403 Forbidden` | `model_not_allowed` | `model_not_allowed` | Requested model is not on the virtual key's allowlist. |
 | `404 Not Found` | `not_found_error` | `model_not_found` | Model alias or provider model does not exist in gateway catalog. |
 | `429 Too Many Requests` | `rate_limit_exceeded` | `rate_limit_exceeded` | Atomic sliding-window RPM limit breached in Redis 8.0 Lua engine. |
+| `429 Too Many Requests` | `tpm_limit_exceeded` | `tpm_limit_exceeded` | Atomic sliding-window TPM limit breached in Redis 8.0 Lua engine. |
 | `402 Payment Required` | `budget_exceeded` | `budget_exceeded` | Tenant's monthly USD budget cap exhausted. |
 | `502 Bad Gateway` | `upstream_error` | `upstream_unavailable` | All configured primary and fallback upstream providers failed. |
 | `500 Server Error` | `server_error` | `internal_error` | Sanitized unexpected gateway exception without leaking stack traces. |
