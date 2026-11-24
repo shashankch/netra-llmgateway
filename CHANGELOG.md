@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.0](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.8...netra-llmgateway-v0.8.0) (2026-11-24)
+
+
+### Features
+
+* **gateway,console,docs:** phase 8 observability, prompt caching, tpm rate limiting, dual model compare, and ground-truth validation ([#28](https://github.com/shashankch/netra-llmgateway/issues/28)) ([b65f7a2](https://github.com/shashankch/netra-llmgateway/commit/b65f7a25f09631b1ddde875ea30fe661c7d34843))
+* **release,gateway,console,test,docs:** pre-major v0.8.0 release alignment, live testcontainers suite, UI auth hardening, and docs parity ([#31](https://github.com/shashankch/netra-llmgateway/issues/31)) ([d30d4dd](https://github.com/shashankch/netra-llmgateway/commit/d30d4dd67ea53189f8a6769b05dddb321d70fa50))
+
 ## [0.7.8](https://github.com/shashankch/netra-llmgateway/compare/netra-llmgateway-v0.7.7...netra-llmgateway-v0.7.8) (2026-11-20)
 
 
