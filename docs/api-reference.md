@@ -671,6 +671,65 @@ Exposes live provider health snapshots, sliding-window latency profiles, and aut
 
 ---
 
+### `GET /admin/auth/ui-config`
+
+Checks whether console operator password protection is active and validates any active session token.
+
+#### Request Headers
+| Header | Type | Required | Description |
+|---|---|---|---|
+| `X-Netra-UI-Session` | string | No | Session token (cookie `netra_ui_session` is also checked automatically) |
+
+#### Response (200 OK)
+```json
+{
+  "password_required": true,
+  "authenticated": false
+}
+```
+
+---
+
+### `POST /admin/auth/ui-login`
+
+Authenticates console operator credentials against `NETRA_UI_PASSWORD` and issues a 24-hour HTTP-only session cookie (`netra_ui_session`). Rate-limited to 5 failed attempts per 5 minutes per IP (`429`).
+
+#### Request Body
+```json
+{
+  "password": "your-operator-password"
+}
+```
+
+#### Response (200 OK)
+```json
+{
+  "status": "authenticated",
+  "session_token": "netra_ui_9c4a..."
+}
+```
+
+---
+
+### `POST /admin/auth/ui-logout`
+
+Invalidates the active UI session token in Redis/memory and clears the `netra_ui_session` cookie.
+
+#### Response (200 OK)
+```json
+{
+  "status": "logged_out"
+}
+```
+
+---
+
+### `GET /actuator/prometheus`
+
+Exposes Prometheus text-format metrics including OpenTelemetry GenAI (`gen_ai.*`), JVM runtime, and HTTP request latency distributions.
+
+---
+
 ## 4. Error Response Contract
 
 Every error or rejection returned by NETRA strictly adheres to OpenAI JSON error standards:

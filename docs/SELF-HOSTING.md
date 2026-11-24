@@ -87,6 +87,7 @@ cd console && vercel --prod
 | `OPENAI_API_KEY` | `sk-proj-...` | *(Optional)* Direct OpenAI API key if bypassing aggregator |
 | `VLLM_BASE_URL` | `http://localhost:8000/v1` | *(Optional)* In-VPC private endpoint (vLLM / Ollama) |
 | `NETRA_ADMIN_TOKEN` | `netra-admin-demo` | Bearer token for `/admin/*` control plane and analytics endpoints |
+| `NETRA_UI_PASSWORD` | `netra@admin` | Operator lock-screen password for Ops Console sessions (24h HTTP-only cookie) |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/netra` | PostgreSQL JDBC connection string (auto-resolved in Docker) |
 | `SPRING_DATA_REDIS_HOST` | `localhost` | Redis host for atomic rate limiting and sliding-window quotas |
 | `CLOUDFLARE_TUNNEL_TOKEN` | `eyJhIjoi...` | *(Optional)* Cloudflare Tunnel token for zero-open-port ingress |
@@ -239,7 +240,7 @@ Deploy gateway pods to Amazon EKS, Azure Kubernetes Service (AKS), Google GKE, o
 ```yaml
 containers:
 - name: gateway
-  image: ghcr.io/shashankch/netra-gateway:latest # Or pin to release line, e.g. ghcr.io/shashankch/netra-gateway:0.7.x
+  image: ghcr.io/shashankch/netra-gateway:latest # Or pin to release line, e.g. ghcr.io/shashankch/netra-gateway:0.8.0
   ports:
   - containerPort: 8080
   env:

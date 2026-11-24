@@ -650,4 +650,63 @@ class AdminControllerContractTest {
                 .andExpect(jsonPath("$[1].provider").value("beta"))
                 .andExpect(jsonPath("$[1].p95_latency_ms").value(nullValue()));
     }
+
+    @Test
+    @DisplayName("UI Auth Flow: ui-login issues HttpOnly/Secure session cookie over HTTPS, enforces lockout, and ui-logout clears cookie")
+    void testUiAuthLifecycleAndBruteForceLockout() throws Exception {
+        // 1. Probe config -> password required, not yet authenticated
+        mockMvc.perform(get("/admin/auth/ui-config"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.password_required").value(true))
+                .andExpect(jsonPath("$.authenticated").value(false));
+
+        // 2. Successful login over HTTPS proxy emits HttpOnly + Secure + SameSite=Lax cookie
+        var loginRes = mockMvc.perform(post("/admin/auth/ui-login")
+                        .header("X-Forwarded-Proto", "https")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"netra@admin\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("authenticated"))
+                .andExpect(jsonPath("$.session_token").isNotEmpty())
+                .andReturn();
+
+        String setCookie = loginRes.getResponse().getHeader("Set-Cookie");
+        assertThat(setCookie).contains("HttpOnly").contains("Secure").contains("SameSite=Lax");
+
+        String sessionToken = objectMapper.readTree(loginRes.getResponse().getContentAsString())
+                .get("session_token").asText();
+
+        // 3. Valid session header reports authenticated=true
+        mockMvc.perform(get("/admin/auth/ui-config")
+                        .header("X-Netra-UI-Session", sessionToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true));
+
+        // 4. Logout invalidates token and clears cookie
+        mockMvc.perform(post("/admin/auth/ui-logout")
+                        .header("X-Netra-UI-Session", sessionToken)
+                        .header("X-Forwarded-Proto", "https"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("logged_out"));
+
+        mockMvc.perform(get("/admin/auth/ui-config")
+                        .header("X-Netra-UI-Session", sessionToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(false));
+
+        // 5. Brute-force protection locks out after 5 consecutive failures per IP
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/admin/auth/ui-login")
+                            .with(req -> { req.setRemoteAddr("198.51.100.42"); return req; })
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"password\":\"wrong-password\"}"))
+                    .andExpect(status().isUnauthorized());
+        }
+        mockMvc.perform(post("/admin/auth/ui-login")
+                        .with(req -> { req.setRemoteAddr("198.51.100.42"); return req; })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"netra@admin\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error").value("rate_limited"));
+    }
 }

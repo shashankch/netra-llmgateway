@@ -218,13 +218,8 @@ export default function Navbar({
           style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: '0.2rem', 
-            overflowX: 'auto', 
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            flexShrink: 1, 
-            minWidth: 0, 
-            WebkitOverflowScrolling: 'touch' 
+            gap: '0.15rem', 
+            flexShrink: 0
           }}
         >
           <button
@@ -371,20 +366,25 @@ export default function Navbar({
             <button
               type="button"
               onClick={onLockUi}
-              className="btn btn-outline font-mono"
+              className="theme-segmented-btn nav-lock-btn"
               style={{
-                fontSize: '0.72rem',
-                padding: '0.2rem 0.5rem',
-                height: 26,
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                padding: 0,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.3rem',
-                color: 'var(--text-secondary)'
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+                background: 'transparent',
+                border: '1px solid var(--border-subtle)',
+                cursor: 'pointer',
+                flexShrink: 0
               }}
-              title="Lock Operations Console session"
+              title="Lock Operations Console"
+              aria-label="Lock operations console"
             >
               <Lock size={12} />
-              <span>Lock</span>
             </button>
           )}
 
@@ -398,6 +398,7 @@ export default function Navbar({
         adminToken={adminToken}
         onUpdateAdminToken={onUpdateAdminToken}
         healthState={healthState}
+        onLockUi={onLockUi}
       />
     </header>
   );

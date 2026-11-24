@@ -173,11 +173,16 @@ code, pre, .font-mono {
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
-  outline: none;
   -webkit-appearance: none;
   appearance: none;
   user-select: none;
   box-shadow: none !important;
+}
+
+/* Global Accessible Keyboard Focus Indicator (WCAG 2.4.7) */
+:where(a, button, input, select, textarea, [tabindex="0"]):focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
 }
 
 .nav-tab:hover {
@@ -581,6 +586,13 @@ table {
 thead {
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.table-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card);
 }
 
 th {
@@ -1174,6 +1186,22 @@ body.modal-open {
   flex-shrink: 0;
 }
 
+.nav-lock-btn {
+  transition: all 0.15s ease;
+}
+
+.nav-lock-btn:hover {
+  color: var(--accent-rose) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+@media (max-width: 1100px) {
+  .nav-lock-btn {
+    display: none !important;
+  }
+}
+
 @media (max-width: 860px) {
   .navbar-inner {
     flex-wrap: wrap;
@@ -1465,6 +1493,157 @@ body.modal-open {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.25rem 0;
+}
+
+/* Landing Comparison Table: Zero Horizontal Scrollbar, Clean Wrapping & Highlighted NETRA Column */
+.comparison-table-container {
+  overflow-x: visible;
+  container-type: inline-size;
+  border-radius: 10px;
+}
+
+.comparison-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.comparison-table th,
+.comparison-table td {
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  vertical-align: top;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.comparison-table thead th {
+  position: static;
+  background: transparent;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  vertical-align: middle;
+  padding: 0.8rem 1rem;
+}
+
+.comparison-th-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.comparison-capability-cell {
+  font-size: 0.85rem;
+  background: transparent;
+}
+
+.comparison-cell-muted {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.comparison-cell-netra {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.comparison-table thead th.comparison-netra-col {
+  background: rgba(16, 185, 129, 0.07);
+  border-left: 1px solid rgba(16, 185, 129, 0.18);
+  border-top-right-radius: 10px;
+}
+
+.comparison-netra-cell {
+  background: rgba(16, 185, 129, 0.035);
+  border-left: 1px solid rgba(16, 185, 129, 0.14);
+}
+
+.comparison-table tbody tr:hover td,
+.comparison-table tbody tr:hover th[scope="row"] {
+  background: var(--bg-card-hover);
+}
+
+.comparison-table tbody tr:hover td.comparison-netra-cell {
+  background: rgba(16, 185, 129, 0.075);
+}
+
+.comparison-table tbody tr:last-child th,
+.comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.comparison-table tbody tr:last-child td.comparison-netra-cell {
+  border-bottom-right-radius: 10px;
+}
+
+@container (width < 680px) {
+  .comparison-table,
+  .comparison-table thead,
+  .comparison-table tbody,
+  .comparison-table tr,
+  .comparison-table th,
+  .comparison-table td {
+    display: block;
+    width: 100% !important;
+  }
+
+  .comparison-table thead {
+    display: none;
+  }
+
+  .comparison-table tbody tr {
+    margin-bottom: 0.85rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-surface);
+  }
+
+  .comparison-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .comparison-table th[scope="row"] {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0.8rem 1rem;
+  }
+
+  .comparison-table td {
+    padding: 0.7rem 1rem;
+  }
+
+  .comparison-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+  }
+
+  .comparison-netra-cell {
+    border-left: none;
+    border-top: 1px solid rgba(16, 185, 129, 0.18);
+  }
+
+  .comparison-netra-cell::before {
+    color: var(--accent-emerald, #10b981) !important;
+  }
 }
 
 

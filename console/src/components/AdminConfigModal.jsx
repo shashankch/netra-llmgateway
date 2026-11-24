@@ -20,7 +20,8 @@ export default function AdminConfigModal({
   onClose,
   adminToken,
   onUpdateAdminToken,
-  healthState
+  healthState,
+  onLockUi
 }) {
   const [tokenInput, setTokenInput] = useState(adminToken || '');
   const [gatewayUrlInput, setGatewayUrlInput] = useState(() => getGatewayBaseUrl());
@@ -422,18 +423,45 @@ export default function AdminConfigModal({
           </div>
 
           {/* Modal Footer Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-            <button
-              type="button"
-              onClick={handleResetDemo}
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-              title="Reset to local demo credentials and re-enable health checking"
-            >
-              <Sparkles size={13} style={{ color: 'var(--accent-amber)' }} />
-              <span>Reset to Demo</span>
-            </button>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.65rem', borderTop: '1px solid var(--border-subtle)', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleResetDemo}
+                className="btn btn-outline btn-sm"
+                style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.65rem' }}
+                title="Reset to local demo credentials and re-enable health checking"
+              >
+                <Sparkles size={12} style={{ color: 'var(--accent-amber)' }} />
+                <span>Reset to Demo</span>
+              </button>
+              {onLockUi && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onLockUi();
+                  }}
+                  className="btn btn-outline btn-sm nav-lock-btn"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    padding: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '6px',
+                    color: 'var(--text-muted)',
+                    borderColor: 'var(--border-subtle, rgba(255, 255, 255, 0.08))',
+                    background: 'transparent'
+                  }}
+                  title="Lock console session (require password to reopen)"
+                >
+                  <Lock size={12} />
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button
                 type="button"
                 onClick={onClose}
